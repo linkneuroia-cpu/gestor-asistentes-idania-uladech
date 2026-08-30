@@ -148,7 +148,11 @@ class GPT4oMiniVisionStrategy(_PageImageVisionStrategy):
 
 class DeepSeekVisionStrategy(_PageImageVisionStrategy):
     _provider_label = "deepseek_vision"
-    _model = "deepseek-chat"
+    # "deepseek-chat" es solo texto y rechaza contenido de imagen. El
+    # soporte de visión de DeepSeek vive en un modelo aparte (lanzado
+    # 2026-08-21), todavía marcado "-exp" (experimental) — puede cambiar
+    # de nombre o quedar deprecado sin mucho aviso.
+    _model = "deepseek-v4-flash-vision-exp"
     _api_key_field = "DEEPSEEK_API_KEY"
 
     def __init__(self):
