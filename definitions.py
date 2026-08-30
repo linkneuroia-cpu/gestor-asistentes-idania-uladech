@@ -2,8 +2,8 @@
 definitions.py
 ==============
 Modelos Pydantic, VectorizationService y todas las funciones
-compartidas por los tres asistentes: semiautomático, automático
-y de actualización.
+compartidas por los tres mecanismos de vectorización: semiautomático,
+automático y de actualización.
 """
 
 # ──────────────────────────── IMPORTS ────────────────────────────
@@ -393,6 +393,46 @@ def get_media_duration(file_path: str) -> float:
     except Exception as e:
         print(f"⚠️ No se pudo leer duración de {file_path}: {e}")
     return 0.0
+
+
+def extract_audio_track(file_path: str) -> Path:
+    """
+    Extrae la pista de audio de un archivo de video a un .wav mono 16kHz
+    temporal, usando PyAV (decodifica y remuxa sin depender del binario
+    ffmpeg). Usada por las estrategias ETL de audio que requieren subir un
+    archivo de audio puro (APIs externas), a diferencia de faster-whisper
+    local que decodifica el video directamente.
+    """
+    import av
+
+    input_container = av.open(file_path)
+    try:
+        try:
+            input_audio_stream = next(
+                s for s in input_container.streams if s.type == "audio"
+            )
+        except StopIteration:
+            raise ValueError(f"El archivo '{file_path}' no tiene pista de audio")
+
+        output_path = settings.TEMP_DIR / f"{Path(file_path).stem}_audio.wav"
+        output_container = av.open(str(output_path), mode="w")
+        try:
+            output_stream = output_container.add_stream("pcm_s16le", rate=16000)
+            output_stream.layout = "mono"
+            resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
+
+            for frame in input_container.decode(input_audio_stream):
+                for resampled in resampler.resample(frame):
+                    for packet in output_stream.encode(resampled):
+                        output_container.mux(packet)
+            for packet in output_stream.encode(None):
+                output_container.mux(packet)
+        finally:
+            output_container.close()
+    finally:
+        input_container.close()
+
+    return output_path
 
 
 async def transcribe_audio_or_video(file_path: str) -> List[Dict[str, Any]]:
