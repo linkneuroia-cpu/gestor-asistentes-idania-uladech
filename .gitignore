@@ -5,3 +5,4 @@ __pycache__/
 temp_docs/
 *.log
 .claude/
+runtime_config.json
