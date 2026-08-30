@@ -312,6 +312,14 @@ async def semi_upload(
             "Si no se indica, se usa el modelo por defecto del servidor."
         ),
     ),
+    source_type: Optional[str] = Query(
+        None,
+        description=(
+            "'curso_propio' (default) o 'bibliografia'. Solo tiene efecto "
+            "si la colección destino es híbrida — determina la prioridad "
+            "que el tutor le da a este contenido en /api/rag/answer."
+        ),
+    ),
     files: List[UploadFile] = File(...),
 ):
     """
@@ -358,7 +366,7 @@ async def semi_upload(
         raise HTTPException(400, detail={"errors": errors})
 
     result = await SemiAutoCore.validate_uploads(
-        files_data, collection_name, model_name=resolved_model
+        files_data, collection_name, model_name=resolved_model, source_type=source_type
     )
     result["upload_errors"] = errors
     return result
@@ -455,6 +463,7 @@ async def auto_download_validate(
             collection_name=req.collection_name,
             selected_filenames=req.selected_filenames,
             model_name=resolved_model,
+            source_type=req.source_type,
         )
     except Exception as e:
         raise HTTPException(502, f"Error en descarga/validación: {e}")
@@ -514,6 +523,7 @@ async def update_prepare_manual(
     collection_name: str = Query(...),
     filename_to_replace: str = Query(..., description="Filename del doc a reemplazar en Qdrant"),
     model_name: Optional[str] = Query(None, description="Modelo de embeddings a usar."),
+    source_type: Optional[str] = Query(None, description="'curso_propio' (default) o 'bibliografia'."),
     file: UploadFile = File(...),
 ):
     """
@@ -548,6 +558,7 @@ async def update_prepare_manual(
             filename_to_replace=filename_to_replace,
             collection_name=collection_name,
             model_name=resolved_model,
+            source_type=source_type,
         )
     except ValueError as e:
         temp_path.unlink(missing_ok=True)
@@ -564,6 +575,7 @@ async def update_prepare_moodle(
     curid: int = Query(...),
     moodle_filename: str = Query(..., description="Filename del PDF en Moodle"),
     model_name: Optional[str] = Query(None, description="Modelo de embeddings a usar."),
+    source_type: Optional[str] = Query(None, description="'curso_propio' (default) o 'bibliografia'."),
 ):
     """
     Modo Moodle: descarga el archivo desde Moodle,
@@ -587,6 +599,7 @@ async def update_prepare_moodle(
             filename_to_replace=filename_to_replace,
             collection_name=collection_name,
             model_name=resolved_model,
+            source_type=source_type,
         )
     except ValueError as e:
         msg = str(e)

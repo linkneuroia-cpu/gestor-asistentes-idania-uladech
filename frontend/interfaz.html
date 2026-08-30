@@ -335,6 +335,54 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <span class="nav-lbl">Búsqueda semántica</span>
   </div>
+  <div class="nav" onclick="showMod('llmtest')" id="nav-llmtest">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    <span class="nav-lbl">Pruebas del LLM</span>
+  </div>
+  <div class="sb-div"></div>
+  <div class="sb-lbl">Configuración RAG</div>
+  <div class="nav" onclick="showMod('cfg-etl');cfgLoadView('cfg-etl')" id="nav-cfg-etl">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+    <span class="nav-lbl">Extracción (ETL) y Multimodalidad</span>
+  </div>
+  <div class="nav" onclick="showMod('cfg-ctx');cfgLoadView('cfg-ctx')" id="nav-cfg-ctx">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8M8 13h5"/></svg>
+    <span class="nav-lbl">Contextual Retrieval</span>
+  </div>
+  <div class="nav" onclick="showMod('cfg-hybrid');cfgLoadView('cfg-hybrid')" id="nav-cfg-hybrid">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5M3 12a9 3 0 0018 0"/></svg>
+    <span class="nav-lbl">Indexación y Búsqueda Híbrida</span>
+  </div>
+  <div class="nav" onclick="showMod('cfg-rerank');cfgLoadView('cfg-rerank')" id="nav-cfg-rerank">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+    <span class="nav-lbl">Reranking y Priorización</span>
+  </div>
+  <div class="nav" onclick="showMod('cfg-gen');cfgLoadView('cfg-gen')" id="nav-cfg-gen">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a5 5 0 015 5v3a5 5 0 01-10 0V7a5 5 0 015-5z"/><path d="M19 11a7 7 0 01-14 0M12 18v4M8 22h8"/></svg>
+    <span class="nav-lbl">Generador Final (LLM)</span>
+  </div>
+  <div class="sb-div"></div>
+  <div class="sb-lbl">Gestión Qdrant</div>
+  <div class="nav" onclick="showMod('qdrant-dash');qLoadDash()" id="nav-qdrant-dash">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    <span class="nav-lbl">Dashboard</span>
+  </div>
+  <div class="nav" onclick="showMod('qdrant-cols');qLoadCols()" id="nav-qdrant-cols">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5M3 12a9 3 0 0018 0"/></svg>
+    <span class="nav-lbl">Colecciones</span>
+  </div>
+  <div class="nav" onclick="showMod('qdrant-crear')" id="nav-qdrant-crear">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    <span class="nav-lbl">Crear colección</span>
+  </div>
+  <div class="nav" onclick="showMod('qdrant-verificar')" id="nav-qdrant-verificar">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+    <span class="nav-lbl">Verificar existencia</span>
+  </div>
+  <div class="nav" onclick="showMod('qdrant-endpoints')" id="nav-qdrant-endpoints">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>
+    <span class="nav-lbl">API Reference</span>
+  </div>
   <div class="sb-foot">
     <span>API Docs: <a href="/docs" target="_blank">/docs</a></span>
     <span style="margin-top:4px;display:block;">Qdrant: 91.99.108.245:6333</span>
@@ -366,6 +414,17 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
         <select class="fc" id="semi-col" onchange="S.semi.col=this.value;en('btn-s1',!!this.value)">
           <option value="">— Selecciona una colección —</option>
         </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Tipo de contenido</label>
+        <div class="srcs">
+          <div class="src selected" id="semi-st-propio" onclick="setSourceType('semi','curso_propio')">
+            <span class="src-icon">🎓</span><span class="src-name">Material del curso</span><span class="src-desc">Contenido propio, priorizado por el tutor</span>
+          </div>
+          <div class="src" id="semi-st-biblio" onclick="setSourceType('semi','bibliografia')">
+            <span class="src-icon">📚</span><span class="src-name">Bibliografía complementaria</span><span class="src-desc">Solo se usa si el material del curso no cubre la respuesta</span>
+          </div>
+        </div>
       </div>
       <div class="btn-grp"><button class="btn btn-semi" id="btn-s1" disabled onclick="sGo(2)">Continuar →</button></div>
     </div>
@@ -449,6 +508,17 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
         <select class="fc" id="auto-col" onchange="S.auto.col=this.value;en('btn-a1',!!this.value)">
           <option value="">— Selecciona una colección —</option>
         </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Tipo de contenido</label>
+        <div class="srcs">
+          <div class="src selected" id="auto-st-propio" onclick="setSourceType('auto','curso_propio')">
+            <span class="src-icon">🎓</span><span class="src-name">Material del curso</span><span class="src-desc">Contenido propio, priorizado por el tutor</span>
+          </div>
+          <div class="src" id="auto-st-biblio" onclick="setSourceType('auto','bibliografia')">
+            <span class="src-icon">📚</span><span class="src-name">Bibliografía complementaria</span><span class="src-desc">Solo se usa si el material del curso no cubre la respuesta</span>
+          </div>
+        </div>
       </div>
       <div class="btn-grp"><button class="btn btn-auto" id="btn-a1" disabled onclick="aGo(2)">Continuar →</button></div>
     </div>
@@ -562,6 +632,17 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
         <select class="fc" id="upd-col" onchange="S.upd.col=this.value;en('btn-u1',!!this.value)">
           <option value="">— Selecciona una colección —</option>
         </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Tipo de contenido</label>
+        <div class="srcs">
+          <div class="src selected" id="upd-st-propio" onclick="setSourceType('upd','curso_propio')">
+            <span class="src-icon">🎓</span><span class="src-name">Material del curso</span><span class="src-desc">Contenido propio, priorizado por el tutor</span>
+          </div>
+          <div class="src" id="upd-st-biblio" onclick="setSourceType('upd','bibliografia')">
+            <span class="src-icon">📚</span><span class="src-name">Bibliografía complementaria</span><span class="src-desc">Solo se usa si el material del curso no cubre la respuesta</span>
+          </div>
+        </div>
       </div>
       <div class="btn-grp"><button class="btn btn-upd" id="btn-u1" disabled onclick="uGo(2)">Continuar →</button></div>
     </div>
@@ -751,6 +832,192 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     </div>
   </div>
 </section>
+
+<!-- ═══ PRUEBAS DEL LLM ═══ -->
+<section class="mod" id="mod-llmtest">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--red-700)"></div>Pruebas del LLM</h1>
+    <p>Chat de prueba: recuperación híbrida + reranking + generación contra la colección (curso) que elijas, usando la configuración RAG activa. Requiere una colección con esquema híbrido.</p>
+  </div>
+  <div class="card">
+    <div class="fg">
+      <label class="fl">Colección / curso <span class="req">*</span></label>
+      <select class="fc" id="llmtest-col"><option value="">— Selecciona —</option></select>
+    </div>
+    <div class="fg">
+      <label class="fl">Pregunta</label>
+      <textarea class="fc" id="llmtest-q" rows="3" placeholder="Escribe tu pregunta para el tutor…"></textarea>
+    </div>
+    <button class="btn btn-prim" id="llmtest-btn" onclick="ragAsk()">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      Preguntar
+    </button>
+  </div>
+  <div id="llmtest-result"></div>
+</section>
+
+<!-- ═══ CONFIGURACIÓN: ETL Y MULTIMODALIDAD ═══ -->
+<section class="mod" id="mod-cfg-etl">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--blue-650)"></div>Capa de Extracción (ETL) y Multimodalidad</h1>
+    <p>Motor usado para convertir documentos (PDF/PPT/Word) e imágenes a Markdown, y para transcribir audio/video, antes de vectorizar. Se aplica automáticamente en los 3 mecanismos de vectorización cuando la colección destino es híbrida.</p>
+  </div>
+  <div class="card"><div id="cfg-box-etl_document"><p class="muted">Cargando…</p></div></div>
+  <div class="card"><div id="cfg-box-etl_audio"><p class="muted">Cargando…</p></div></div>
+</section>
+
+<!-- ═══ CONFIGURACIÓN: CONTEXTUAL RETRIEVAL ═══ -->
+<section class="mod" id="mod-cfg-ctx">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--indigo-700)"></div>Contextual Retrieval</h1>
+    <p>Genera una cabecera contextual de 50-100 palabras por chunk antes de vectorizar, situándolo dentro de su documento completo para mejorar la recuperación. "Sin enriquecimiento" (por defecto) no agrega costo de LLM.</p>
+  </div>
+  <div class="card"><div id="cfg-box-contextual"><p class="muted">Cargando…</p></div></div>
+</section>
+
+<!-- ═══ CONFIGURACIÓN: INDEXACIÓN Y BÚSQUEDA HÍBRIDA ═══ -->
+<section class="mod" id="mod-cfg-hybrid">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--purple-700)"></div>Indexación y Búsqueda Híbrida</h1>
+    <p>Motores de embedding denso y disperso (BM25/BGE-M3) usados para indexar y para la búsqueda híbrida con fusión (RRF) en una sola llamada a Qdrant. Solo aplica a colecciones con esquema híbrido (vectores nombrados dense+sparse) — créalas desde Gestión Qdrant.</p>
+  </div>
+  <div class="card"><div id="cfg-box-dense"><p class="muted">Cargando…</p></div></div>
+  <div class="card"><div id="cfg-box-sparse"><p class="muted">Cargando…</p></div></div>
+</section>
+
+<!-- ═══ CONFIGURACIÓN: RERANKING ═══ -->
+<section class="mod" id="mod-cfg-rerank">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--orange-700)"></div>Reranking y Priorización</h1>
+    <p>Reordena el Top-K recuperado por Qdrant a un Top-N hiperrelevante, aplicando un multiplicador de prioridad a los fragmentos etiquetados como "Material del curso" frente a la bibliografía complementaria.</p>
+  </div>
+  <div class="card"><div id="cfg-box-rerank"><p class="muted">Cargando…</p></div></div>
+</section>
+
+<!-- ═══ CONFIGURACIÓN: GENERADOR FINAL ═══ -->
+<section class="mod" id="mod-cfg-gen">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--green-700)"></div>Generador Final (LLM)</h1>
+    <p>Modelo usado por el tutor para generar la respuesta final en "Pruebas del LLM", priorizando siempre el material del curso sobre la bibliografía complementaria.</p>
+  </div>
+  <div class="card"><div id="cfg-box-generation"><p class="muted">Cargando…</p></div></div>
+</section>
+
+<!-- ═══ GESTIÓN QDRANT: DASHBOARD ═══ -->
+<section class="mod" id="mod-qdrant-dash">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--blue-800)"></div>Gestión Qdrant — Dashboard</h1>
+    <p>Resumen del estado de las colecciones en la base vectorial Qdrant.</p>
+  </div>
+  <div class="rstats" id="q-stats" style="justify-content:flex-start;margin-bottom:18px"></div>
+  <div class="card">
+    <div class="fb card-ttl"><span>Colecciones recientes</span><button class="btn btn-ghost btn-sm" onclick="qLoadDash()">Actualizar</button></div>
+    <div class="tw"><table><thead><tr><th>Nombre</th><th>Esquema</th><th>Puntos</th><th>Estado</th></tr></thead><tbody id="q-dash-tbl"><tr><td colspan="4" class="muted">Cargando…</td></tr></tbody></table></div>
+  </div>
+</section>
+
+<!-- ═══ GESTIÓN QDRANT: COLECCIONES ═══ -->
+<section class="mod" id="mod-qdrant-cols">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--blue-800)"></div>Colecciones</h1>
+    <p>Listado completo de colecciones en Qdrant, con acciones de administración.</p>
+  </div>
+  <div class="card">
+    <div class="fb card-ttl"><span>Listado</span><button class="btn btn-ghost btn-sm" onclick="qLoadCols()">Actualizar</button></div>
+    <div class="tw"><table><thead><tr><th>Nombre</th><th>Descripción</th><th>Esquema</th><th>Puntos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="q-cols-tbl"><tr><td colspan="6" class="muted">Cargando…</td></tr></tbody></table></div>
+  </div>
+  <div class="card hidden" id="q-docs-card">
+    <div class="fb card-ttl"><span id="q-docs-ttl">Documentos</span><button class="btn btn-ghost btn-sm" onclick="hide('q-docs-card')">Cerrar</button></div>
+    <div class="dl" id="q-docs-list"></div>
+  </div>
+</section>
+
+<!-- ═══ GESTIÓN QDRANT: CREAR COLECCIÓN ═══ -->
+<section class="mod" id="mod-qdrant-crear">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--blue-800)"></div>Crear colección</h1>
+    <p>Crea una nueva colección en Qdrant. Elige esquema híbrido (dense+sparse) para usar el pipeline RAG configurable, o legacy para compatibilidad con el flujo anterior.</p>
+  </div>
+  <div class="card">
+    <div class="fg">
+      <label class="fl">Nombre <span class="req">*</span></label>
+      <input class="fc" id="q-create-name" placeholder="Ej: Curso_101">
+      <div class="fh">Formato recomendado: Curso_curid</div>
+    </div>
+    <div class="fg">
+      <label class="fl">Descripción</label>
+      <textarea class="fc" id="q-create-desc" rows="2"></textarea>
+    </div>
+    <div class="fg">
+      <label class="fl">Esquema de vectores</label>
+      <div class="srcs">
+        <div class="src selected" id="q-schema-hybrid" onclick="qSelectSchema('hybrid')">
+          <span class="src-icon">🧬</span><span class="src-name">Híbrido</span><span class="src-desc">Dense + Sparse (BM25/BGE-M3). Requerido para el pipeline RAG configurable.</span>
+        </div>
+        <div class="src" id="q-schema-legacy" onclick="qSelectSchema('legacy')">
+          <span class="src-icon">📦</span><span class="src-name">Legacy</span><span class="src-desc">Un solo vector denso, compatible con el flujo anterior.</span>
+        </div>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Tamaño de vector denso</label>
+      <input class="fc" type="number" id="q-create-size" value="1536" style="max-width:160px">
+    </div>
+    <div class="fg">
+      <label class="fl">Métrica de distancia</label>
+      <select class="fc" id="q-create-distance" style="max-width:200px">
+        <option value="Cosine">Cosine — similitud coseno</option>
+        <option value="Euclid">Euclid — distancia euclídea</option>
+        <option value="Dot">Dot — producto punto</option>
+      </select>
+    </div>
+    <button class="btn btn-prim" onclick="qCreate()">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      Crear colección
+    </button>
+  </div>
+</section>
+
+<!-- ═══ GESTIÓN QDRANT: VERIFICAR EXISTENCIA ═══ -->
+<section class="mod" id="mod-qdrant-verificar">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--blue-800)"></div>Verificar existencia</h1>
+    <p>Comprueba si una colección existe en Qdrant y consulta su esquema.</p>
+  </div>
+  <div class="card">
+    <div class="ci">
+      <input class="fc" id="q-verify-name" placeholder="Nombre de la colección">
+      <button class="btn btn-prim" onclick="qVerify()">Verificar</button>
+    </div>
+    <div id="q-verify-result" class="mt16"></div>
+  </div>
+</section>
+
+<!-- ═══ GESTIÓN QDRANT: API REFERENCE ═══ -->
+<section class="mod" id="mod-qdrant-endpoints">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--blue-800)"></div>API Reference — Gestión Qdrant</h1>
+    <p>Endpoints de administración de colecciones expuestos por este servidor.</p>
+  </div>
+  <div class="card">
+    <div class="tw"><table><thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th></tr></thead><tbody>
+      <tr><td><span class="tag t-new">POST</span></td><td><code>/api/collections</code></td><td>Crea una colección (body: name, description, vector_schema, dense_size, distance)</td></tr>
+      <tr><td><span class="tag" style="background:var(--blue-400);color:var(--blue-800)">GET</span></td><td><code>/api/collections?detail=true</code></td><td>Lista colecciones con esquema/puntos/estado</td></tr>
+      <tr><td><span class="tag" style="background:var(--blue-400);color:var(--blue-800)">GET</span></td><td><code>/api/collections/{name}</code></td><td>Detalle de una colección</td></tr>
+      <tr><td><span class="tag t-warn">PATCH</span></td><td><code>/api/collections/{name}</code></td><td>Actualiza la descripción</td></tr>
+      <tr><td><span class="tag t-err">DELETE</span></td><td><code>/api/collections/{name}?force=bool</code></td><td>Elimina la colección</td></tr>
+      <tr><td><span class="tag t-new">POST</span></td><td><code>/api/collections/{name}/clear</code></td><td>Elimina todos los vectores, conserva el esquema</td></tr>
+      <tr><td><span class="tag" style="background:var(--blue-400);color:var(--blue-800)">GET</span></td><td><code>/api/collections/{name}/exists</code></td><td>Verifica existencia</td></tr>
+      <tr><td><span class="tag" style="background:var(--blue-400);color:var(--blue-800)">GET</span></td><td><code>/api/collections/{name}/documents</code></td><td>Lista documentos únicos vectorizados</td></tr>
+      <tr><td><span class="tag t-err">DELETE</span></td><td><code>/api/collections/{name}/documents/{filename}</code></td><td>Elimina todos los chunks de un documento</td></tr>
+      <tr><td><span class="tag" style="background:var(--blue-400);color:var(--blue-800)">GET</span></td><td><code>/api/rag/retrieve</code></td><td>Recuperación híbrida + rerank + boost, sin generación</td></tr>
+      <tr><td><span class="tag t-new">POST</span></td><td><code>/api/rag/answer</code></td><td>Pipeline completo del tutor (retrieve + rerank + boost + generación)</td></tr>
+      <tr><td><span class="tag" style="background:var(--blue-400);color:var(--blue-800)">GET</span></td><td><code>/api/config/{stage}</code></td><td>Estrategia activa + catálogo de una etapa del pipeline RAG</td></tr>
+      <tr><td><span class="tag t-new">POST</span></td><td><code>/api/config/{stage}</code></td><td>Cambia la estrategia activa de una etapa</td></tr>
+    </tbody></table></div>
+    <p class="muted mt16">Documentación interactiva completa: <a href="/docs" target="_blank">/docs</a></p>
+  </div>
+</section>
 </main>
 </div>
 <div class="ov" id="ov">
@@ -762,7 +1029,13 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   </div>
 </div>
 <script>
-const S={semi:{col:'',files:[],jobId:null},auto:{col:'',curid:null,mods:[],sel:[],typeFilter:null,jobId:null},upd:{col:'',doc:null,src:'manual',file:null,mFile:null,mMods:[],typeFilter:null,mCurid:null,mCourseName:null,jobId:null}};
+const S={semi:{col:'',files:[],jobId:null,sourceType:'curso_propio'},auto:{col:'',curid:null,mods:[],sel:[],typeFilter:null,jobId:null,sourceType:'curso_propio'},upd:{col:'',doc:null,src:'manual',file:null,mFile:null,mMods:[],typeFilter:null,mCurid:null,mCourseName:null,jobId:null,sourceType:'curso_propio'}};
+
+function setSourceType(prefix,value){
+  S[prefix].sourceType=value;
+  $(`${prefix}-st-propio`).classList.toggle('selected',value==='curso_propio');
+  $(`${prefix}-st-biblio`).classList.toggle('selected',value==='bibliografia');
+}
 const API='';
 
 // ── Utils ──
@@ -874,8 +1147,12 @@ function poll(id,onOk,onErr,ms=2500){
 }
 
 // ── Nav ──
+const ALL_MODS=['semi','auto','upd','search','llmtest',
+  'cfg-etl','cfg-ctx','cfg-hybrid','cfg-rerank','cfg-gen',
+  'qdrant-dash','qdrant-cols','qdrant-crear','qdrant-verificar','qdrant-endpoints'];
+
 function showMod(name){
-  ['semi','auto','upd','search'].forEach(m=>{
+  ALL_MODS.forEach(m=>{
     $('mod-'+m)?.classList.remove('active');
     $('nav-'+m)?.classList.remove('active');
   });
@@ -889,7 +1166,7 @@ async function loadCols(){
     const d=await api('/api/collections');
     const cols=d.collections||[];
     const opts='<option value="">— Selecciona —</option>'+cols.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    ['semi-col','auto-col','upd-col','srch-col'].forEach(id=>{const e=$(id);if(e)e.innerHTML=opts});
+    ['semi-col','auto-col','upd-col','srch-col','llmtest-col'].forEach(id=>{const e=$(id);if(e)e.innerHTML=opts});
   }catch(e){console.error(e)}
 }
 
@@ -911,7 +1188,7 @@ async function sUpload(){
   const btn=$('btn-s2');btn.disabled=true;btn.textContent='Subiendo...';
   const fd=new FormData();S.semi.files.forEach(f=>fd.append('files',f));
   try{
-    const d=await fetch(`${API}/api/semi/upload?collection_name=${encodeURIComponent(S.semi.col)}`,{method:'POST',body:fd}).then(r=>r.json());
+    const d=await fetch(`${API}/api/semi/upload?collection_name=${encodeURIComponent(S.semi.col)}&source_type=${encodeURIComponent(S.semi.sourceType)}`,{method:'POST',body:fd}).then(r=>r.json());
     if(d.detail)throw new Error(d.detail);
     S.semi.jobId=d.job_id;
     $('semi-sg').innerHTML=(d.summaries||[]).map(scardHTML).join('');
@@ -1054,7 +1331,7 @@ async function aDownVal(){
   aGo(4);show('auto-p4l');hide('auto-p4c');
   try{
     const d=await api('/api/auto/download-validate',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({collection_name:S.auto.col,curid:S.auto.curid,selected_filenames:S.auto.sel})});
+      body:JSON.stringify({collection_name:S.auto.col,curid:S.auto.curid,selected_filenames:S.auto.sel,source_type:S.auto.sourceType})});
     S.auto.jobId=d.job_id;
     $('auto-sg').innerHTML=(d.summaries||[]).map(scardHTML).join('');
     const hasDup=(d.summaries||[]).some(x=>x.is_duplicate);
@@ -1321,14 +1598,14 @@ async function uPrepare(){
     if(!isMoodle){
       const fd=new FormData();fd.append('file',S.upd.file);
       const r=await fetch(
-        `${API}/api/update/prepare-manual?collection_name=${encodeURIComponent(S.upd.col)}&filename_to_replace=${encodeURIComponent(S.upd.doc)}`,
+        `${API}/api/update/prepare-manual?collection_name=${encodeURIComponent(S.upd.col)}&filename_to_replace=${encodeURIComponent(S.upd.doc)}&source_type=${encodeURIComponent(S.upd.sourceType)}`,
         {method:'POST',body:fd}
       );
       d=await r.json();
       if(!r.ok)throw new Error(d.detail||'Error al preparar el archivo');
     } else {
       d=await api(
-        `/api/update/prepare-moodle?collection_name=${encodeURIComponent(S.upd.col)}&filename_to_replace=${encodeURIComponent(S.upd.doc)}&curid=${S.upd.mCurid}&moodle_filename=${encodeURIComponent(S.upd.mFile)}`,
+        `/api/update/prepare-moodle?collection_name=${encodeURIComponent(S.upd.col)}&filename_to_replace=${encodeURIComponent(S.upd.doc)}&curid=${S.upd.mCurid}&moodle_filename=${encodeURIComponent(S.upd.mFile)}&source_type=${encodeURIComponent(S.upd.sourceType)}`,
         {method:'POST'}
       );
     }
@@ -1397,6 +1674,208 @@ async function doSearch(){
       </div>`).join('');
     show('srch-wrap');
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+// ═══ CONFIGURACIÓN RAG (Strategy Pattern) ═══
+const CFG_STAGES=[
+  {stage:'etl_document',view:'cfg-etl',label:'Extracción de documentos (PDF/PPT/Word)'},
+  {stage:'etl_audio',view:'cfg-etl',label:'Transcripción de audio/video'},
+  {stage:'contextual',view:'cfg-ctx',label:'Enriquecimiento contextual'},
+  {stage:'dense',view:'cfg-hybrid',label:'Embedding denso'},
+  {stage:'sparse',view:'cfg-hybrid',label:'Embedding disperso'},
+  {stage:'rerank',view:'cfg-rerank',label:'Motor de reranking'},
+  {stage:'generation',view:'cfg-gen',label:'Modelo generador'},
+];
+
+function cfgLoadView(viewName){
+  CFG_STAGES.filter(s=>s.view===viewName).forEach(s=>cfgRenderStage(s.stage,s.label));
+}
+
+async function cfgRenderStage(stage,label){
+  const box=$('cfg-box-'+stage);
+  if(!box)return;
+  try{
+    const d=await api('/api/config/'+stage);
+    box.innerHTML=`<div class="card-ttl">${esc(label)}</div>
+      <div class="srcs" style="flex-wrap:wrap">${(d.options||[]).map(o=>`
+        <div class="src ${o.name===d.current?'selected':''}" style="flex:1 1 200px;opacity:${o.usable?1:.6}" onclick="cfgSelect('${stage}',${JSON.stringify(o.name)},${o.usable})">
+          <span class="src-name">${esc(o.name)}</span>
+          <span class="src-desc">${esc(o.description||'')}</span>
+          ${(!o.usable&&o.requires_key)?`<span class="tag t-warn" style="margin-top:4px">Requiere ${esc(o.requires_key)}</span>`:''}
+        </div>`).join('')}</div>`;
+  }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
+}
+
+async function cfgSelect(stage,name,usable){
+  try{
+    await api('/api/config/'+stage,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({strategy_name:name})});
+    const view=CFG_STAGES.find(s=>s.stage===stage).view;
+    cfgLoadView(view);
+    if(!usable)showModal('Estrategia sin API key configurada',`<p>"${esc(name)}" quedó seleccionada, pero requiere una API key que el servidor aún no tiene configurada en su .env. Fallará hasta que se configure.</p>`);
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+// ═══ PRUEBAS DEL LLM ═══
+function sourceTag(t){
+  return t==='bibliografia'
+    ? '<span class="tag" style="background:var(--indigo-300);color:var(--indigo-700)">Bibliografía</span>'
+    : '<span class="tag t-new">Material del curso</span>';
+}
+
+async function ragAsk(){
+  const col=$('llmtest-col').value,q=$('llmtest-q').value.trim();
+  if(!col||!q){showModal('Campos requeridos','<p>Selecciona una colección e ingresa una pregunta.</p>');return;}
+  const btn=$('llmtest-btn');btn.disabled=true;
+  $('llmtest-result').innerHTML='<div class="pbox"><div class="spin"></div><p>Recuperando, rerankeando y generando la respuesta…</p></div>';
+  try{
+    const d=await api('/api/rag/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({collection_name:col,query:q})});
+    const sources=d.sources||[];
+    $('llmtest-result').innerHTML=`
+      <div class="card">
+        <div class="card-ttl">Respuesta del tutor</div>
+        <div class="sr-text" style="white-space:pre-wrap">${esc(d.answer)}</div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Fuentes recuperadas (${sources.length})</div>
+        ${sources.map(s=>`
+          <div class="sr-card">
+            <div class="fb"><span class="sr-score">Score: ${(s.score||0).toFixed(4)}</span>${sourceTag(s.source_type)}</div>
+            <div class="sr-text">${esc((s.text||'').slice(0,400))}${(s.text||'').length>400?'…':''}</div>
+            <div class="sr-meta">📄 ${esc(s.filename||'—')}${s.chunk!=null?` · Chunk #${s.chunk}`:''}${s.slide_number!=null?` · Diapositiva ${s.slide_number}`:''}${s.start_time!=null?` · Minuto ${fmtDuration(s.start_time)}`:''}</div>
+          </div>`).join('')||'<p class="muted">Sin fuentes.</p>'}
+      </div>`;
+  }catch(e){
+    $('llmtest-result').innerHTML=`<div class="alert a-err"><strong>Error:</strong> ${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+// ═══ GESTIÓN QDRANT ═══
+let qSchemaSelected='hybrid';
+
+function qSelectSchema(s){
+  qSchemaSelected=s;
+  $('q-schema-hybrid').classList.toggle('selected',s==='hybrid');
+  $('q-schema-legacy').classList.toggle('selected',s==='legacy');
+}
+
+function qSchemaTag(schema){
+  return schema==='hybrid'
+    ? '<span class="tag t-new">Híbrido</span>'
+    : '<span class="tag t-warn">Legacy</span>';
+}
+
+async function qLoadDash(){
+  try{
+    const d=await api('/api/collections?detail=true');
+    const cols=d.collections||[];
+    const totalPoints=cols.reduce((a,c)=>a+(c.points_count||0),0);
+    const hybridCount=cols.filter(c=>c.vector_schema==='hybrid').length;
+    $('q-stats').innerHTML=`
+      <div class="rstat"><div class="num">${cols.length}</div><div class="lbl">Colecciones</div></div>
+      <div class="rstat"><div class="num">${totalPoints}</div><div class="lbl">Vectores totales</div></div>
+      <div class="rstat"><div class="num">${hybridCount}</div><div class="lbl">Híbridas</div></div>`;
+    $('q-dash-tbl').innerHTML=cols.slice(0,8).map(c=>`
+      <tr><td><strong>${esc(c.name)}</strong></td><td>${qSchemaTag(c.vector_schema)}</td><td>${c.points_count}</td><td>${esc(c.status)}</td></tr>
+    `).join('')||'<tr><td colspan="4" class="muted">Sin colecciones</td></tr>';
+  }catch(e){$('q-dash-tbl').innerHTML=`<tr><td colspan="4" class="muted">${esc(e.message)}</td></tr>`}
+}
+
+async function qLoadCols(){
+  const tbl=$('q-cols-tbl');
+  tbl.innerHTML='<tr><td colspan="6" class="muted">Cargando…</td></tr>';
+  try{
+    const d=await api('/api/collections?detail=true');
+    const cols=d.collections||[];
+    tbl.innerHTML=cols.map(c=>`
+      <tr>
+        <td><strong>${esc(c.name)}</strong></td>
+        <td>${esc(c.description||'—')}</td>
+        <td>${qSchemaTag(c.vector_schema)}</td>
+        <td>${c.points_count}</td>
+        <td>${esc(c.status)}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="qViewDocs('${esc(c.name)}')">Documentos</button>
+          <button class="btn btn-danger btn-sm" onclick="qDeleteCol('${esc(c.name)}',${c.points_count})">Eliminar</button>
+        </td>
+      </tr>`).join('')||'<tr><td colspan="6" class="muted">Sin colecciones</td></tr>';
+  }catch(e){tbl.innerHTML=`<tr><td colspan="6" class="muted">${esc(e.message)}</td></tr>`}
+}
+
+async function qViewDocs(name){
+  $('q-docs-ttl').textContent='Documentos en '+name;
+  show('q-docs-card');
+  $('q-docs-list').innerHTML='<p class="muted">Cargando…</p>';
+  try{
+    const d=await api(`/api/collections/${encodeURIComponent(name)}/documents`);
+    const docs=d.documents||[];
+    $('q-docs-list').innerHTML=docs.map(doc=>`
+      <div class="di">
+        <div class="di-info">
+          <div class="di-name">${esc(doc.filename)}</div>
+          <div class="di-meta">${doc.chunks_count} chunks · ${esc(doc.source_type||'—')} · ${esc(doc.date||'')}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick='qDeleteDoc(${JSON.stringify(name)},${JSON.stringify(doc.filename)})'>Eliminar</button>
+      </div>`).join('')||'<p class="muted">Sin documentos.</p>';
+  }catch(e){$('q-docs-list').innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
+}
+
+function qDeleteDoc(colName,filename){
+  showModal('Confirmar eliminación',`<p>¿Eliminar todos los chunks de <strong>${esc(filename)}</strong> en <strong>${esc(colName)}</strong>? Esta acción no se puede deshacer.</p>
+    <div class="modal-foot" style="margin-top:14px"><button class="btn btn-danger btn-sm" onclick='closeModal();qDeleteDocConfirmed(${JSON.stringify(colName)},${JSON.stringify(filename)})'>Eliminar</button></div>`);
+}
+async function qDeleteDocConfirmed(colName,filename){
+  try{
+    await api(`/api/collections/${encodeURIComponent(colName)}/documents/${encodeURIComponent(filename)}`,{method:'DELETE'});
+    qViewDocs(colName);
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+function qDeleteCol(name,pointsCount){
+  const force=pointsCount>0;
+  showModal('Confirmar eliminación',`<p>¿Eliminar la colección <strong>${esc(name)}</strong>${force?` (contiene ${pointsCount} vectores)`:''}? Esta acción no se puede deshacer.</p>
+    <div class="modal-foot" style="margin-top:14px"><button class="btn btn-danger btn-sm" onclick='closeModal();qDeleteColConfirmed(${JSON.stringify(name)},${force})'>Eliminar</button></div>`);
+}
+async function qDeleteColConfirmed(name,force){
+  try{
+    await api(`/api/collections/${encodeURIComponent(name)}${force?'?force=true':''}`,{method:'DELETE'});
+    qLoadCols();loadCols();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+async function qCreate(){
+  const name=$('q-create-name').value.trim();
+  if(!name){showModal('Campo requerido','<p>Ingresa un nombre de colección.</p>');return;}
+  try{
+    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name,
+      description:$('q-create-desc').value.trim()||null,
+      vector_schema:qSchemaSelected,
+      dense_size:parseInt($('q-create-size').value)||1536,
+      distance:$('q-create-distance').value,
+    })});
+    showModal('Colección creada',`<p>La colección <strong>${esc(name)}</strong> fue creada correctamente (esquema ${qSchemaSelected}).</p>`);
+    $('q-create-name').value='';$('q-create-desc').value='';
+    loadCols();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+async function qVerify(){
+  const name=$('q-verify-name').value.trim();
+  if(!name)return;
+  const box=$('q-verify-result');
+  box.innerHTML='<p class="muted">Consultando…</p>';
+  try{
+    const d=await api(`/api/collections/${encodeURIComponent(name)}/exists`);
+    if(!d.exists){box.innerHTML=`<div class="alert a-warn">La colección "${esc(name)}" no existe.</div>`;return;}
+    let extra='';
+    try{
+      const info=await api(`/api/collections/${encodeURIComponent(name)}`);
+      extra=` Esquema: <strong>${esc(info.vector_schema)}</strong> · ${info.points_count} vectores.`;
+    }catch(e){}
+    box.innerHTML=`<div class="alert a-ok">✓ La colección "${esc(name)}" existe.${extra}</div>`;
+  }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
 }
 
 // ── Init ──

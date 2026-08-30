@@ -96,6 +96,7 @@ class AutoVectorizeRequest(BaseModel):
     collection_name: str
     curid: int
     selected_filenames: List[str]
+    source_type: Optional[str] = None
 
 
 class UpdateListRequest(BaseModel):
