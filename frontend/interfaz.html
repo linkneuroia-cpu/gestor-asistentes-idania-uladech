@@ -3,74 +3,117 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sistema de Vectorización Documental — MINEDU</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>Sistema de Vectorización Documental — ULADECH Católica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --red-800:#BF0909;--red-700:#DC362E;--red-300:#F9DEDC;--red-200:#FCEEEE;
-  --blue-800:#184397;--blue-700:#0056AC;--blue-650:#1363D0;--blue-600:#0071E3;
-  --blue-400:#E1F0FF;--blue-200:#F2F9FF;
-  --gray-800:#26292E;--gray-700:#3C3E43;--gray-600:#515458;--gray-500:#7D7F82;
-  --gray-450:#979797;--gray-200:#E9EAEA;--gray-100:#FFFFFF;
-  --neutral-800:#0D1028;--neutral-600:#555869;--neutral-400:#C5CDDA;
-  --neutral-300:#DEE3EA;--neutral-200:#EDF0F4;--neutral-100:#F6F9FC;
+  /* ── Marca ULADECH Católica: escala de morados construida sobre los 3
+     tonos dados (rosado bajo #F9F5FF, lavanda claro #F5EEFF, morado
+     oscuro #553171) — se reasignan a los MISMOS nombres de variable que
+     ya usa todo el CSS de abajo, para retemátizar la app entera sin
+     tener que tocar cada regla individual. ── */
+  --red-800:#B3261E;--red-700:#D33A32;--red-300:#F9DEDC;--red-200:#FCEEEE;
+  --blue-800:#3D2352;--blue-700:#553171;--blue-650:#6D4A96;--blue-600:#8F65C4;
+  --blue-400:#E8D9FA;--blue-200:#F9F5FF;
+  --gray-800:#2A1F3D;--gray-700:#4A3D5C;--gray-600:#6B5D80;--gray-500:#8B7D9E;
+  --gray-450:#A192B5;--gray-200:#EDE4F7;--gray-100:#FFFFFF;
+  --neutral-800:#2A1F3D;--neutral-600:#5B4E70;--neutral-400:#C9B3E8;
+  --neutral-300:#E3D6F5;--neutral-200:#F5EEFF;--neutral-100:#F9F5FF;
   --green-800:#126B49;--green-700:#1B9D6B;--green-400:#E3F3EC;
-  --orange-700:#FF6701;--orange-400:#FFF3EA;
+  --orange-700:#B5722A;--orange-400:#FFF3EA;
   --yellow-500:#FFD147;
-  --indigo-700:#474D98;--indigo-300:#F1F2FF;
-  --purple-700:#5D2EE5;--purple-200:#F6F6FE;
-  --sidebar-w:256px;--header-h:62px;
-  --radius:6px;--radius-lg:10px;
-  --shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.12);
+  --indigo-700:#4A3B8C;--indigo-300:#ECE6FA;
+  --purple-700:#7C3AAD;--purple-200:#F3E7FB;
+  --brand-logo:#553171;
+  --sidebar-w:256px;--sidebar-w-collapsed:76px;--header-h:64px;
+  --radius:8px;--radius-lg:14px;
+  --shadow-sm:0 1px 2px rgba(85,49,113,.06);--shadow-md:0 8px 24px rgba(85,49,113,.14);
   --t:.17s ease;
-  font-family:'IBM Plex Sans',sans-serif;
+  font-family:'Inter',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--neutral-100);color:var(--gray-800);font-size:14px;line-height:1.6}
-button{font-family:inherit;cursor:pointer;border:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
 input,select,textarea{font-family:inherit}
 a{color:var(--blue-700);text-decoration:none}
 
 /* HEADER */
-.hdr{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--header-h);
-  background:var(--red-800);display:flex;align-items:center;padding:0 22px;
-  box-shadow:0 2px 10px rgba(0,0,0,.22)}
-.hdr-logo{display:flex;align-items:center;gap:13px}
+.hdr{position:fixed;top:0;left:0;right:0;z-index:220;height:var(--header-h);
+  background:#fff;display:flex;align-items:center;gap:14px;padding:0 20px;
+  border-bottom:1px solid var(--neutral-300);box-shadow:var(--shadow-sm)}
+.hdr-menu-btn{display:none;width:38px;height:38px;border-radius:var(--radius);align-items:center;justify-content:center;color:var(--gray-700);flex-shrink:0}
+.hdr-menu-btn:hover{background:var(--neutral-200)}
+.hdr-menu-btn svg{width:20px;height:20px}
+.hdr-collapse-btn{width:34px;height:34px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;color:var(--gray-600);flex-shrink:0}
+.hdr-collapse-btn:hover{background:var(--neutral-200);color:var(--blue-700)}
+.hdr-collapse-btn svg{width:18px;height:18px}
+.hdr-logo{display:flex;align-items:center;gap:12px}
 .hdr-brand{display:flex;flex-direction:column;line-height:1.2}
-.hdr-brand .ent{font-size:11px;color:rgba(255,255,255,.72);font-weight:400;letter-spacing:.5px;text-transform:uppercase}
-.hdr-brand .sys{font-size:15px;color:#fff;font-weight:600}
+.hdr-brand .ent{font-size:11px;color:var(--blue-700);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.hdr-brand .sys{font-size:15px;color:var(--gray-800);font-weight:700}
 .hdr-right{margin-left:auto;display:flex;gap:10px;align-items:center}
-.hdr-badge{background:rgba(255,255,255,.18);color:#fff;font-size:11px;font-weight:500;
-  padding:3px 10px;border-radius:20px;letter-spacing:.3px}
-.logo-circle {width: 38px;height: 38px;border-radius: 50%;background: white;display: flex;align-items: center;justify-content: center;overflow: hidden;}
-.logo-circle img {max-width: 70%;max-height: 70%;object-fit: contain;}
+.hdr-badge{background:var(--blue-200);color:var(--blue-700);font-size:11px;font-weight:600;
+  padding:4px 11px;border-radius:20px;letter-spacing:.3px;border:1px solid var(--blue-400)}
+.logo-circle{width:40px;height:40px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1.5px solid var(--neutral-300);flex-shrink:0}
+.logo-circle img{max-width:78%;max-height:78%;object-fit:contain}
 
 /* LAYOUT */
 .layout{display:flex;margin-top:var(--header-h);min-height:calc(100vh - var(--header-h))}
+.sb-overlay{display:none;position:fixed;inset:var(--header-h) 0 0 0;z-index:190;background:rgba(42,31,61,.45)}
+body.sb-open .sb-overlay{display:block}
 
 /* SIDEBAR */
-.sb{width:var(--sidebar-w);flex-shrink:0;background:var(--gray-800);
+.sb{width:var(--sidebar-w);flex-shrink:0;background:#fff;border-right:1px solid var(--neutral-300);
   display:flex;flex-direction:column;position:fixed;top:var(--header-h);
-  left:0;height:calc(100vh - var(--header-h));overflow-y:auto}
-.sb-lbl{font-size:10px;font-weight:600;letter-spacing:1.3px;color:var(--gray-450);
-  text-transform:uppercase;padding:18px 18px 7px}
-.nav{display:flex;align-items:center;gap:11px;padding:10px 18px;
-  color:rgba(255,255,255,.68);cursor:pointer;transition:background var(--t),color var(--t);
-  border-left:3px solid transparent;user-select:none}
-.nav:hover{background:rgba(255,255,255,.06);color:#fff}
-.nav.active{background:rgba(255,255,255,.11);color:#fff;border-left-color:var(--yellow-500)}
-.nav-lbl{font-size:13px;font-weight:500}
-.nav-badge{margin-left:auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px}
+  left:0;height:calc(100vh - var(--header-h));overflow-y:auto;overflow-x:hidden;
+  transition:width var(--t),transform var(--t);z-index:200}
+.sb-close-btn{display:none;position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;color:var(--gray-500)}
+.sb-close-btn:hover{background:var(--neutral-200)}
+.sb-lbl{font-size:10.5px;font-weight:700;letter-spacing:1.1px;color:var(--gray-450);
+  text-transform:uppercase;padding:18px 18px 7px;white-space:nowrap}
+.nav{display:flex;align-items:center;gap:12px;padding:10px 16px;margin:2px 10px;border-radius:var(--radius);
+  color:var(--gray-600);cursor:pointer;transition:background var(--t),color var(--t);
+  user-select:none;white-space:nowrap}
+.nav svg{flex-shrink:0}
+.nav:hover{background:var(--neutral-200);color:var(--blue-700)}
+.nav.active{background:var(--blue-700);color:#fff;box-shadow:var(--shadow-sm)}
+.nav.active svg{color:#fff}
+.nav-lbl{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.nav-badge{margin-left:auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;flex-shrink:0}
 .b-semi{background:var(--blue-400);color:var(--blue-800)}
 .b-auto{background:var(--indigo-300);color:var(--indigo-700)}
 .b-upd{background:var(--purple-200);color:var(--purple-700)}
-.sb-div{height:1px;background:rgba(255,255,255,.07);margin:6px 18px}
+.nav.active .nav-badge{background:rgba(255,255,255,.22);color:#fff}
+.sb-div{height:1px;background:var(--neutral-300);margin:8px 18px}
 .sb-foot{margin-top:auto;padding:14px 18px;font-size:11px;color:var(--gray-500);
-  border-top:1px solid rgba(255,255,255,.06)}
-.sb-foot a{color:var(--gray-450)}
+  border-top:1px solid var(--neutral-300);white-space:nowrap;overflow:hidden}
+.sb-foot a{color:var(--blue-700)}
+
+/* Sidebar colapsado a solo-íconos (escritorio, ≥992px) */
+.sb.collapsed{width:var(--sidebar-w-collapsed)}
+.sb.collapsed .sb-lbl,.sb.collapsed .nav-lbl,.sb.collapsed .nav-badge,.sb.collapsed .sb-foot{display:none}
+.sb.collapsed .nav{justify-content:center;padding:12px;margin:2px 8px}
+.sb.collapsed .sb-div{margin:8px 10px}
+.main.expanded{margin-left:var(--sidebar-w-collapsed)}
+
+/* Sidebar off-canvas (móvil, <992px) */
+@media (max-width:991px){
+  .hdr-menu-btn{display:flex}
+  .hdr-collapse-btn{display:none}
+  .sb{transform:translateX(-100%);box-shadow:var(--shadow-md)}
+  .sb.open{transform:translateX(0)}
+  .sb.collapsed{width:var(--sidebar-w)}
+  .sb.collapsed .sb-lbl,.sb.collapsed .nav-lbl,.sb.collapsed .nav-badge,.sb.collapsed .sb-foot{display:block}
+  .sb.collapsed .nav{justify-content:flex-start;padding:10px 16px}
+  .sb-close-btn{display:flex}
+  .main,.main.expanded{margin-left:0}
+}
 
 /* MAIN */
-.main{margin-left:var(--sidebar-w);flex:1;padding:26px 30px;max-width:940px}
+.main{margin-left:var(--sidebar-w);flex:1;padding:26px 30px;max-width:1180px;transition:margin-left var(--t)}
+@media (max-width:640px){.main{padding:16px}}
 
 /* MODULE */
 .mod{display:none}.mod.active{display:block}
@@ -107,7 +150,7 @@ a{color:var(--blue-700);text-decoration:none}
 .fc{width:100%;padding:8px 11px;border:1px solid var(--neutral-300);border-radius:var(--radius);
   font-size:14px;color:var(--gray-800);background:#fff;outline:none;
   transition:border-color var(--t),box-shadow var(--t)}
-.fc:focus{border-color:var(--blue-650);box-shadow:0 0 0 3px rgba(19,99,208,.13)}
+.fc:focus{border-color:var(--blue-650);box-shadow:0 0 0 3px rgba(109,74,150,.18)}
 .fh{margin-top:4px;font-size:12px;color:var(--gray-500)}
 
 /* UPLOAD ZONE */
@@ -135,8 +178,8 @@ a{color:var(--blue-700);text-decoration:none}
   transition:background var(--t),box-shadow var(--t),opacity var(--t)}
 .btn-prim{background:var(--blue-700);color:#fff}.btn-prim:hover{background:var(--blue-800)}
 .btn-semi{background:var(--blue-650);color:#fff}.btn-semi:hover{background:var(--blue-800)}
-.btn-auto{background:var(--indigo-700);color:#fff}.btn-auto:hover{background:#3B4280}
-.btn-upd{background:var(--purple-700);color:#fff}.btn-upd:hover{background:#4920C0}
+.btn-auto{background:var(--indigo-700);color:#fff}.btn-auto:hover{background:#362B68}
+.btn-upd{background:var(--purple-700);color:#fff}.btn-upd:hover{background:#5E2C85}
 .btn-out{background:#fff;color:var(--blue-700);border:1.5px solid var(--blue-700)}.btn-out:hover{background:var(--blue-200)}
 .btn-ghost{background:none;color:var(--gray-600);border:1px solid var(--neutral-300)}.btn-ghost:hover{background:var(--neutral-200)}
 .btn-danger{background:var(--red-700);color:#fff}.btn-danger:hover{background:var(--red-800)}
@@ -166,7 +209,7 @@ tr:hover td{background:var(--neutral-100)}
 .alert{display:flex;gap:11px;padding:12px 14px;border-radius:var(--radius);
   margin-bottom:14px;font-size:13px;line-height:1.5}
 .alert svg{flex-shrink:0;margin-top:1px}
-.a-info{background:var(--blue-200);border:1px solid #b3d4f7;color:var(--blue-800)}
+.a-info{background:var(--blue-200);border:1px solid #E0C9F5;color:var(--blue-800)}
 .a-warn{background:var(--orange-400);border:1px solid #ffc89e;color:#7a3600}
 .a-ok{background:var(--green-400);border:1px solid #a3dfc4;color:var(--green-800)}
 .a-err{background:var(--red-200);border:1px solid #f5b5b2;color:var(--red-800)}
@@ -255,7 +298,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
 .di{display:flex;align-items:center;gap:11px;padding:11px 13px;
   border:1px solid var(--neutral-300);border-radius:var(--radius);
   background:#fff;cursor:pointer;transition:border-color var(--t),box-shadow var(--t)}
-.di:hover{border-color:var(--blue-650);box-shadow:0 0 0 3px rgba(19,99,208,.07)}
+.di:hover{border-color:var(--blue-650);box-shadow:0 0 0 3px rgba(109,74,150,.10)}
 .di.selected{border-color:var(--purple-700);box-shadow:0 0 0 3px rgba(93,46,229,.09)}
 .di-info{flex:1;min-width:0}
 .di-name{font-weight:600;font-size:13px;color:var(--gray-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -292,27 +335,36 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
 </head>
 <body>
 <header class="hdr">
+  <button class="hdr-menu-btn" onclick="openMobileSidebar()" title="Abrir menú" aria-label="Abrir menú">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <button class="hdr-collapse-btn" onclick="toggleSidebarCollapse()" title="Contraer/expandir menú" aria-label="Contraer o expandir menú">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16"/></svg>
+  </button>
   <div class="hdr-logo">
     <div class="logo-circle">
-      <img src="https://guias.servicios.gob.pe/static/archivos/gb3.svg" 
-          alt="Logo Ministerio de Educación"
-          style="width:38px; height:38px; object-fit:contain;" />
+      <img src="/img/uladechcatolica-logo-purple-300x213.webp"
+          alt="Logo ULADECH Católica" />
     </div>
 
     <div class="hdr-brand">
-      <span class="ent">Ministerio de Educación del Perú</span>
+      <span class="ent">ULADECH Católica</span>
       <span class="sys">Sistema de Vectorización Documental</span>
     </div>
   </div>
 
   <div class="hdr-right">
-    <span class="hdr-badge">SIFODS</span>
     <span class="hdr-badge">v2.0</span>
   </div>
 </header>
 
+<div class="sb-overlay" onclick="closeMobileSidebar()"></div>
+
 <div class="layout">
 <nav class="sb">
+  <button class="sb-close-btn" onclick="closeMobileSidebar()" title="Cerrar menú" aria-label="Cerrar menú">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+  </button>
   <div class="sb-lbl">Asistentes</div>
   <div class="nav active" onclick="showMod('semi')" id="nav-semi">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -494,7 +546,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
 <section class="mod" id="mod-auto">
   <div class="mod-hdr">
     <h1><div class="accent a-auto"></div>Asistente automático</h1>
-    <p>Vectorización automática desde el Campus Virtual SIFODS mediante el ID de curso (curid).</p>
+    <p>Vectorización automática desde el Campus Virtual ULADECH mediante el ID de curso (curid).</p>
   </div>
   <div class="stepper">
     <div class="stp active" id="as1"><div class="stp-c">1</div><div class="stp-l">Colección</div></div>
@@ -534,7 +586,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
             Consultar
           </button>
         </div>
-        <div class="fh">Se consultará el Campus Virtual SIFODS para listar los módulos y archivos del curso (cualquier tipo).</div>
+        <div class="fh">Se consultará el Campus Virtual ULADECH para listar los módulos y archivos del curso (cualquier tipo).</div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="aGo(1)">← Volver</button>
     </div>
@@ -671,7 +723,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
         <div class="src" id="src-moodle" onclick="uSrc('moodle')">
           <div class="src-icon">🎓</div>
           <div class="src-name">Desde Moodle</div>
-          <div class="src-desc">Campus Virtual SIFODS</div>
+          <div class="src-desc">Campus Virtual ULADECH</div>
         </div>
       </div>
 
@@ -693,7 +745,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
       <div id="upd-moo" class="hidden" style="margin-top:14px">
         <div class="alert a-info" style="margin-bottom:0">
           <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
-          <div>En el siguiente paso ingresarás el curid del curso, se listarán los módulos y podrás seleccionar el archivo desde el Campus Virtual SIFODS que reemplazará al documento seleccionado.</div>
+          <div>En el siguiente paso ingresarás el curid del curso, se listarán los módulos y podrás seleccionar el archivo desde el Campus Virtual ULADECH que reemplazará al documento seleccionado.</div>
         </div>
       </div>
 
@@ -713,7 +765,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
       <div class="card-ttl">
         Paso 4 — Ingresar curid y seleccionar el archivo nuevo
         <span class="tt"><button class="tt-btn" type="button">?</button>
-          <div class="tt-tip">El curid está en la URL del curso en el Campus Virtual SIFODS: .../course/view.php?id=XXXX. Se listarán los módulos y sus archivos para que elijas el que reemplazará al documento anterior.</div>
+          <div class="tt-tip">El curid está en la URL del curso en el Campus Virtual ULADECH: .../course/view.php?id=XXXX. Se listarán los módulos y sus archivos para que elijas el que reemplazará al documento anterior.</div>
         </span>
       </div>
 
@@ -1178,6 +1230,21 @@ function showMod(name){
   });
   $('mod-'+name).classList.add('active');
   $('nav-'+name).classList.add('active');
+  closeMobileSidebar();
+}
+
+// ── Sidebar responsive (colapsar en escritorio / off-canvas en móvil) ──
+function toggleSidebarCollapse(){
+  document.querySelector('.sb').classList.toggle('collapsed');
+  document.querySelector('.main').classList.toggle('expanded');
+}
+function openMobileSidebar(){
+  document.querySelector('.sb').classList.add('open');
+  document.body.classList.add('sb-open');
+}
+function closeMobileSidebar(){
+  document.querySelector('.sb').classList.remove('open');
+  document.body.classList.remove('sb-open');
 }
 
 // ── Collections ──

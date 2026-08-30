@@ -8,10 +8,15 @@ FastAPI — un solo puerto (8100), tres asistentes:
   · /api/          → endpoints compartidos (colecciones, job status, modelos)
 """
 
+import mimetypes
 import uuid
 from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import List, Optional
+
+# En algunos Windows/Python el registro de mimetypes no conoce .webp
+# (StaticFiles lo serviría como text/plain) — se registra explícito.
+mimetypes.add_type("image/webp", ".webp")
 
 from pydantic import BaseModel
 from fastapi import (
@@ -21,6 +26,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from settings import (
     settings, validate_settings, AVAILABLE_EMBEDDING_MODELS,
     STAGE_CATALOGS, get_strategy_info, strategy_is_usable,
@@ -72,6 +78,9 @@ app.add_middleware(
 
 Path("frontend").mkdir(exist_ok=True)
 templates = Jinja2Templates(directory="frontend")
+
+Path("img").mkdir(exist_ok=True)
+app.mount("/img", StaticFiles(directory="img"), name="img")
 
 
 # ═══════════════════════════════════════════════════════════════════

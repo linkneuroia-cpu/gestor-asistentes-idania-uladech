@@ -6,3 +6,6 @@ temp_docs/
 *.log
 .claude/
 runtime_config.json
+
+# Material de referencia de diseño (no forma parte de la app, es pesado)
+3_wowdash-tailwind-css-admin-dashboard-template-*.zip
