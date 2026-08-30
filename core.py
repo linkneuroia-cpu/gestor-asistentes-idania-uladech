@@ -323,11 +323,19 @@ class AutoCore:
         selected_filenames: List[str],
         model_name: Optional[str] = None,
         source_type: Optional[str] = None,
+        file_source_types: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
         Descarga los PDFs seleccionados a temp_docs/,
         los valida y retorna resumen + job_id para confirmación.
+
+        `file_source_types`: mapa filename -> "curso_propio"|"bibliografia"
+        elegido por archivo en la UI (paso 3 del asistente Automático). Si
+        un archivo no aparece ahí, se usa `source_type` (o el default) para
+        ese archivo — así cada documento conserva su propia prioridad para
+        el tutor, no una sola para todo el lote.
         """
+        file_source_types = file_source_types or {}
         service = get_service(model_name)
         resources = get_course_resources(curid)
 
@@ -383,6 +391,7 @@ class AutoCore:
                     "path":        str(temp_path),
                     "course_name": info["course_name"],
                     "total_pages": val["total_pages"],
+                    "source_type": file_source_types.get(filename, source_type or DEFAULT_SOURCE_TYPE),
                 })
 
             except Exception as e:
@@ -426,7 +435,11 @@ class AutoCore:
         model_name: str = ctx.get("model_name", settings.EMBEDDING_MODEL)
 
         service = get_service(model_name)
-        pipeline_config = _build_pipeline_config(collection_name, ctx.get("source_type"))
+        # Base del pipeline (detección de esquema + estrategias activas);
+        # el source_type se sobreescribe por archivo abajo, ya que cada
+        # documento de Moodle puede haberse marcado individualmente como
+        # "curso_propio" o "bibliografia" en el paso 3 del asistente.
+        base_pipeline_config = _build_pipeline_config(collection_name, ctx.get("source_type"))
         results = []
 
         for fd in ctx["files"]:
@@ -434,6 +447,11 @@ class AutoCore:
             filename    = fd["filename"]
             course_name = fd.get("course_name", "")
             total_pages = fd.get("total_pages", 0)
+            file_source_type = fd.get("source_type", DEFAULT_SOURCE_TYPE)
+            pipeline_config = (
+                base_pipeline_config.model_copy(update={"source_type": file_source_type})
+                if base_pipeline_config is not None else None
+            )
 
             try:
                 dup = service.check_duplicate(filename, collection_name)

@@ -36,6 +36,7 @@ from core import (
     get_job, job_store,
 )
 import rag_pipeline
+import credentials
 from strategies import registry as strategy_registry
 from strategies.runtime_config import get_runtime_config
 from qdrant_admin import CollectionCreateRequest, CollectionUpdateRequest, get_qdrant_admin
@@ -464,6 +465,7 @@ async def auto_download_validate(
             selected_filenames=req.selected_filenames,
             model_name=resolved_model,
             source_type=req.source_type,
+            file_source_types=req.file_source_types,
         )
     except Exception as e:
         raise HTTPException(502, f"Error en descarga/validación: {e}")
@@ -719,6 +721,47 @@ _CONFIG_STAGES = list(STAGE_CATALOGS.keys())
 
 class StageConfigRequest(BaseModel):
     strategy_name: str
+
+
+# ── Claves de API (registradas ANTES de /api/config/{stage}: Starlette
+# resuelve por orden de registro, y "credentials" coincidiría con el
+# parámetro {stage} si el genérico se registrara primero) ──
+
+class SetCredentialRequest(BaseModel):
+    value: str
+
+
+class TestCredentialRequest(BaseModel):
+    value: Optional[str] = None
+
+
+@app.get("/api/config/credentials", tags=["Configuración RAG"])
+async def get_credentials():
+    """Estado de las credenciales (API keys) configuradas. Nunca expone el
+    valor completo de un secreto — solo si está configurado y sus últimos
+    caracteres (masked_value)."""
+    return {"credentials": credentials.list_credentials()}
+
+
+@app.post("/api/config/credentials/{field}", tags=["Configuración RAG"])
+async def set_credential_endpoint(field: str, req: SetCredentialRequest):
+    """Guarda una credencial: actualiza settings en memoria (efecto
+    inmediato) y persiste en .env (sobrevive un reinicio del servidor)."""
+    try:
+        return credentials.set_credential(field, req.value)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/config/credentials/{field}/test", tags=["Configuración RAG"])
+async def test_credential_endpoint(field: str, req: TestCredentialRequest):
+    """Prueba la conexión real contra el proveedor correspondiente, usando
+    `value` si se manda (prueba temporal, sin guardar) o el valor ya
+    guardado en settings si no."""
+    try:
+        return await credentials.test_credential(field, req.value)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.get("/api/config/{stage}", tags=["Configuración RAG"])

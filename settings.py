@@ -26,6 +26,7 @@ AVAILABLE_EMBEDDING_MODELS: Dict[str, Dict] = {
         "use_prefix":   False,
         "use_task":     False,
         "provider":     "azure",
+        "requires_key": "AZURE_EMBEDDING_KEY",
     },
 
     # ── 2. E5-Large — local, alta calidad en español ─────────────────
@@ -92,6 +93,7 @@ AVAILABLE_EMBEDDING_MODELS: Dict[str, Dict] = {
         "use_prefix":   False,
         "use_task":     False,
         "provider":     "openai",
+        "requires_key": "OPENAI_API_KEY",
     },
 }
 
