@@ -1,14 +1,21 @@
 """
 core.py
 =======
-Flujo de negocio de los tres asistentes.
+Flujo de negocio de los tres mecanismos de vectorización.
 Cada clase orquesta su propio pipeline usando las funciones
 y servicios definidos en definitions.py.
 
 Clases:
-  · SemiAutoCore   — asistente semiautomático (upload manual)
-  · AutoCore       — asistente automático (Moodle + curid)
-  · UpdateCore     — asistente de actualización (Qdrant → reemplazar)
+  · SemiAutoCore   — vectorización semiautomática (upload manual)
+  · AutoCore       — vectorización automática (Moodle + curid)
+  · UpdateCore     — vectorización de actualización (Qdrant → reemplazar)
+
+Los 3 mecanismos comparten el mismo cuello de botella
+(definitions.vectorize_file_with_pages). Si la colección destino es
+híbrida (dense+sparse), _build_pipeline_config() arma automáticamente el
+pipeline configurable a partir de la configuración RAG activa
+(strategies.registry) — si es legacy, se usa el camino original sin
+cambios.
 """
 
 import uuid
@@ -27,7 +34,49 @@ from definitions import (
     classify_file_type,
     DocumentInfo,
     ValidationSummary,
+    PipelineConfig,
 )
+
+DEFAULT_SOURCE_TYPE = "curso_propio"
+
+
+def _build_pipeline_config(collection_name: str, source_type: Optional[str]) -> Optional[PipelineConfig]:
+    """
+    Si la colección destino es híbrida (vectores nombrados dense+sparse),
+    arma automáticamente el PipelineConfig a partir de la configuración RAG
+    activa (strategies.registry.get_all_active() — lo que esté seleccionado
+    en "Configuración RAG", o los defaults de .env si no hay override). El
+    usuario no arma nada manualmente: cambiar la configuración activa
+    afecta automáticamente la próxima vectorización de los 3 mecanismos.
+
+    Si la colección es legacy (vector único sin nombre) o no se puede
+    determinar su esquema (aún no existe, error de conexión), retorna None
+    y vectorize_file_with_pages() usa el camino original sin cambios.
+    """
+    from qdrant_admin import get_qdrant_admin
+    from strategies import registry as strategy_registry
+
+    admin = get_qdrant_admin()
+    try:
+        if not admin.collection_exists(collection_name):
+            return None
+        schema = admin.get_vector_schema(collection_name)
+    except Exception as e:
+        print(f"⚠️ No se pudo determinar el esquema de '{collection_name}': {e}")
+        return None
+
+    if schema != "hybrid":
+        return None
+
+    active = strategy_registry.get_all_active()
+    return PipelineConfig(
+        etl_document_strategy=active["etl_document"],
+        etl_audio_strategy=active["etl_audio"],
+        contextual_strategy=active["contextual"],
+        dense_strategy=active["dense"],
+        sparse_strategy=active["sparse"],
+        source_type=source_type or DEFAULT_SOURCE_TYPE,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -88,6 +137,7 @@ class SemiAutoCore:
         files_data: List[Dict[str, Any]],
         collection_name: str,
         model_name: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Recibe lista de dicts: {"filename": str, "path": Path}
@@ -132,6 +182,7 @@ class SemiAutoCore:
             "mode":            "semi",
             "collection_name": collection_name,
             "model_name":      model_name or settings.EMBEDDING_MODEL,
+            "source_type":     source_type or DEFAULT_SOURCE_TYPE,
             "files": [
                 {"filename": fd["filename"], "path": str(fd["path"])}
                 for fd in files_data
@@ -166,6 +217,7 @@ class SemiAutoCore:
 
         # Recupera (o crea) el servicio con el modelo guardado en el context
         service = get_service(model_name)
+        pipeline_config = _build_pipeline_config(collection_name, ctx.get("source_type"))
         results = []
 
         for fd in ctx["files"]:
@@ -190,6 +242,7 @@ class SemiAutoCore:
                     total_pages=total_pages,
                     service=service,
                     original_filename=filename,
+                    pipeline_config=pipeline_config,
                 )
                 results.append({"filename": filename, **result})
 
@@ -269,6 +322,7 @@ class AutoCore:
         collection_name: str,
         selected_filenames: List[str],
         model_name: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Descarga los PDFs seleccionados a temp_docs/,
@@ -343,6 +397,7 @@ class AutoCore:
             "mode":            "auto",
             "collection_name": collection_name,
             "model_name":      model_name or settings.EMBEDDING_MODEL,
+            "source_type":     source_type or DEFAULT_SOURCE_TYPE,
             "files":           downloaded,
             "summaries":       summaries,
         })
@@ -371,6 +426,7 @@ class AutoCore:
         model_name: str = ctx.get("model_name", settings.EMBEDDING_MODEL)
 
         service = get_service(model_name)
+        pipeline_config = _build_pipeline_config(collection_name, ctx.get("source_type"))
         results = []
 
         for fd in ctx["files"]:
@@ -392,6 +448,7 @@ class AutoCore:
                     total_pages=total_pages,
                     service=service,
                     original_filename=filename,
+                    pipeline_config=pipeline_config,
                 )
                 results.append({"filename": filename, **result})
 
@@ -441,6 +498,7 @@ class UpdateCore:
         collection_name: str,
         original_filename: str = "",
         model_name: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         El archivo nuevo ya fue guardado en temp por el endpoint.
@@ -467,6 +525,7 @@ class UpdateCore:
             "mode":                "update",
             "collection_name":     collection_name,
             "model_name":          model_name or settings.EMBEDDING_MODEL,
+            "source_type":         source_type or DEFAULT_SOURCE_TYPE,
             "filename_to_replace": filename_to_replace,
             "file": {
                 "filename":    stored_filename,
@@ -503,6 +562,7 @@ class UpdateCore:
         filename_to_replace: str,
         collection_name: str,
         model_name: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Descarga desde Moodle el archivo seleccionado,
@@ -550,6 +610,7 @@ class UpdateCore:
             "mode":                "update",
             "collection_name":     collection_name,
             "model_name":          model_name or settings.EMBEDDING_MODEL,
+            "source_type":         source_type or DEFAULT_SOURCE_TYPE,
             "filename_to_replace": filename_to_replace,
             "file": {
                 "filename":    moodle_filename,
@@ -598,6 +659,7 @@ class UpdateCore:
         file_path           = Path(fd["path"])
 
         service = get_service(model_name)
+        pipeline_config = _build_pipeline_config(collection_name, ctx.get("source_type"))
 
         try:
             del_result = service.delete_document(filename_to_replace, collection_name)
@@ -610,6 +672,7 @@ class UpdateCore:
                 total_pages=fd.get("total_pages", 0),
                 service=service,
                 original_filename=fd.get("filename", ""),
+                pipeline_config=pipeline_config,
             )
             _complete_job(job_id, {**result, "embedding_model": model_name})
 

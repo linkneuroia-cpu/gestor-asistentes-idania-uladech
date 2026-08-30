@@ -115,6 +115,21 @@ class ConfirmVectorizeRequest(BaseModel):
     job_id: str
 
 
+class PipelineConfig(BaseModel):
+    """Configuración del pipeline RAG (Strategy Pattern) para una
+    vectorización contra una colección híbrida (dense+sparse). Se construye
+    automáticamente en core.py a partir de la configuración activa
+    (strategies.registry.get_all_active()) — el usuario no arma esto
+    manualmente. Ausente (None) para colecciones legacy, que siguen usando
+    VectorizationService sin cambios."""
+    etl_document_strategy: Optional[str] = None
+    etl_audio_strategy: Optional[str] = None
+    contextual_strategy: Optional[str] = None
+    dense_strategy: str
+    sparse_strategy: str
+    source_type: str = "curso_propio"
+
+
 # ═══════════════════════════════════════════════════════════════════
 # UTILIDADES DE TEXTO
 # ═══════════════════════════════════════════════════════════════════
@@ -1207,6 +1222,125 @@ def cleanup_temp_file(path: Path) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# PIPELINE HÍBRIDO (Strategy Pattern) — colecciones con vectores nombrados
+# ═══════════════════════════════════════════════════════════════════
+
+class HybridVectorizationService:
+    """Vectorización dirigida por configuración (Strategy Pattern) para
+    colecciones híbridas (dense+sparse nombrados). No reemplaza a
+    VectorizationService, que sigue sirviendo intacta a las colecciones
+    legacy (vector único sin nombre) — ver vectorize_file_with_pages()."""
+
+    def __init__(self, config: "PipelineConfig"):
+        self._config = config
+
+    async def process_and_store(
+        self,
+        *,
+        file_path: Path,
+        collection_name: str,
+        course_name: str,
+        total_pages: int,
+        original_filename: str = "",
+    ) -> Dict[str, Any]:
+        from strategies import registry as strategy_registry
+        from qdrant_admin import get_qdrant_admin
+
+        stored_filename = original_filename if original_filename else file_path.name
+        file_type = classify_file_type(stored_filename)
+
+        etl_document = strategy_registry.get_etl_document_strategy(
+            self._config.etl_document_strategy
+        )
+        etl_audio = strategy_registry.get_etl_audio_strategy(self._config.etl_audio_strategy)
+        contextual = strategy_registry.get_contextual_strategy(self._config.contextual_strategy)
+        dense = strategy_registry.get_dense_strategy(self._config.dense_strategy)
+        sparse = strategy_registry.get_sparse_strategy(self._config.sparse_strategy)
+
+        use_contextual = self._config.contextual_strategy not in (None, "none")
+
+        if file_type in ("audio", "video"):
+            segments = await etl_audio.transcribe(str(file_path))
+            full_text = " ".join(s["text"] for s in segments)
+            if len(full_text.strip()) < 20:
+                raise ValueError("Transcripción sin contenido de texto suficiente")
+            document_hash = _generate_hash(full_text)
+            chunks = chunk_audio_segments(segments)
+        else:
+            raw_text = await etl_document.extract(str(file_path))
+            full_text = await _normalize_text(raw_text)
+            if len(full_text) < 100:
+                raise ValueError(
+                    "El documento no contiene suficiente texto extraíble "
+                    "(mínimo 100 caracteres)"
+                )
+            document_hash = _generate_hash(full_text)
+            chunks = await chunk_text(full_text)
+
+        # Contextual Retrieval: cada chunk se enriquece con una cabecera de
+        # 50-100 palabras (si la estrategia activa no es "none") y el texto
+        # que se vectoriza es cabecera+chunk, aunque el payload conserva el
+        # texto crudo por separado.
+        embed_texts: List[str] = []
+        for chunk in chunks:
+            header = ""
+            if use_contextual:
+                header = await contextual.enrich(full_text, chunk["text"])
+            chunk["contextual_header"] = header
+            embed_texts.append(f"{header}\n\n{chunk['text']}" if header else chunk["text"])
+
+        dense_vectors = await dense.embed(embed_texts)
+        sparse_vectors = await sparse.embed(embed_texts)
+
+        filename_normalized = _normalize_filename(stored_filename)
+        now = datetime.utcnow().isoformat()
+        points = []
+        for chunk, dense_vec, sparse_vec in zip(chunks, dense_vectors, sparse_vectors):
+            pid = hashlib.md5(f"{document_hash}_{chunk['chunk']}".encode()).hexdigest()
+            points.append({
+                "id": pid,
+                "dense_vector": dense_vec,
+                "sparse_indices": sparse_vec["indices"],
+                "sparse_values": sparse_vec["values"],
+                "payload": {
+                    "document_hash": document_hash,
+                    "filename": stored_filename,
+                    "filename_normalized": filename_normalized,
+                    "format": file_path.suffix.lstrip("."),
+                    "file_type": file_type,
+                    "total_pages": total_pages,
+                    "total_chunks": len(chunks),
+                    "course_name": course_name,
+                    "date": now,
+                    "chunk": chunk["chunk"],
+                    "urls": chunk.get("urls"),
+                    "text": chunk["text"],
+                    "contextual_header": chunk.get("contextual_header") or None,
+                    "start_time": chunk.get("start_time"),
+                    "end_time": chunk.get("end_time"),
+                    "slide_number": chunk.get("slide_number"),
+                    "source_url": chunk.get("source_url"),
+                    "source_type": self._config.source_type,
+                    "embedding_model": self._config.dense_strategy,
+                    "sparse_model": self._config.sparse_strategy,
+                },
+            })
+
+        admin = get_qdrant_admin()
+        result = admin.upsert_hybrid_points(collection_name=collection_name, points=points)
+
+        return {
+            "success": True,
+            "vectors_stored": result["points_upserted"],
+            "collection": collection_name,
+            "document_hash": document_hash,
+            "embedding_model": self._config.dense_strategy,
+            "sparse_model": self._config.sparse_strategy,
+            "pipeline": "hybrid",
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════
 # PIPELINE DE VECTORIZACIÓN (función central compartida)
 # ═══════════════════════════════════════════════════════════════════
 
@@ -1251,12 +1385,29 @@ async def vectorize_file_with_pages(
     total_pages: int,
     service: VectorizationService,
     original_filename: str = "",
+    pipeline_config: Optional["PipelineConfig"] = None,
 ) -> Dict[str, Any]:
     """
     Pipeline completo: extract → normalize → hash → chunk → embed → store.
     Para audio/video usa transcripción + chunking por segmentos (conserva
     timestamps); para el resto usa el pipeline de texto plano habitual.
+
+    Si `pipeline_config` no es None (colección híbrida con la configuración
+    RAG activa — ver core.py), delega en HybridVectorizationService y usa
+    ETL/contextual/embedding denso+disperso según lo configurado. Si es
+    None (colección legacy), el resto de esta función queda intacto: mismo
+    comportamiento que antes de introducir el pipeline configurable.
     """
+    if pipeline_config is not None:
+        hybrid_service = HybridVectorizationService(pipeline_config)
+        return await hybrid_service.process_and_store(
+            file_path=file_path,
+            collection_name=collection_name,
+            course_name=course_name,
+            total_pages=total_pages,
+            original_filename=original_filename,
+        )
+
     stored_filename = original_filename if original_filename else file_path.name
     file_type = classify_file_type(stored_filename)
 
