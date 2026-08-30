@@ -13,6 +13,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
+from pydantic import BaseModel
 from fastapi import (
     FastAPI, UploadFile, File, HTTPException,
     BackgroundTasks, Query, Request
@@ -20,7 +21,10 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from settings import settings, validate_settings, AVAILABLE_EMBEDDING_MODELS
+from settings import (
+    settings, validate_settings, AVAILABLE_EMBEDDING_MODELS,
+    STAGE_CATALOGS, get_strategy_info, strategy_is_usable,
+)
 
 from definitions import (get_service,
     AutoPreviewRequest, AutoVectorizeRequest,
@@ -31,6 +35,9 @@ from core import (
     SemiAutoCore, AutoCore, UpdateCore,
     get_job, job_store,
 )
+import rag_pipeline
+from strategies import registry as strategy_registry
+from strategies.runtime_config import get_runtime_config
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -569,6 +576,162 @@ async def search(
             for h in hits
         ],
     }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# CONFIGURACIÓN RAG (Strategy Pattern)  /api/config/*
+# ═══════════════════════════════════════════════════════════════════
+
+_CONFIG_STAGES = list(STAGE_CATALOGS.keys())
+
+
+class StageConfigRequest(BaseModel):
+    strategy_name: str
+
+
+@app.get("/api/config/{stage}", tags=["Configuración RAG"])
+async def get_stage_config(stage: str):
+    """
+    Selección actual y catálogo completo de una etapa del pipeline RAG.
+    `stage` ∈ etl_document | etl_audio | contextual | dense | sparse |
+    rerank | generation.
+    """
+    if stage not in _CONFIG_STAGES:
+        raise HTTPException(404, f"Etapa '{stage}' desconocida. Válidas: {_CONFIG_STAGES}")
+
+    current = strategy_registry.resolve_strategy_name(stage)
+    catalog = STAGE_CATALOGS[stage]
+
+    return {
+        "stage": stage,
+        "current": current,
+        "options": [
+            {
+                "name": name,
+                **info,
+                "usable": strategy_is_usable(stage, name),
+            }
+            for name, info in catalog.items()
+        ],
+    }
+
+
+@app.post("/api/config/{stage}", tags=["Configuración RAG"])
+async def set_stage_config(stage: str, req: StageConfigRequest):
+    """Cambia la estrategia activa de una etapa (override en memoria).
+    Afecta automáticamente la próxima vectorización de los 3 mecanismos
+    contra colecciones híbridas, y las próximas consultas de /api/rag/*."""
+    if stage not in _CONFIG_STAGES:
+        raise HTTPException(404, f"Etapa '{stage}' desconocida. Válidas: {_CONFIG_STAGES}")
+
+    try:
+        get_strategy_info(stage, req.strategy_name)  # valida que exista
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    get_runtime_config().set(stage, req.strategy_name)
+
+    return {
+        "stage": stage,
+        "current": req.strategy_name,
+        "message": f"Estrategia de '{stage}' actualizada a '{req.strategy_name}'",
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# RAG: recuperación híbrida + reranking + generación  /api/rag/*
+# ═══════════════════════════════════════════════════════════════════
+
+class RagAnswerRequest(BaseModel):
+    collection_name: str
+    query: str
+    dense_strategy: Optional[str] = None
+    sparse_strategy: Optional[str] = None
+    rerank_strategy: Optional[str] = None
+    generation_strategy: Optional[str] = None
+    top_n: Optional[int] = None
+
+
+@app.get("/api/rag/retrieve", tags=["RAG"])
+async def rag_retrieve(
+    query: str = Query(...),
+    collection_name: str = Query(...),
+    top_n: int = Query(5, ge=1, le=20),
+    dense_strategy: Optional[str] = Query(None),
+    sparse_strategy: Optional[str] = Query(None),
+    rerank_strategy: Optional[str] = Query(None),
+):
+    """
+    Recuperación híbrida + reranking + boosting a `curso_propio`, sin
+    generación (útil para depurar/previsualizar qué se recuperaría).
+    Requiere una colección híbrida (vectores nombrados dense+sparse) —
+    usa Gestión Qdrant para crear una si la colección es legacy.
+    """
+    from qdrant_admin import get_qdrant_admin
+
+    admin = get_qdrant_admin()
+    if not admin.collection_exists(collection_name):
+        raise HTTPException(404, f"Colección '{collection_name}' no existe")
+    if admin.get_vector_schema(collection_name) != "hybrid":
+        raise HTTPException(
+            422,
+            f"La colección '{collection_name}' es legacy (vector único). "
+            f"La búsqueda híbrida requiere una colección con esquema 'hybrid' "
+            f"— créala o elige otra desde Gestión Qdrant.",
+        )
+
+    try:
+        candidates = await rag_pipeline.retrieve_rerank_boost(
+            collection_name=collection_name,
+            query=query,
+            dense_strategy_name=dense_strategy,
+            sparse_strategy_name=sparse_strategy,
+            rerank_strategy_name=rerank_strategy,
+            top_n=top_n,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    return {
+        "query": query,
+        "collection": collection_name,
+        "results": candidates,
+    }
+
+
+@app.post("/api/rag/answer", tags=["RAG"])
+async def rag_answer(req: RagAnswerRequest):
+    """
+    Pipeline completo del tutor: recuperación híbrida → rerank → boost →
+    generación con el system prompt fijo. Usado por "Pruebas del LLM".
+    """
+    from qdrant_admin import get_qdrant_admin
+
+    admin = get_qdrant_admin()
+    if not admin.collection_exists(req.collection_name):
+        raise HTTPException(404, f"Colección '{req.collection_name}' no existe")
+    if admin.get_vector_schema(req.collection_name) != "hybrid":
+        raise HTTPException(
+            422,
+            f"La colección '{req.collection_name}' es legacy (vector único). "
+            f"La generación con el tutor requiere una colección con esquema "
+            f"'hybrid' — créala o elige otra desde Gestión Qdrant.",
+        )
+
+    try:
+        return await rag_pipeline.answer_query(
+            collection_name=req.collection_name,
+            query=req.query,
+            dense_strategy_name=req.dense_strategy,
+            sparse_strategy_name=req.sparse_strategy,
+            rerank_strategy_name=req.rerank_strategy,
+            generation_strategy_name=req.generation_strategy,
+            top_n=req.top_n,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(502, f"Error generando respuesta: {e}")
 
 
 # ═══════════════════════════════════════════════════════════════════

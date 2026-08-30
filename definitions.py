@@ -750,6 +750,12 @@ class VectorizationService:
         """
         Verifica que la dimensión del modelo coincida con la colección Qdrant.
         Lanza ValueError descriptivo si hay incompatibilidad.
+
+        Para colecciones híbridas (vectores nombrados dense+sparse) no
+        aplica: la dimensión efectiva la determina la estrategia de
+        embedding denso activa (ver strategies/registry.py y
+        core._build_pipeline_config), no el modelo fijo de este servicio
+        — así que se omite la validación y se deja pasar.
         """
         if not self.collection_exists(collection_name):
             # Colección inexistente: la validación la hará el endpoint
@@ -757,10 +763,14 @@ class VectorizationService:
 
         try:
             info = self._client.get_collection(collection_name)
-            col_dim = info.config.params.vectors.size
+            vectors_config = info.config.params.vectors
         except Exception as e:
             raise ValueError(f"No se pudo consultar la colección '{collection_name}': {e}")
 
+        if isinstance(vectors_config, dict):
+            return
+
+        col_dim = vectors_config.size
         if col_dim != self._vector_size:
             raise ValueError(
                 f"⚠️  Incompatibilidad de dimensiones: la colección '{collection_name}' "
