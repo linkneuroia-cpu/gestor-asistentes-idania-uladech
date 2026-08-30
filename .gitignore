@@ -1,0 +1,7 @@
+# Ignorar
+.env
+venv/
+__pycache__/
+temp_docs/
+*.log
+.claude/

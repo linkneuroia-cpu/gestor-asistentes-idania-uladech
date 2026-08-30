@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Vectorización Documental — MINEDU</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red-800:#BF0909;--red-700:#DC362E;--red-300:#F9DEDC;--red-200:#FCEEEE;
+  --blue-800:#184397;--blue-700:#0056AC;--blue-650:#1363D0;--blue-600:#0071E3;
+  --blue-400:#E1F0FF;--blue-200:#F2F9FF;
+  --gray-800:#26292E;--gray-700:#3C3E43;--gray-600:#515458;--gray-500:#7D7F82;
+  --gray-450:#979797;--gray-200:#E9EAEA;--gray-100:#FFFFFF;
+  --neutral-800:#0D1028;--neutral-600:#555869;--neutral-400:#C5CDDA;
+  --neutral-300:#DEE3EA;--neutral-200:#EDF0F4;--neutral-100:#F6F9FC;
+  --green-800:#126B49;--green-700:#1B9D6B;--green-400:#E3F3EC;
+  --orange-700:#FF6701;--orange-400:#FFF3EA;
+  --yellow-500:#FFD147;
+  --indigo-700:#474D98;--indigo-300:#F1F2FF;
+  --purple-700:#5D2EE5;--purple-200:#F6F6FE;
+  --sidebar-w:256px;--header-h:62px;
+  --radius:6px;--radius-lg:10px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.12);
+  --t:.17s ease;
+  font-family:'IBM Plex Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--neutral-100);color:var(--gray-800);font-size:14px;line-height:1.6}
+button{font-family:inherit;cursor:pointer;border:none}
+input,select,textarea{font-family:inherit}
+a{color:var(--blue-700);text-decoration:none}
+
+/* HEADER */
+.hdr{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--header-h);
+  background:var(--red-800);display:flex;align-items:center;padding:0 22px;
+  box-shadow:0 2px 10px rgba(0,0,0,.22)}
+.hdr-logo{display:flex;align-items:center;gap:13px}
+.hdr-brand{display:flex;flex-direction:column;line-height:1.2}
+.hdr-brand .ent{font-size:11px;color:rgba(255,255,255,.72);font-weight:400;letter-spacing:.5px;text-transform:uppercase}
+.hdr-brand .sys{font-size:15px;color:#fff;font-weight:600}
+.hdr-right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.hdr-badge{background:rgba(255,255,255,.18);color:#fff;font-size:11px;font-weight:500;
+  padding:3px 10px;border-radius:20px;letter-spacing:.3px}
+.logo-circle {width: 38px;height: 38px;border-radius: 50%;background: white;display: flex;align-items: center;justify-content: center;overflow: hidden;}
+.logo-circle img {max-width: 70%;max-height: 70%;object-fit: contain;}
+
+/* LAYOUT */
+.layout{display:flex;margin-top:var(--header-h);min-height:calc(100vh - var(--header-h))}
+
+/* SIDEBAR */
+.sb{width:var(--sidebar-w);flex-shrink:0;background:var(--gray-800);
+  display:flex;flex-direction:column;position:fixed;top:var(--header-h);
+  left:0;height:calc(100vh - var(--header-h));overflow-y:auto}
+.sb-lbl{font-size:10px;font-weight:600;letter-spacing:1.3px;color:var(--gray-450);
+  text-transform:uppercase;padding:18px 18px 7px}
+.nav{display:flex;align-items:center;gap:11px;padding:10px 18px;
+  color:rgba(255,255,255,.68);cursor:pointer;transition:background var(--t),color var(--t);
+  border-left:3px solid transparent;user-select:none}
+.nav:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav.active{background:rgba(255,255,255,.11);color:#fff;border-left-color:var(--yellow-500)}
+.nav-lbl{font-size:13px;font-weight:500}
+.nav-badge{margin-left:auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px}
+.b-semi{background:var(--blue-400);color:var(--blue-800)}
+.b-auto{background:var(--indigo-300);color:var(--indigo-700)}
+.b-upd{background:var(--purple-200);color:var(--purple-700)}
+.sb-div{height:1px;background:rgba(255,255,255,.07);margin:6px 18px}
+.sb-foot{margin-top:auto;padding:14px 18px;font-size:11px;color:var(--gray-500);
+  border-top:1px solid rgba(255,255,255,.06)}
+.sb-foot a{color:var(--gray-450)}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);flex:1;padding:26px 30px;max-width:940px}
+
+/* MODULE */
+.mod{display:none}.mod.active{display:block}
+.mod-hdr{margin-bottom:22px;padding-bottom:14px;border-bottom:2px solid var(--neutral-300)}
+.mod-hdr h1{font-size:21px;font-weight:600;display:flex;align-items:center;gap:10px}
+.mod-hdr p{margin-top:5px;font-size:13px;color:var(--neutral-600)}
+.accent{width:4px;height:26px;border-radius:2px;flex-shrink:0}
+.a-semi{background:var(--blue-650)}.a-auto{background:var(--indigo-700)}.a-upd{background:var(--purple-700)}
+
+/* STEPPER */
+.stepper{display:flex;align-items:flex-start;margin-bottom:26px;position:relative}
+.stepper::before{content:'';position:absolute;top:15px;left:16px;right:16px;height:2px;
+  background:var(--neutral-300);z-index:0}
+.stp{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;z-index:1}
+.stp-c{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:600;
+  background:var(--neutral-300);color:var(--gray-500);
+  transition:background var(--t),color var(--t);border:2px solid var(--neutral-300)}
+.stp.done .stp-c{background:var(--green-700);color:#fff;border-color:var(--green-700)}
+.stp.active .stp-c{background:var(--blue-650);color:#fff;border-color:var(--blue-650)}
+.stp-l{margin-top:5px;font-size:10px;font-weight:500;color:var(--gray-450);text-align:center;max-width:72px}
+.stp.done .stp-l,.stp.active .stp-l{color:var(--gray-700)}
+
+/* CARD */
+.card{background:#fff;border:1px solid var(--neutral-300);border-radius:var(--radius-lg);
+  padding:22px;margin-bottom:18px;box-shadow:var(--shadow-sm)}
+.card-ttl{font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:14px;
+  display:flex;align-items:center;gap:8px}
+
+/* FORM */
+.fg{margin-bottom:15px}
+.fl{display:block;font-size:13px;font-weight:500;color:var(--gray-700);margin-bottom:5px}
+.fl .req{color:var(--red-700);margin-left:2px}
+.fc{width:100%;padding:8px 11px;border:1px solid var(--neutral-300);border-radius:var(--radius);
+  font-size:14px;color:var(--gray-800);background:#fff;outline:none;
+  transition:border-color var(--t),box-shadow var(--t)}
+.fc:focus{border-color:var(--blue-650);box-shadow:0 0 0 3px rgba(19,99,208,.13)}
+.fh{margin-top:4px;font-size:12px;color:var(--gray-500)}
+
+/* UPLOAD ZONE */
+.uz{border:2px dashed var(--neutral-400);border-radius:var(--radius-lg);padding:32px 20px;
+  text-align:center;cursor:pointer;transition:border-color var(--t),background var(--t);
+  background:var(--neutral-100)}
+.uz:hover,.uz.drag-over{border-color:var(--blue-650);background:var(--blue-200)}
+.uz input{display:none}
+.uz .uicon{font-size:32px;margin-bottom:8px}
+.uz p{font-size:13px;color:var(--neutral-600)}
+.uz .ulink{color:var(--blue-700);font-weight:500}
+.uz .utypes{font-size:11px;color:var(--gray-450);margin-top:3px}
+.flist{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.fi{display:flex;align-items:center;gap:9px;padding:7px 11px;
+  background:var(--blue-200);border:1px solid var(--neutral-300);
+  border-radius:var(--radius);font-size:13px}
+.fi .fn{flex:1;font-weight:500;color:var(--gray-700)}
+.fi .fsz{font-size:11px;color:var(--gray-500)}
+.fi .frm{background:none;color:var(--gray-450);font-size:15px;padding:1px 4px}
+.fi .frm:hover{color:var(--red-700)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;
+  border-radius:var(--radius);font-size:14px;font-weight:500;
+  transition:background var(--t),box-shadow var(--t),opacity var(--t)}
+.btn-prim{background:var(--blue-700);color:#fff}.btn-prim:hover{background:var(--blue-800)}
+.btn-semi{background:var(--blue-650);color:#fff}.btn-semi:hover{background:var(--blue-800)}
+.btn-auto{background:var(--indigo-700);color:#fff}.btn-auto:hover{background:#3B4280}
+.btn-upd{background:var(--purple-700);color:#fff}.btn-upd:hover{background:#4920C0}
+.btn-out{background:#fff;color:var(--blue-700);border:1.5px solid var(--blue-700)}.btn-out:hover{background:var(--blue-200)}
+.btn-ghost{background:none;color:var(--gray-600);border:1px solid var(--neutral-300)}.btn-ghost:hover{background:var(--neutral-200)}
+.btn-danger{background:var(--red-700);color:#fff}.btn-danger:hover{background:var(--red-800)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-sm{padding:5px 13px;font-size:13px}
+.btn-grp{display:flex;gap:9px;margin-top:8px}
+
+/* TABLE */
+.tw{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--neutral-300)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{background:var(--neutral-200)}
+th{padding:9px 13px;text-align:left;font-weight:600;color:var(--gray-700);
+  border-bottom:1px solid var(--neutral-300);white-space:nowrap}
+td{padding:9px 13px;color:var(--gray-800);border-bottom:1px solid var(--neutral-200);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--neutral-100)}
+
+/* TAGS */
+.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;
+  border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
+.t-new{background:var(--green-400);color:var(--green-800)}
+.t-dup{background:var(--orange-400);color:var(--orange-700)}
+.t-warn{background:var(--yellow-500);color:#5a4000}
+.t-err{background:var(--red-200);color:var(--red-800)}
+
+/* ALERTS */
+.alert{display:flex;gap:11px;padding:12px 14px;border-radius:var(--radius);
+  margin-bottom:14px;font-size:13px;line-height:1.5}
+.alert svg{flex-shrink:0;margin-top:1px}
+.a-info{background:var(--blue-200);border:1px solid #b3d4f7;color:var(--blue-800)}
+.a-warn{background:var(--orange-400);border:1px solid #ffc89e;color:#7a3600}
+.a-ok{background:var(--green-400);border:1px solid #a3dfc4;color:var(--green-800)}
+.a-err{background:var(--red-200);border:1px solid #f5b5b2;color:var(--red-800)}
+.a-ttl{font-weight:600;margin-bottom:2px}
+
+/* SPINNER */
+.pbox{text-align:center;padding:38px 22px}
+.spin{width:40px;height:40px;margin:0 auto 14px;border:3px solid var(--neutral-300);
+  border-top-color:var(--blue-650);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pbox p{font-size:13px;color:var(--neutral-600)}
+
+/* RESULT */
+.rbox{text-align:center;padding:30px 22px}
+.ricon{font-size:44px;margin-bottom:10px}
+.rbox h3{font-size:17px;font-weight:600;margin-bottom:5px}
+.rbox p{font-size:13px;color:var(--neutral-600)}
+.rstats{display:flex;gap:14px;justify-content:center;margin:14px 0;flex-wrap:wrap}
+.rstat{background:var(--neutral-100);border:1px solid var(--neutral-300);
+  border-radius:var(--radius);padding:11px 18px;text-align:center}
+.rstat .num{font-size:22px;font-weight:600;color:var(--blue-650);font-family:'IBM Plex Mono',monospace}
+.rstat .lbl{font-size:10px;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px}
+
+/* MODAL */
+.ov{display:none;position:fixed;inset:0;z-index:500;
+  background:rgba(13,16,40,.45);backdrop-filter:blur(3px);
+  align-items:center;justify-content:center}
+.ov.open{display:flex}
+.modal{background:#fff;border-radius:var(--radius-lg);padding:26px;
+  max-width:500px;width:92%;box-shadow:var(--shadow-md);position:relative;
+  animation:min .2s ease}
+@keyframes min{from{transform:scale(.95);opacity:0}}
+.modal-ttl{font-size:15px;font-weight:600;margin-bottom:10px;color:var(--gray-800)}
+.modal-body{font-size:13px;color:var(--neutral-600);line-height:1.6}
+.modal-foot{margin-top:18px;display:flex;justify-content:flex-end}
+.modal-x{position:absolute;top:14px;right:14px;background:none;
+  font-size:19px;color:var(--gray-450);cursor:pointer;line-height:1}
+.modal-x:hover{color:var(--gray-700)}
+
+/* TOOLTIP */
+.tt{position:relative;display:inline-flex}
+.tt-btn{width:17px;height:17px;border-radius:50%;background:var(--neutral-300);
+  color:var(--gray-600);font-size:10px;font-weight:700;display:inline-flex;
+  align-items:center;justify-content:center;cursor:help;border:none;margin-left:5px}
+.tt-tip{position:absolute;bottom:calc(100% + 7px);left:50%;transform:translateX(-50%);
+  background:var(--gray-800);color:#fff;font-size:12px;padding:7px 11px;
+  border-radius:var(--radius);max-width:240px;white-space:normal;
+  box-shadow:var(--shadow-md);z-index:300;opacity:0;pointer-events:none;transition:opacity .15s}
+.tt:hover .tt-tip{opacity:1}
+
+/* TYPE FILTER */
+.tfilter{display:flex;flex-wrap:wrap;gap:6px}
+.tfchip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;
+  border:1px solid var(--neutral-300);border-radius:20px;background:var(--neutral-100);
+  color:var(--gray-500);font-size:12px;cursor:pointer;transition:var(--t)}
+.tfchip:hover{border-color:var(--blue-600)}
+.tfchip.on{background:var(--blue-400);border-color:var(--blue-600);color:var(--blue-800);font-weight:500}
+.tfchip b{font-weight:600}
+
+/* TREE */
+.tree-mod{border:1px solid var(--neutral-300);border-radius:var(--radius);margin-bottom:9px;overflow:hidden}
+.tree-mhdr{display:flex;align-items:center;gap:9px;padding:9px 13px;
+  background:var(--neutral-200);cursor:pointer;user-select:none}
+.tree-mhdr:hover{background:var(--neutral-300)}
+.tree-mname{font-weight:600;font-size:13px;color:var(--gray-700);flex:1}
+.tree-mcnt{font-size:11px;color:var(--gray-500)}
+.tree-row{display:flex;align-items:center;gap:9px;padding:8px 13px;
+  border-top:1px solid var(--neutral-200);transition:background var(--t)}
+.tree-row:hover{background:var(--neutral-100)}
+.tree-row label{flex:1;font-size:13px;color:var(--gray-800);cursor:pointer;
+  display:flex;align-items:center;gap:7px}
+.tree-sz{font-size:11px;color:var(--gray-450);white-space:nowrap}
+input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(--blue-650);flex-shrink:0;cursor:pointer}
+
+/* SUMMARY CARDS */
+.sg{display:flex;flex-direction:column;gap:9px}
+.sc{border:1px solid var(--neutral-300);border-radius:var(--radius);padding:13px 15px;background:#fff}
+.sc-hdr{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.sc-fn{font-weight:600;font-size:13px;color:var(--gray-800);flex:1}
+.sc-meta{display:flex;flex-wrap:wrap;gap:7px;font-size:12px;color:var(--neutral-600)}
+.sc-warn{margin-top:7px;padding:7px 9px;background:var(--orange-400);
+  border-radius:var(--radius);font-size:12px;color:#7a3600}
+
+/* DOC LIST */
+.dl{display:flex;flex-direction:column;gap:7px}
+.di{display:flex;align-items:center;gap:11px;padding:11px 13px;
+  border:1px solid var(--neutral-300);border-radius:var(--radius);
+  background:#fff;cursor:pointer;transition:border-color var(--t),box-shadow var(--t)}
+.di:hover{border-color:var(--blue-650);box-shadow:0 0 0 3px rgba(19,99,208,.07)}
+.di.selected{border-color:var(--purple-700);box-shadow:0 0 0 3px rgba(93,46,229,.09)}
+.di-info{flex:1;min-width:0}
+.di-name{font-weight:600;font-size:13px;color:var(--gray-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.di-meta{font-size:11px;color:var(--gray-450);margin-top:2px}
+
+/* SOURCE OPTIONS */
+.srcs{display:flex;gap:11px;margin-bottom:0}
+.src{flex:1;border:2px solid var(--neutral-300);border-radius:var(--radius-lg);
+  padding:13px;cursor:pointer;transition:border-color var(--t),background var(--t);
+  display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center}
+.src:hover{border-color:var(--neutral-400)}
+.src.selected{border-color:var(--purple-700);background:var(--purple-200)}
+.src-icon{font-size:22px}
+.src-name{font-size:13px;font-weight:600;color:var(--gray-700)}
+.src-desc{font-size:11px;color:var(--gray-500)}
+
+/* SEARCH */
+.sr-card{padding:13px;border:1px solid var(--neutral-300);border-radius:var(--radius);background:#fff;margin-bottom:8px}
+.sr-score{font-family:'IBM Plex Mono';font-size:12px;color:var(--blue-650);font-weight:500}
+.sr-text{font-size:13px;color:var(--gray-700);margin:5px 0;line-height:1.6}
+.sr-meta{font-size:11px;color:var(--gray-450)}
+
+/* MISC */
+.div{height:1px;background:var(--neutral-300);margin:18px 0}
+.muted{color:var(--gray-500);font-size:12px}
+.fb{display:flex;align-items:center;justify-content:space-between}
+.hidden{display:none!important}
+.mt8{margin-top:8px}.mt16{margin-top:16px}
+.bc{font-size:12px;color:var(--gray-450);margin-bottom:3px;display:flex;gap:4px;align-items:center}
+.bc span{color:var(--blue-650);font-weight:500}
+.ci{display:flex;gap:8px}
+.ci input{flex:1}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="hdr-logo">
+    <div class="logo-circle">
+      <img src="https://guias.servicios.gob.pe/static/archivos/gb3.svg" 
+          alt="Logo Ministerio de Educación"
+          style="width:38px; height:38px; object-fit:contain;" />
+    </div>
+
+    <div class="hdr-brand">
+      <span class="ent">Ministerio de Educación del Perú</span>
+      <span class="sys">Sistema de Vectorización Documental</span>
+    </div>
+  </div>
+
+  <div class="hdr-right">
+    <span class="hdr-badge">SIFODS</span>
+    <span class="hdr-badge">v2.0</span>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="sb">
+  <div class="sb-lbl">Asistentes</div>
+  <div class="nav active" onclick="showMod('semi')" id="nav-semi">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+    <span class="nav-lbl">Semiautomático</span>
+    <span class="nav-badge b-semi">Multi-formato</span>
+  </div>
+  <div class="nav" onclick="showMod('auto')" id="nav-auto">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>
+    <span class="nav-lbl">Automático</span>
+    <span class="nav-badge b-auto">Moodle</span>
+  </div>
+  <div class="nav" onclick="showMod('upd')" id="nav-upd">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    <span class="nav-lbl">Actualización</span>
+    <span class="nav-badge b-upd">Reemplazar</span>
+  </div>
+  <div class="sb-div"></div>
+  <div class="sb-lbl">Utilidades</div>
+  <div class="nav" onclick="showMod('search')" id="nav-search">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <span class="nav-lbl">Búsqueda semántica</span>
+  </div>
+  <div class="sb-foot">
+    <span>API Docs: <a href="/docs" target="_blank">/docs</a></span>
+    <span style="margin-top:4px;display:block;">Qdrant: 91.99.108.245:6333</span>
+  </div>
+</nav>
+
+<main class="main">
+<!-- ═══ SEMIAUTOMÁTICO ═══ -->
+<section class="mod active" id="mod-semi">
+  <div class="mod-hdr">
+    <h1><div class="accent a-semi"></div>Asistente semiautomático</h1>
+    <p>Carga manual de documentos, presentaciones, hojas de cálculo, imágenes, audio o video para vectorizar en una colección de base de conocimiento.</p>
+  </div>
+  <div class="stepper" id="semi-stepper">
+    <div class="stp active" id="ss1"><div class="stp-c">1</div><div class="stp-l">Colección</div></div>
+    <div class="stp" id="ss2"><div class="stp-c">2</div><div class="stp-l">Archivos</div></div>
+    <div class="stp" id="ss3"><div class="stp-c">3</div><div class="stp-l">Validación</div></div>
+    <div class="stp" id="ss4"><div class="stp-c">4</div><div class="stp-l">Resultado</div></div>
+  </div>
+
+  <div id="semi-p1">
+    <div class="card">
+      <div class="card-ttl">Paso 1 — Colección destino</div>
+      <div class="fg">
+        <label class="fl">Colección de base de conocimiento <span class="req">*</span>
+          <span class="tt"><button class="tt-btn" type="button">?</button>
+            <div class="tt-tip">Las colecciones son espacios de la base de conocimiento donde se agrupan los vectores por curso o área temática.</div></span>
+        </label>
+        <select class="fc" id="semi-col" onchange="S.semi.col=this.value;en('btn-s1',!!this.value)">
+          <option value="">— Selecciona una colección —</option>
+        </select>
+      </div>
+      <div class="btn-grp"><button class="btn btn-semi" id="btn-s1" disabled onclick="sGo(2)">Continuar →</button></div>
+    </div>
+  </div>
+
+  <div id="semi-p2" class="hidden">
+    <div class="bc">Colección: <span id="semi-col-lbl"></span></div>
+    <div class="card">
+      <div class="card-ttl">Paso 2 — Seleccionar documentos</div>
+      <div class="uz" id="semi-dz"
+        onclick="document.getElementById('semi-fi').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="sDrop(event)">
+        <input type="file" id="semi-fi" multiple accept=".pdf,.docx,.pptx,.ppt,.xlsx,.jpg,.jpeg,.png,.webp,.mp4,.mov,.webm,.mkv,.mp3,.wav,.m4a,.ogg" onchange="sFiles(this.files)">
+        <div class="uicon">📂</div>
+        <p>Arrastra aquí o <span class="ulink">haz clic para seleccionar</span></p>
+        <div class="utypes">PDF, DOCX, PPT(X), XLSX, imágenes, audio y video · Máx. 50 MB · Hasta 20 archivos</div>
+      </div>
+      <div class="flist" id="semi-fl"></div>
+      <div class="btn-grp mt16">
+        <button class="btn btn-ghost btn-sm" onclick="sGo(1)">← Volver</button>
+        <button class="btn btn-semi" id="btn-s2" disabled onclick="sUpload()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          Validar y continuar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="semi-p3" class="hidden">
+    <div class="bc">Colección: <span id="semi-col-lbl2"></span></div>
+    <div class="card">
+      <div class="card-ttl">Paso 3 — Resumen de validación
+        <span class="tt"><button class="tt-btn" type="button">?</button>
+          <div class="tt-tip">Los archivos con imágenes o tablas se vectorizan solo con texto. Los duplicados reemplazan el documento anterior en la base de conocimiento.</div></span>
+      </div>
+      <div class="sg" id="semi-sg"></div>
+      <div class="div"></div>
+      <div class="alert a-info hidden" id="semi-da">
+        <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+        <div><div class="a-ttl">❌ Duplicado detectado — Uso bloqueado</div>No se puede vectorizar un documento duplicado desde aquí. Por favor, utiliza el módulo de <strong>Actualización</strong> para reemplazar o actualizar el archivo anterior.</div>
+      </div>
+      <div class="btn-grp">
+        <button class="btn btn-ghost btn-sm" onclick="sGo(2)">← Volver</button>
+        <button class="btn btn-semi" id="btn-s3" onclick="sConfirm()">✓ Confirmar y vectorizar</button>
+        <button class="btn btn-upd btn-sm hidden" id="btn-s3-upd" onclick="showMod('upd')">→ Ir a Actualización</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="semi-p4" class="hidden">
+    <div class="card">
+      <div id="semi-proc" class="pbox"><div class="spin"></div>
+        <p>Vectorizando documentos, por favor espere...</p>
+        <p class="muted mt8">Puede tardar algunos minutos según el volumen de archivos.</p>
+      </div>
+      <div id="semi-res" class="rbox hidden"></div>
+    </div>
+  </div>
+</section>
+<!-- ═══ AUTOMÁTICO ═══ -->
+<section class="mod" id="mod-auto">
+  <div class="mod-hdr">
+    <h1><div class="accent a-auto"></div>Asistente automático</h1>
+    <p>Vectorización automática desde el Campus Virtual SIFODS mediante el ID de curso (curid).</p>
+  </div>
+  <div class="stepper">
+    <div class="stp active" id="as1"><div class="stp-c">1</div><div class="stp-l">Colección</div></div>
+    <div class="stp" id="as2"><div class="stp-c">2</div><div class="stp-l">Curid</div></div>
+    <div class="stp" id="as3"><div class="stp-c">3</div><div class="stp-l">Selección</div></div>
+    <div class="stp" id="as4"><div class="stp-c">4</div><div class="stp-l">Validación</div></div>
+    <div class="stp" id="as5"><div class="stp-c">5</div><div class="stp-l">Resultado</div></div>
+  </div>
+
+  <div id="auto-p1">
+    <div class="card">
+      <div class="card-ttl">Paso 1 — Colección destino</div>
+      <div class="fg">
+        <label class="fl">Colección de base de conocimiento <span class="req">*</span></label>
+        <select class="fc" id="auto-col" onchange="S.auto.col=this.value;en('btn-a1',!!this.value)">
+          <option value="">— Selecciona una colección —</option>
+        </select>
+      </div>
+      <div class="btn-grp"><button class="btn btn-auto" id="btn-a1" disabled onclick="aGo(2)">Continuar →</button></div>
+    </div>
+  </div>
+
+  <div id="auto-p2" class="hidden">
+    <div class="bc">Colección: <span id="auto-col-lbl"></span></div>
+    <div class="card">
+      <div class="card-ttl">Paso 2 — Ingresar ID de curso Moodle
+        <span class="tt"><button class="tt-btn" type="button">?</button>
+          <div class="tt-tip">El curid está en la URL del curso: campusvirtual.../course/view.php?id=XXXX</div></span>
+      </div>
+      <div class="fg">
+        <label class="fl">Curid (Course ID) <span class="req">*</span></label>
+        <div class="ci">
+          <input type="number" class="fc" id="auto-curid" placeholder="Ej. 2440" min="1" onkeydown="if(event.key==='Enter')aPreview()">
+          <button class="btn btn-auto" id="btn-a-prev" onclick="aPreview()">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            Consultar
+          </button>
+        </div>
+        <div class="fh">Se consultará el Campus Virtual SIFODS para listar los módulos y archivos del curso (cualquier tipo).</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="aGo(1)">← Volver</button>
+    </div>
+  </div>
+
+  <div id="auto-p3" class="hidden">
+    <div class="bc">Colección: <span id="auto-col-lbl2"></span> · Curid: <span id="auto-curid-lbl"></span></div>
+    <div class="card">
+      <div class="card-ttl">Paso 3 — Seleccionar documentos a vectorizar
+        <span class="tt"><button class="tt-btn" type="button">?</button>
+          <div class="tt-tip">Marca los archivos que deseas vectorizar. Los marcados como "Duplicado" reemplazarán el documento existente en la base de conocimiento; los marcados "No soportado" no pueden vectorizarse todavía.</div></span>
+      </div>
+      <div class="fb" style="margin-bottom:11px">
+        <div class="muted" id="auto-file-cnt"></div>
+        <div style="display:flex;gap:7px">
+          <button class="btn btn-ghost btn-sm" onclick="aSelAll(true)">Todos</button>
+          <button class="btn btn-ghost btn-sm" onclick="aSelAll(false)">Ninguno</button>
+        </div>
+      </div>
+      <div id="auto-tfilter" style="margin-bottom:11px"></div>
+      <div id="auto-tree"></div>
+      <div class="btn-grp">
+        <button class="btn btn-ghost btn-sm" onclick="aGo(2)">← Volver</button>
+        <button class="btn btn-auto" id="btn-a3" disabled onclick="aDownVal()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Descargar y validar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="auto-p4" class="hidden">
+    <div class="bc">Colección: <span id="auto-col-lbl3"></span></div>
+    <div class="card">
+      <div id="auto-p4l" class="pbox"><div class="spin"></div><p>Descargando y validando documentos desde Moodle...</p></div>
+      <div id="auto-p4c" class="hidden">
+        <div class="card-ttl">Paso 4 — Resumen de validación</div>
+        <div class="sg" id="auto-sg"></div>
+        <div class="div"></div>
+        <div class="alert a-info hidden" id="auto-da">
+          <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+          <div><div class="a-ttl">❌ Duplicados detectados — Uso bloqueado</div>No se puede vectorizar documentos duplicados desde aquí. Por favor, utiliza el módulo de <strong>Actualización</strong> para reemplazar archivos anteriores.</div>
+        </div>
+        <div class="btn-grp">
+          <button class="btn btn-ghost btn-sm" onclick="aGo(3)">← Volver</button>
+          <button class="btn btn-auto" id="btn-a4" onclick="aConfirm()">✓ Confirmar y vectorizar</button>
+          <button class="btn btn-upd btn-sm hidden" id="btn-a4-upd" onclick="showMod('upd')">→ Ir a Actualización</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="auto-p5" class="hidden">
+    <div class="card">
+      <div id="auto-proc" class="pbox"><div class="spin"></div><p>Vectorizando documentos desde Moodle...</p></div>
+      <div id="auto-res" class="rbox hidden"></div>
+    </div>
+  </div>
+</section>
+<!-- ═══ ACTUALIZACIÓN ═══ -->
+<section class="mod" id="mod-upd">
+  <div class="mod-hdr">
+    <h1><div class="accent a-upd"></div>Asistente de actualización</h1>
+    <p>Reemplaza un documento ya vectorizado en la base de conocimiento con una versión actualizada.</p>
+  </div>
+  <!-- stepper manual (5 pasos) -->
+  <div class="stepper" id="upd-step-manual">
+    <div class="stp active" id="us1"><div class="stp-c">1</div><div class="stp-l">Colección</div></div>
+    <div class="stp" id="us2"><div class="stp-c">2</div><div class="stp-l">Documento</div></div>
+    <div class="stp" id="us3"><div class="stp-c">3</div><div class="stp-l">Fuente</div></div>
+    <div class="stp" id="us4"><div class="stp-c">4</div><div class="stp-l">Validación</div></div>
+    <div class="stp" id="us5"><div class="stp-c">5</div><div class="stp-l">Resultado</div></div>
+  </div>
+  <!-- stepper moodle (6 pasos) -->
+  <div class="stepper hidden" id="upd-step-moodle">
+    <div class="stp active" id="um1"><div class="stp-c">1</div><div class="stp-l">Colección</div></div>
+    <div class="stp" id="um2"><div class="stp-c">2</div><div class="stp-l">Documento</div></div>
+    <div class="stp" id="um3"><div class="stp-c">3</div><div class="stp-l">Fuente</div></div>
+    <div class="stp" id="um4"><div class="stp-c">4</div><div class="stp-l">Módulos</div></div>
+    <div class="stp" id="um5"><div class="stp-c">5</div><div class="stp-l">Validación</div></div>
+    <div class="stp" id="um6"><div class="stp-c">6</div><div class="stp-l">Resultado</div></div>
+  </div>
+
+  <div id="upd-p1">
+    <div class="card">
+      <div class="card-ttl">Paso 1 — Colección</div>
+      <div class="fg">
+        <label class="fl">Colección de base de conocimiento <span class="req">*</span></label>
+        <select class="fc" id="upd-col" onchange="S.upd.col=this.value;en('btn-u1',!!this.value)">
+          <option value="">— Selecciona una colección —</option>
+        </select>
+      </div>
+      <div class="btn-grp"><button class="btn btn-upd" id="btn-u1" disabled onclick="uGo(2)">Continuar →</button></div>
+    </div>
+  </div>
+
+  <div id="upd-p2" class="hidden">
+    <div class="bc">Colección: <span id="upd-col-lbl"></span></div>
+    <div class="card">
+      <div class="card-ttl">Paso 2 — Seleccionar documento a reemplazar</div>
+      <div id="upd-dll" class="pbox" style="padding:18px"><div class="spin" style="width:26px;height:26px;border-width:3px"></div><p style="font-size:12px">Cargando documentos...</p></div>
+      <div id="upd-dl" class="dl hidden"></div>
+      <div class="btn-grp mt16">
+        <button class="btn btn-ghost btn-sm" onclick="uGo(1)">← Volver</button>
+        <button class="btn btn-upd" id="btn-u2" disabled onclick="uGo(3)">Continuar →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 3: Elegir fuente (manual o Moodle) -->
+  <div id="upd-p3" class="hidden">
+    <div class="bc">Reemplazando: <span id="upd-rep-lbl"></span></div>
+    <div class="card">
+      <div class="card-ttl">Paso 3 — ¿Desde dónde obtienes el nuevo documento?</div>
+      <div class="srcs">
+        <div class="src selected" id="src-manual" onclick="uSrc('manual')">
+          <div class="src-icon">💻</div>
+          <div class="src-name">Subir archivo</div>
+          <div class="src-desc">Cualquier tipo soportado desde tu equipo</div>
+        </div>
+        <div class="src" id="src-moodle" onclick="uSrc('moodle')">
+          <div class="src-icon">🎓</div>
+          <div class="src-name">Desde Moodle</div>
+          <div class="src-desc">Campus Virtual SIFODS</div>
+        </div>
+      </div>
+
+      <!-- Modo manual: upload directo -->
+      <div id="upd-man" style="margin-top:14px">
+        <div class="uz" onclick="document.getElementById('upd-fi').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="uDrop(event)">
+          <input type="file" id="upd-fi" accept=".pdf,.docx,.pptx,.ppt,.xlsx,.jpg,.jpeg,.png,.webp,.mp4,.mov,.webm,.mkv,.mp3,.wav,.m4a,.ogg" onchange="uFile(this.files[0])">
+          <div class="uicon">📄</div>
+          <p>Arrastra o <span class="ulink">selecciona el archivo nuevo</span></p>
+          <div class="utypes">PDF, DOCX, PPT(X), XLSX, imágenes, audio y video · Máx. 50 MB</div>
+        </div>
+        <div id="upd-fsel" class="hidden" style="margin-top:9px"></div>
+      </div>
+
+      <!-- Modo Moodle: solo indica que se continuará con curid -->
+      <div id="upd-moo" class="hidden" style="margin-top:14px">
+        <div class="alert a-info" style="margin-bottom:0">
+          <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+          <div>En el siguiente paso ingresarás el curid del curso, se listarán los módulos y podrás seleccionar el archivo desde el Campus Virtual SIFODS que reemplazará al documento seleccionado.</div>
+        </div>
+      </div>
+
+      <div class="btn-grp mt16">
+        <button class="btn btn-ghost btn-sm" onclick="uGo(2)">← Volver</button>
+        <!-- Manual: valida directo; Moodle: va al paso 3b -->
+        <button class="btn btn-upd" id="btn-u3-man" disabled onclick="uPrepare()">Validar →</button>
+        <button class="btn btn-upd hidden" id="btn-u3-moo" onclick="uGoMoodle()">Seleccionar desde Moodle →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 3b (solo Moodle): curid → módulos → seleccionar PDF -->
+  <div id="upd-p3b" class="hidden">
+    <div class="bc">Reemplazando: <span id="upd-rep-lbl2"></span></div>
+    <div class="card">
+      <div class="card-ttl">
+        Paso 4 — Ingresar curid y seleccionar el archivo nuevo
+        <span class="tt"><button class="tt-btn" type="button">?</button>
+          <div class="tt-tip">El curid está en la URL del curso en el Campus Virtual SIFODS: .../course/view.php?id=XXXX. Se listarán los módulos y sus archivos para que elijas el que reemplazará al documento anterior.</div>
+        </span>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Curid (Course ID) <span class="req">*</span></label>
+        <div class="ci">
+          <input type="number" class="fc" id="upd-curid" placeholder="Ej. 2440" min="1" onkeydown="if(event.key==='Enter')uPrevMod()">
+          <button class="btn btn-upd" id="btn-upd-consult" onclick="uPrevMod()">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            Consultar Moodle
+          </button>
+        </div>
+        <div class="fh">Se consultará la API del Campus Virtual para listar los módulos y archivos disponibles.</div>
+      </div>
+
+      <!-- Árbol de módulos/archivos (radio, solo uno) -->
+      <div id="upd-mtree" class="hidden">
+        <div class="div" style="margin:12px 0 10px"></div>
+        <div class="fb" style="margin-bottom:10px">
+          <span class="card-ttl" style="margin:0" id="upd-mtree-cnt"></span>
+          <span class="muted">Selecciona un archivo</span>
+        </div>
+        <div id="upd-tfilter" style="margin-bottom:11px"></div>
+        <div id="upd-mtree-inner"></div>
+      </div>
+
+      <!-- Resumen de selección -->
+      <div id="upd-msel-summary" class="hidden" style="margin-top:10px">
+        <div class="alert a-ok">
+          <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div><div class="a-ttl">Archivo seleccionado</div><span id="upd-msel-name" style="font-weight:500"></span> — será descargado desde Moodle y reemplazará a <strong id="upd-msel-replacing"></strong>.</div>
+        </div>
+      </div>
+
+      <div class="btn-grp mt16">
+        <button class="btn btn-ghost btn-sm" onclick="uBackToSrc()">← Volver</button>
+        <button class="btn btn-upd" id="btn-u3b" disabled onclick="uPrepare()">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Descargar y validar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="upd-p4" class="hidden">
+    <div class="bc">Reemplazando: <span id="upd-val-lbl"></span></div>
+    <div class="card">
+      <div id="upd-p4l" class="pbox"><div class="spin"></div><p id="upd-p4l-msg">Validando documento...</p></div>
+      <div id="upd-p4c" class="hidden">
+        <div class="card-ttl">Resumen de validación</div>
+        <div class="sg" id="upd-sg"></div>
+        <div id="upd-p4-confirm-block">
+          <div class="div"></div>
+          <div class="alert a-warn">
+            <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            <div><div class="a-ttl">Atención</div>El documento anterior será eliminado permanentemente de la base de conocimiento. Esta acción no se puede deshacer.</div>
+          </div>
+          <div class="btn-grp">
+            <button class="btn btn-ghost btn-sm" id="btn-u4-back" onclick="uBackFromVal()">← Volver</button>
+            <button class="btn btn-danger" onclick="uConfirm()">⚠ Confirmar reemplazo</button>
+          </div>
+        </div>
+        <div id="upd-p4-error-block" class="hidden">
+          <div class="div"></div>
+          <div class="btn-grp">
+            <button class="btn btn-ghost btn-sm" onclick="uGo(1)">← Ir al inicio</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="upd-p5" class="hidden">
+    <div class="card">
+      <div id="upd-proc" class="pbox"><div class="spin"></div><p>Reemplazando documento en la base de conocimiento...</p></div>
+      <div id="upd-res" class="rbox hidden"></div>
+    </div>
+  </div>
+</section>
+<!-- ═══ BÚSQUEDA ═══ -->
+<section class="mod" id="mod-search">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--green-700)"></div>Búsqueda semántica</h1>
+    <p>Consulta por similitud semántica sobre los documentos vectorizados en la base de conocimiento.</p>
+  </div>
+  <div class="card">
+    <div class="fg">
+      <label class="fl">Colección <span class="req">*</span></label>
+      <select class="fc" id="srch-col"><option value="">— Selecciona —</option></select>
+    </div>
+    <div class="fg">
+      <label class="fl">Consulta en lenguaje natural <span class="req">*</span></label>
+      <textarea class="fc" id="srch-q" rows="3" placeholder="Ej. ¿Cuáles son los objetivos del programa de capacitación?"></textarea>
+    </div>
+    <div class="fg">
+      <label class="fl">Resultados a mostrar</label>
+      <select class="fc" id="srch-k" style="max-width:160px">
+        <option value="3">3 resultados</option>
+        <option value="5">5 resultados</option>
+        <option value="10">10 resultados</option>
+      </select>
+    </div>
+    <button class="btn btn-prim" onclick="doSearch()">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      Buscar
+    </button>
+  </div>
+  <div id="srch-wrap" class="hidden">
+    <div class="card">
+      <div class="card-ttl" id="srch-cnt"></div>
+      <div id="srch-list"></div>
+    </div>
+  </div>
+</section>
+</main>
+</div>
+<div class="ov" id="ov">
+  <div class="modal">
+    <button class="modal-x" onclick="closeModal()">✕</button>
+    <div class="modal-ttl" id="m-ttl"></div>
+    <div class="modal-body" id="m-body"></div>
+    <div class="modal-foot"><button class="btn btn-ghost btn-sm" onclick="closeModal()">Cerrar</button></div>
+  </div>
+</div>
+<script>
+const S={semi:{col:'',files:[],jobId:null},auto:{col:'',curid:null,mods:[],sel:[],typeFilter:null,jobId:null},upd:{col:'',doc:null,src:'manual',file:null,mFile:null,mMods:[],typeFilter:null,mCurid:null,mCourseName:null,jobId:null}};
+const API='';
+
+// ── Utils ──
+const fmt=b=>!b?'':b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const $=id=>document.getElementById(id);
+const show=id=>$(id).classList.remove('hidden');
+const hide=id=>$(id).classList.add('hidden');
+const en=(id,v)=>$(id).disabled=!v;
+function showModal(t,b){$('m-ttl').innerHTML=t;$('m-body').innerHTML=b;$('ov').classList.add('open')}
+function closeModal(){$('ov').classList.remove('open')}
+
+async function api(path,opts={}){
+  const r=await fetch(API+path,opts);
+  const j=await r.json();
+  if(!r.ok)throw new Error(j.detail||JSON.stringify(j));
+  return j;
+}
+
+function setSteps(pre,n,tot){
+  for(let i=1;i<=tot;i++){
+    const e=$(pre+i);if(!e)continue;
+    e.classList.remove('active','done');
+    if(i<n)e.classList.add('done');
+    else if(i===n)e.classList.add('active');
+  }
+}
+
+// ── Tipos de archivo ──
+const FILE_TYPES={
+  pdf:   {icon:'📄',label:'PDF'},
+  docx:  {icon:'📝',label:'DOCX'},
+  pptx:  {icon:'📊',label:'PPTX'},
+  ppt:   {icon:'📊',label:'PPT'},
+  xlsx:  {icon:'🧮',label:'XLSX'},
+  image: {icon:'🖼️',label:'Imagen'},
+  video: {icon:'🎬',label:'Video'},
+  audio: {icon:'🎵',label:'Audio'},
+  other: {icon:'📁',label:'No soportado'},
+};
+function fileTypeMeta(t){return FILE_TYPES[t]||FILE_TYPES.other}
+const EXT_TYPE_MAP={pdf:'pdf',docx:'docx',pptx:'pptx',ppt:'ppt',xlsx:'xlsx',jpg:'image',jpeg:'image',png:'image',webp:'image',mp4:'video',mov:'video',webm:'video',mkv:'video',mp3:'audio',wav:'audio',m4a:'audio',ogg:'audio'};
+function extToType(filename){const ext=(filename.split('.').pop()||'').toLowerCase();return EXT_TYPE_MAP[ext]||'other'}
+function fmtDuration(sec){
+  if(!sec&&sec!==0)return '';
+  sec=Math.round(sec);
+  const m=Math.floor(sec/60),s=sec%60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function scardHTML(s){
+  const ft=fileTypeMeta(s.file_type);
+  const dup=s.is_duplicate?`<span class="tag t-dup">⚠ Duplicado (${s.existing_chunks} chunks)</span>`:`<span class="tag t-new">✓ Nuevo</span>`;
+  const warnMsg = s.is_duplicate
+    ? `Se detectó que está subiendo un documento que ya existe en la base de datos.`
+    : (s.warning_message || '');
+  const w = warnMsg
+    ? `<div class="sc-warn" ${s.is_duplicate ? 'style="background:var(--red-200);color:var(--red-800)"' : ''}>
+        ${s.is_duplicate ? '🚫' : '⚠️'} ${warnMsg}
+       </div>`
+    : '';
+  let meta;
+  if(s.file_type==='video'||s.file_type==='audio'){
+    meta=`<span>${ft.icon} ${ft.label}</span><span>⏱️ ${fmtDuration(s.duration_seconds)} min</span>`;
+  }else if(s.file_type==='pptx'||s.file_type==='ppt'){
+    meta=`<span>${ft.icon} ${ft.label}</span><span>📋 ${s.total_pages} diapositivas</span><span>🖼️ ${s.total_images} imág.</span>`;
+  }else if(s.file_type==='xlsx'){
+    meta=`<span>${ft.icon} ${ft.label}</span><span>📋 ${s.total_pages} hojas</span>`;
+  }else if(s.file_type==='image'){
+    meta=`<span>${ft.icon} ${ft.label}</span>`;
+  }else{
+    meta=`<span>${ft.icon} ${ft.label}</span><span>📋 ${s.total_pages} pág.</span><span>🖼️ ${s.total_images} imág.</span><span>📊 ${s.total_tables} tablas</span>`;
+  }
+  return `<div class="sc"><div class="sc-hdr"><span style="font-size:17px;color:var(--red-700)">${ft.icon}</span><span class="sc-fn">${esc(s.filename)}</span>${dup}</div>
+    <div class="sc-meta">${meta}</div>${w}</div>`;
+}
+
+function renderOK(cid,sid,data){
+  hide(sid);const el=$(cid);el.classList.remove('hidden');
+  const tot=data.vectors_stored||0,files=data.files||[];
+  const ok=files.filter(f=>f.success!==false).length,fail=files.filter(f=>f.success===false).length;
+  el.innerHTML=`<div class="ricon">${fail===0?'✅':'⚠️'}</div><h3>${fail===0?'Vectorización completada':'Completado con errores'}</h3>
+  <div class="rstats"><div class="rstat"><div class="num">${tot}</div><div class="lbl">Vectores</div></div>
+  <div class="rstat"><div class="num">${ok}</div><div class="lbl">Exitosos</div></div>
+  ${fail?`<div class="rstat"><div class="num" style="color:var(--red-700)">${fail}</div><div class="lbl">Con error</div></div>`:''}</div>
+  ${fail?`<div class="alert a-err">${files.filter(f=>f.success===false).map(f=>`<div><strong>${esc(f.filename)}</strong>: ${esc(f.error)}</div>`).join('')}</div>`:''}
+  <button class="btn btn-ghost btn-sm" onclick="location.reload()">Nueva vectorización</button>`;
+}
+
+function renderOKUpd(cid,sid,data){
+  hide(sid);const el=$(cid);el.classList.remove('hidden');
+  el.innerHTML=`<div class="ricon">✅</div><h3>Documento reemplazado</h3>
+  <div class="rstats"><div class="rstat"><div class="num">${data.vectors_stored||0}</div><div class="lbl">Vectores</div></div></div>
+  <button class="btn btn-ghost btn-sm" onclick="location.reload()">Actualizar otro</button>`;
+}
+
+function renderErr(cid,sid,msg){
+  hide(sid);const el=$(cid);el.classList.remove('hidden');
+  el.innerHTML=`<div class="ricon">❌</div><h3>Error en el proceso</h3><p>${esc(msg)}</p><button class="btn btn-ghost btn-sm mt8" onclick="location.reload()">Reintentar</button>`;
+}
+
+function poll(id,onOk,onErr,ms=2500){
+  const t=setInterval(async()=>{
+    try{const j=await api('/api/jobs/'+id);
+      if(j.status==='completado'){clearInterval(t);onOk(j.result)}
+      else if(j.status==='error'){clearInterval(t);onErr(j.message)}
+    }catch(e){clearInterval(t);onErr(e.message)}
+  },ms);
+}
+
+// ── Nav ──
+function showMod(name){
+  ['semi','auto','upd','search'].forEach(m=>{
+    $('mod-'+m)?.classList.remove('active');
+    $('nav-'+m)?.classList.remove('active');
+  });
+  $('mod-'+name).classList.add('active');
+  $('nav-'+name).classList.add('active');
+}
+
+// ── Collections ──
+async function loadCols(){
+  try{
+    const d=await api('/api/collections');
+    const cols=d.collections||[];
+    const opts='<option value="">— Selecciona —</option>'+cols.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    ['semi-col','auto-col','upd-col','srch-col'].forEach(id=>{const e=$(id);if(e)e.innerHTML=opts});
+  }catch(e){console.error(e)}
+}
+
+// ═══ SEMIAUTOMÁTICO ═══
+function sGo(n){
+  [1,2,3,4].forEach(i=>{hide('semi-p'+i)});
+  show('semi-p'+n);setSteps('ss',n,4);
+  if(n===2)$('semi-col-lbl').textContent=S.semi.col;
+  if(n===3)$('semi-col-lbl2').textContent=S.semi.col;
+}
+function sFiles(files){for(const f of files){if(S.semi.files.find(x=>x.name===f.name))continue;if(S.semi.files.length>=20){alert('Máx. 20 archivos');break;}S.semi.files.push(f);}sRenderFL();}
+function sDrop(e){e.preventDefault();$('semi-dz').classList.remove('drag-over');sFiles(e.dataTransfer.files);}
+function sRenderFL(){
+  $('semi-fl').innerHTML=S.semi.files.map((f,i)=>`<div class="fi"><span>${fileTypeMeta(extToType(f.name)).icon}</span><span class="fn">${esc(f.name)}</span><span class="fsz">${fmt(f.size)}</span><button class="frm" onclick="sRm(${i})">✕</button></div>`).join('');
+  en('btn-s2',S.semi.files.length>0);
+}
+function sRm(i){S.semi.files.splice(i,1);sRenderFL();}
+async function sUpload(){
+  const btn=$('btn-s2');btn.disabled=true;btn.textContent='Subiendo...';
+  const fd=new FormData();S.semi.files.forEach(f=>fd.append('files',f));
+  try{
+    const d=await fetch(`${API}/api/semi/upload?collection_name=${encodeURIComponent(S.semi.col)}`,{method:'POST',body:fd}).then(r=>r.json());
+    if(d.detail)throw new Error(d.detail);
+    S.semi.jobId=d.job_id;
+    $('semi-sg').innerHTML=(d.summaries||[]).map(scardHTML).join('');
+    const hasDup=(d.summaries||[]).some(x=>x.is_duplicate);
+    if(hasDup){
+      show('semi-da');
+      $('btn-s3').disabled=true;
+      show('btn-s3-upd');
+    }else{
+      hide('semi-da');
+      $('btn-s3').disabled=false;
+      hide('btn-s3-upd');
+    }
+    sGo(3);
+  }catch(e){showModal('Error al subir archivos',`<p>${esc(e.message)}</p>`);}
+  finally{btn.disabled=false;btn.textContent='Validar y continuar';}
+}
+async function sConfirm(){
+  $('btn-s3').disabled=true;sGo(4);
+  try{
+    await api(`/api/semi/confirm/${S.semi.jobId}`,{method:'POST'});
+    poll(S.semi.jobId,r=>renderOK('semi-res','semi-proc',r),e=>renderErr('semi-res','semi-proc',e));
+  }catch(e){renderErr('semi-res','semi-proc',e.message);}
+}
+
+// ═══ AUTOMÁTICO ═══
+function aGo(n){
+  [1,2,3,4,5].forEach(i=>hide('auto-p'+i));
+  show('auto-p'+n);setSteps('as',n,5);
+  if(n===2)$('auto-col-lbl').textContent=S.auto.col;
+  if(n===3){$('auto-col-lbl2').textContent=S.auto.col;$('auto-curid-lbl').textContent=S.auto.curid;}
+  if(n===4)$('auto-col-lbl3').textContent=S.auto.col;
+}
+async function aPreview(){
+  const curid=parseInt($('auto-curid').value);if(!curid)return;
+  S.auto.curid=curid;S.auto.sel=[];S.auto.typeFilter=null;
+  const btn=$('btn-a-prev');btn.disabled=true;btn.textContent='Consultando...';
+  try{
+    const d=await api(`/api/auto/preview?curid=${curid}&collection_name=${encodeURIComponent(S.auto.col)}`);
+    S.auto.mods=d.modules||[];
+    aRenderTree();
+    aGo(3);
+  }catch(e){showModal('Error Moodle',`<p>${esc(e.message)}</p>`);}
+  finally{btn.disabled=false;btn.textContent='Consultar';}
+}
+
+// Cuenta archivos nuevos (no duplicados) por file_type entre todos los modulos
+function typeCounts(mods,key){
+  const counts={};
+  mods.forEach(m=>m[key].forEach(f=>{if(!f.is_duplicate)counts[f.file_type]=(counts[f.file_type]||0)+1}));
+  return counts;
+}
+// Chips de filtro por tipo: click togglea ese tipo dentro/fuera del set activo
+function typeFilterHTML(counts,active,toggleFn){
+  const types=Object.keys(counts);
+  if(types.length<=1)return'';
+  const chips=types.map(t=>{
+    const ft=fileTypeMeta(t);
+    const on=!active||active.has(t);
+    return `<button type="button" class="tfchip${on?' on':''}" onclick="${toggleFn}('${t}')">${ft.icon} ${ft.label} <b>${counts[t]}</b></button>`;
+  }).join('');
+  const allBtn=`<button type="button" class="tfchip${!active?' on':''}" onclick="${toggleFn}('__all__')">Todos</button>`;
+  return `<div class="tfilter">${allBtn}${chips}</div>`;
+}
+
+function aRenderTree(){
+  const filter=S.auto.typeFilter;
+  const totalNew=S.auto.mods.reduce((acc,m)=>acc+m.files.filter(f=>!f.is_duplicate).length,0);
+  const totalDup=S.auto.mods.reduce((acc,m)=>acc+m.files.filter(f=>f.is_duplicate).length,0);
+  $('auto-file-cnt').textContent=`${totalNew} archivo(s) nuevo(s) en ${S.auto.mods.length} módulo(s)`+(totalDup>0?` · ${totalDup} duplicado(s) oculto(s)`:'');
+  const counts=typeCounts(S.auto.mods,'files');
+  $('auto-tfilter').innerHTML=typeFilterHTML(counts,filter,'aToggleType');
+  $('auto-tree').innerHTML=S.auto.mods.map((mod,mi)=>{
+    const rows=mod.files.map((f,fi)=>({f,fi})).filter(({f})=>!f.is_duplicate&&(!filter||filter.has(f.file_type)));
+    if(rows.length===0)return''; // ocultar módulos sin archivos visibles
+    return`<div class="tree-mod">
+      <div class="tree-mhdr" onclick="aTog(${mi})">
+        <span>📁</span><span class="tree-mname">${esc(mod.module_name)}</span>
+        <span class="tree-mcnt">${rows.length} archivo(s)</span><span id="aa${mi}">▾</span>
+      </div>
+      <div id="ab${mi}">
+        ${rows.map(({f,fi})=>{
+          const ft=fileTypeMeta(f.file_type);
+          const unsupported=f.file_type==='other';
+          const checked=S.auto.sel.includes(f.filename);
+          return `
+          <div class="tree-row">
+            <input type="checkbox" id="ac${mi}_${fi}" data-fn="${esc(f.filename)}" onchange="aTick(${mi},${fi})" ${unsupported?'disabled':''} ${checked?'checked':''}>
+            <label for="ac${mi}_${fi}"><span style="color:var(--red-700)">${ft.icon}</span>${esc(f.filename)}
+              <span class="tag ${unsupported?'t-err':'t-new'}">${unsupported?'✕ No soportado':'✓ '+ft.label}</span>
+            </label>
+            ${f.fileurl?`<a href="${esc(f.fileurl)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none" onclick="event.stopPropagation()" title="Abrir el archivo original">👁 Ver</a>`:''}
+            <span class="tree-sz">${fmt(f.filesize)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  if(totalNew===0){
+    $('auto-tree').innerHTML='<div class="alert a-info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div><div class="a-ttl">Sin archivos nuevos</div>Todos los archivos del curso ya están vectorizados en la colección. Usa el módulo de <strong>Actualización</strong> si deseas reemplazar alguno.</div></div>';
+  }else if($('auto-tree').innerHTML===''){
+    $('auto-tree').innerHTML='<div class="alert a-info"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div><div class="a-ttl">Sin archivos de este tipo</div>Prueba con otro filtro.</div></div>';
+  }
+}
+function aToggleType(t){
+  if(t==='__all__'){S.auto.typeFilter=null;}
+  else{
+    if(!S.auto.typeFilter)S.auto.typeFilter=new Set(Object.keys(typeCounts(S.auto.mods,'files')));
+    if(S.auto.typeFilter.has(t))S.auto.typeFilter.delete(t);else S.auto.typeFilter.add(t);
+    if(S.auto.typeFilter.size===Object.keys(typeCounts(S.auto.mods,'files')).length)S.auto.typeFilter=null;
+  }
+  aRenderTree();
+}
+function aTog(mi){const b=$('ab'+mi),a=$('aa'+mi);const h=b.style.display==='none';b.style.display=h?'':'none';a.textContent=h?'▾':'▸';}
+function aTick(mi,pi){
+  const cb=$('ac'+mi+'_'+pi),fn=cb.dataset.fn;
+  if(cb.checked){if(!S.auto.sel.includes(fn))S.auto.sel.push(fn);}
+  else S.auto.sel=S.auto.sel.filter(f=>f!==fn);
+  en('btn-a3',S.auto.sel.length>0);
+}
+function aSelAll(v){
+  // Selecciona/deselecciona todos los archivos VISIBLES (respeta el filtro de tipo activo)
+  const filter=S.auto.typeFilter;
+  if(!v){
+    S.auto.mods.forEach(m=>m.files.forEach(f=>{
+      if(filter&&!filter.has(f.file_type))return;
+      S.auto.sel=S.auto.sel.filter(fn=>fn!==f.filename);
+    }));
+  }else{
+    S.auto.mods.forEach(m=>m.files.forEach(f=>{
+      if(f.is_duplicate||f.file_type==='other')return;
+      if(filter&&!filter.has(f.file_type))return;
+      if(!S.auto.sel.includes(f.filename))S.auto.sel.push(f.filename);
+    }));
+  }
+  aRenderTree();
+  en('btn-a3',S.auto.sel.length>0);
+}
+async function aDownVal(){
+  aGo(4);show('auto-p4l');hide('auto-p4c');
+  try{
+    const d=await api('/api/auto/download-validate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({collection_name:S.auto.col,curid:S.auto.curid,selected_filenames:S.auto.sel})});
+    S.auto.jobId=d.job_id;
+    $('auto-sg').innerHTML=(d.summaries||[]).map(scardHTML).join('');
+    const hasDup=(d.summaries||[]).some(x=>x.is_duplicate);
+    if(hasDup){
+      show('auto-da');
+      $('btn-a4').disabled=true;
+      show('btn-a4-upd');
+    }else{
+      hide('auto-da');
+      $('btn-a4').disabled=false;
+      hide('btn-a4-upd');
+    }
+    hide('auto-p4l');show('auto-p4c');
+  }catch(e){
+    hide('auto-p4l');
+    $('auto-sg').innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`;
+    show('auto-p4c');
+  }
+}
+async function aConfirm(){
+  aGo(5);
+  try{
+    await api(`/api/auto/confirm/${S.auto.jobId}`,{method:'POST'});
+    poll(S.auto.jobId,r=>renderOK('auto-res','auto-proc',r),e=>renderErr('auto-res','auto-proc',e));
+  }catch(e){renderErr('auto-res','auto-proc',e.message);}
+}
+
+// ═══════════════════════════════════════════
+// ACTUALIZACIÓN — flujo separado manual/Moodle
+// ═══════════════════════════════════════════
+
+// Muestra solo el panel indicado y oculta el resto.
+// Los paneles del módulo actualización son:
+//   upd-p1, upd-p2, upd-p3, upd-p3b, upd-p4, upd-p5
+function uShowPanel(id){
+  ['upd-p1','upd-p2','upd-p3','upd-p3b','upd-p4','upd-p5'].forEach(p=>hide(p));
+  show(id);
+}
+
+// Sincroniza el stepper visible según si es manual o Moodle,
+// y marca el paso activo correcto.
+// stepManual: paso para stepper de 5 (manual)
+// stepMoodle: paso para stepper de 6 (moodle), null = no cambiar
+function uSyncStepper(stepManual, stepMoodle){
+  const isMoodle = S.upd.src === 'moodle';
+  $('upd-step-manual').classList.toggle('hidden', isMoodle);
+  $('upd-step-moodle').classList.toggle('hidden', !isMoodle);
+  if(!isMoodle){
+    setSteps('us', stepManual, 5);
+  } else if(stepMoodle !== null){
+    setSteps('um', stepMoodle, 6);
+  }
+}
+
+// PASO 1 → 1
+function uGo(n){
+  if(n===1){
+    S.upd.src='manual';S.upd.file=null;S.upd.mFile=null;S.upd.mCurid=null;
+    // reset fuente UI
+    $('src-manual').classList.add('selected');$('src-moodle').classList.remove('selected');
+    show('upd-man');hide('upd-moo');
+    hide('btn-u3-moo');show('btn-u3-man');en('btn-u3-man',false);
+    // reset stepper a manual
+    $('upd-step-manual').classList.remove('hidden');$('upd-step-moodle').classList.add('hidden');
+    setSteps('us',1,5);
+    uShowPanel('upd-p1');
+  } else if(n===2){
+    uSyncStepper(2, S.upd.src==='moodle'?2:2);
+    $('upd-col-lbl').textContent=S.upd.col;
+    uShowPanel('upd-p2');
+    uLoadDocs();
+  } else if(n===3){
+    uSyncStepper(3,3);
+    $('upd-rep-lbl').textContent=S.upd.doc;
+    uShowPanel('upd-p3');
+  }
+}
+
+async function uLoadDocs(){
+  show('upd-dll');hide('upd-dl');
+  try{
+    const d=await api(`/api/update/list?collection_name=${encodeURIComponent(S.upd.col)}`);
+    const docs=d.documents||[];
+    $('upd-dl').innerHTML=docs.length===0
+      ?'<p class="muted">No hay documentos vectorizados en esta colección.</p>'
+      :docs.map(doc=>`<div class="di" onclick="uSelDoc('${esc(doc.filename)}',this)">
+          <span style="font-size:19px;color:var(--red-700)">📄</span>
+          <div class="di-info">
+            <div class="di-name">${esc(doc.filename)}</div>
+            <div class="di-meta">${doc.total_chunks} chunks · ${esc(doc.course_name||'—')} · ${(doc.date||'').slice(0,10)}</div>
+          </div>
+          <span style="color:var(--gray-450);font-size:17px">›</span>
+        </div>`).join('');
+    hide('upd-dll');show('upd-dl');
+  }catch(e){
+    hide('upd-dll');
+    $('upd-dl').innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`;
+    show('upd-dl');
+  }
+}
+
+function uSelDoc(fn,el){
+  document.querySelectorAll('.di').forEach(d=>d.classList.remove('selected'));
+  el.classList.add('selected');S.upd.doc=fn;en('btn-u2',true);
+}
+
+// Cambio de fuente (manual ↔ Moodle)
+function uSrc(src){
+  S.upd.src=src;S.upd.file=null;S.upd.mFile=null;
+  ['manual','moodle'].forEach(s=>{
+    $('src-'+s).classList.toggle('selected',s===src);
+  });
+  $('upd-man').classList.toggle('hidden',src!=='manual');
+  $('upd-moo').classList.toggle('hidden',src!=='moodle');
+  // botón de avance
+  if(src==='manual'){
+    show('btn-u3-man');hide('btn-u3-moo');en('btn-u3-man',!!S.upd.file);
+  } else {
+    hide('btn-u3-man');show('btn-u3-moo');
+  }
+}
+
+// Upload manual
+function uDrop(e){e.preventDefault();uFile(e.dataTransfer.files[0]);}
+function uFile(file){
+  if(!file)return;S.upd.file=file;
+  $('upd-fsel').innerHTML=`<div class="fi"><span>📄</span><span class="fn">${esc(file.name)}</span><span class="fsz">${fmt(file.size)}</span></div>`;
+  show('upd-fsel');en('btn-u3-man',true);
+}
+
+// Ir al paso 3b (flujo Moodle): curid → módulos → seleccionar PDF
+function uGoMoodle(){
+  uSyncStepper(null,4);
+  $('upd-rep-lbl2').textContent=S.upd.doc;
+  // reset árbol
+  hide('upd-mtree');hide('upd-msel-summary');
+  S.upd.mFile=null;en('btn-u3b',false);
+  uShowPanel('upd-p3b');
+}
+
+// Volver desde 3b a 3
+function uBackToSrc(){
+  uSyncStepper(3,3);
+  $('upd-rep-lbl').textContent=S.upd.doc;
+  uShowPanel('upd-p3');
+}
+
+// Consultar módulos de Moodle (paso 3b)
+async function uPrevMod(){
+  const curid=parseInt($('upd-curid').value);if(!curid)return;
+  S.upd.mCurid=curid;S.upd.mFile=null;en('btn-u3b',false);
+  const btn=$('btn-upd-consult');btn.disabled=true;btn.textContent='Consultando...';
+  try{
+    const d=await api(`/api/update/preview-modules?curid=${curid}&collection_name=${encodeURIComponent(S.upd.col)}`);
+    S.upd.mMods=d.modules||[];
+    S.upd.typeFilter=null;
+    uRenderTree();
+    hide('upd-msel-summary');
+    show('upd-mtree');
+  }catch(e){
+    showModal('Error consultando Moodle',`<p>${esc(e.message)}</p>`);
+  }finally{
+    btn.disabled=false;btn.textContent='Consultar Moodle';
+  }
+}
+
+function uRenderTree(){
+  const mods=S.upd.mMods||[];
+  const filter=S.upd.typeFilter;
+  const total=mods.reduce((acc,m)=>acc+m.files.length,0);
+  $('upd-mtree-cnt').textContent=`${total} archivo(s) en ${mods.length} módulo(s)`;
+  const counts={};
+  mods.forEach(m=>m.files.forEach(f=>{counts[f.file_type]=(counts[f.file_type]||0)+1}));
+  $('upd-tfilter').innerHTML=typeFilterHTML(counts,filter,'uToggleType');
+  $('upd-mtree-inner').innerHTML=mods.map((mod,mi)=>{
+    const rows=mod.files.map((f,fi)=>({f,fi})).filter(({f})=>!filter||filter.has(f.file_type));
+    if(rows.length===0)return'';
+    return`
+    <div class="tree-mod">
+      <div class="tree-mhdr" onclick="uTog(${mi})">
+        <span>📁</span>
+        <span class="tree-mname">${esc(mod.module_name)}</span>
+        <span class="tree-mcnt">${rows.length} archivo(s)</span>
+        <span id="ua${mi}">▾</span>
+      </div>
+      <div id="ub${mi}">
+        ${rows.map(({f,fi})=>{
+          const ft=fileTypeMeta(f.file_type);
+          const unsupported=f.file_type==='other';
+          const checked=S.upd.mFile===f.filename;
+          return `
+          <div class="tree-row">
+            <input type="radio" name="upd-rdo" id="uc${mi}_${fi}"
+              value="${esc(f.filename)}" ${unsupported?'disabled':''} ${checked?'checked':''}
+              onchange="uSelMFile('${esc(f.filename)}','${esc(mod.module_name)}')">
+            <label for="uc${mi}_${fi}">
+              <span style="color:var(--red-700)">${ft.icon}</span>
+              ${esc(f.filename)}
+              <span class="tag ${unsupported?'t-err':'t-dup'}" style="font-size:10px">${unsupported?'No soportado':fmt(f.filesize)}</span>
+            </label>
+            ${f.fileurl?`<a href="${esc(f.fileurl)}" target="_blank" rel="noopener" class="tag" style="text-decoration:none" onclick="event.stopPropagation()" title="Abrir el archivo original">👁 Ver</a>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  if(total>0&&$('upd-mtree-inner').innerHTML===''){
+    $('upd-mtree-inner').innerHTML='<div class="alert a-info">Sin archivos de este tipo. Prueba con otro filtro.</div>';
+  }
+}
+function uToggleType(t){
+  const mods=S.upd.mMods||[];
+  const allCounts={};
+  mods.forEach(m=>m.files.forEach(f=>{allCounts[f.file_type]=1}));
+  const allTypes=Object.keys(allCounts);
+  if(t==='__all__'){S.upd.typeFilter=null;}
+  else{
+    if(!S.upd.typeFilter)S.upd.typeFilter=new Set(allTypes);
+    if(S.upd.typeFilter.has(t))S.upd.typeFilter.delete(t);else S.upd.typeFilter.add(t);
+    if(S.upd.typeFilter.size===allTypes.length)S.upd.typeFilter=null;
+  }
+  uRenderTree();
+}
+
+function uTog(mi){
+  const b=$('ub'+mi),a=$('ua'+mi);
+  const h=b.style.display==='none';
+  b.style.display=h?'':'none';
+  a.textContent=h?'▾':'▸';
+}
+
+// Seleccionar PDF desde el árbol Moodle (paso 3b)
+function uSelMFile(fn, moduleName){
+  S.upd.mFile=fn;S.upd.mCourseName=moduleName;
+  $('upd-msel-name').textContent=fn;
+  $('upd-msel-replacing').textContent=S.upd.doc;
+  show('upd-msel-summary');
+  en('btn-u3b',true);
+}
+
+// Volver desde validación al paso correcto según fuente
+function uBackFromVal(){
+  if(S.upd.src==='moodle'){
+    uSyncStepper(null,4);
+    uShowPanel('upd-p3b');
+  } else {
+    uSyncStepper(3,null);
+    $('upd-rep-lbl').textContent=S.upd.doc;
+    uShowPanel('upd-p3');
+  }
+}
+
+// Prepare (llamado tanto desde botón manual como desde botón 3b Moodle)
+async function uPrepare(){
+  $('upd-val-lbl').textContent=S.upd.doc;
+  const isMoodle=S.upd.src==='moodle';
+  uSyncStepper(4, isMoodle?5:null);
+  $('upd-p4l-msg').textContent=isMoodle?'Descargando y validando desde Moodle...':'Validando documento...';
+  show('upd-p4l');hide('upd-p4c');
+  uShowPanel('upd-p4');
+
+  try{
+    let d;
+    if(!isMoodle){
+      const fd=new FormData();fd.append('file',S.upd.file);
+      const r=await fetch(
+        `${API}/api/update/prepare-manual?collection_name=${encodeURIComponent(S.upd.col)}&filename_to_replace=${encodeURIComponent(S.upd.doc)}`,
+        {method:'POST',body:fd}
+      );
+      d=await r.json();
+      if(!r.ok)throw new Error(d.detail||'Error al preparar el archivo');
+    } else {
+      d=await api(
+        `/api/update/prepare-moodle?collection_name=${encodeURIComponent(S.upd.col)}&filename_to_replace=${encodeURIComponent(S.upd.doc)}&curid=${S.upd.mCurid}&moodle_filename=${encodeURIComponent(S.upd.mFile)}`,
+        {method:'POST'}
+      );
+    }
+    if(d.detail)throw new Error(d.detail);
+    S.upd.jobId=d.job_id;
+    $('upd-sg').innerHTML=scardHTML(d.summary);
+    // Éxito: mostrar bloque de confirmación, ocultar bloque de error
+    show('upd-p4-confirm-block');
+    hide('upd-p4-error-block');
+    hide('upd-p4l');show('upd-p4c');
+  }catch(e){
+    hide('upd-p4l');
+    const msg=e.message||'Error desconocido';
+    // Detectar error de colisión de nombre (archivo nuevo ya existe en Qdrant)
+    const isCollision=msg.includes('ya existe en la colección');
+    $('upd-sg').innerHTML=`
+      <div class="alert a-err" style="flex-direction:column;gap:8px">
+        <div style="display:flex;gap:11px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          <div>
+            <div class="a-ttl">${isCollision?'Nombre de archivo no permitido':'Error al preparar el archivo'}</div>
+            <p style="margin-top:4px">${esc(msg)}</p>
+          </div>
+        </div>
+        ${isCollision?`<div style="margin-top:4px;padding:8px 11px;background:rgba(0,0,0,.05);border-radius:4px;font-size:12px">
+          <strong>Archivos permitidos:</strong><br>
+          ✅ Mismo nombre que el archivo a reemplazar: <code>${esc(S.upd.doc)}</code><br>
+          ✅ Cualquier nombre que <em>no</em> exista aún en la colección
+        </div>`:''}
+      </div>`;
+    // En error: ocultar "Atención" + "Confirmar reemplazo", mostrar solo botón de retorno
+    hide('upd-p4-confirm-block');
+    show('upd-p4-error-block');
+    show('upd-p4c');
+  }
+}
+
+async function uConfirm(){
+  const isMoodle=S.upd.src==='moodle';
+  uSyncStepper(5, isMoodle?6:null);
+  uShowPanel('upd-p5');
+  try{
+    await api(`/api/update/confirm/${S.upd.jobId}`,{method:'POST'});
+    poll(S.upd.jobId,
+      r=>renderOKUpd('upd-res','upd-proc',r),
+      e=>renderErr('upd-res','upd-proc',e)
+    );
+  }catch(e){
+    renderErr('upd-res','upd-proc',e.message);
+  }
+}
+
+// ═══ BÚSQUEDA ═══
+async function doSearch(){
+  const col=$('srch-col').value,q=$('srch-q').value.trim(),k=$('srch-k').value;
+  if(!col||!q){showModal('Campos requeridos','<p>Selecciona una colección e ingresa una consulta.</p>');return;}
+  try{
+    const d=await api(`/api/search?collection_name=${encodeURIComponent(col)}&query=${encodeURIComponent(q)}&top_k=${k}`);
+    const rs=d.results||[];
+    $('srch-cnt').textContent=`${rs.length} resultado(s) para "${q}"`;
+    $('srch-list').innerHTML=rs.map(r=>`
+      <div class="sr-card">
+        <div class="sr-score">Score: ${r.score}</div>
+        <div class="sr-text">${esc(r.text)}</div>
+        <div class="sr-meta">📄 ${esc(r.filename)} · ${esc(r.course_name||'—')} · Chunk #${r.chunk}</div>
+      </div>`).join('');
+    show('srch-wrap');
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+// ── Init ──
+window.addEventListener('DOMContentLoaded',loadCols);
+</script>
+</body>
+</html>
