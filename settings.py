@@ -77,6 +77,156 @@ AVAILABLE_EMBEDDING_MODELS: Dict[str, Dict] = {
         "use_task":     False,
         "provider":     "local",
     },
+
+    # ── 5. OpenAI text-embedding-3-small (no Azure) ──────────────────
+    # 1536 dims · contexto 8191 tokens · vía API OpenAI directa
+    "openai/text-embedding-3-small": {
+        "dimensions":   1536,
+        "params_M":     None,
+        "size_gb":      0,
+        "max_tokens":   8191,
+        "description": (
+            "OpenAI text-embedding-3-small (1536 dims) vía API directa de "
+            "OpenAI (no Azure). No requiere GPU local."
+        ),
+        "use_prefix":   False,
+        "use_task":     False,
+        "provider":     "openai",
+    },
+}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# CATÁLOGOS DE ESTRATEGIAS DEL PIPELINE RAG (Strategy Pattern)
+# ═══════════════════════════════════════════════════════════════════
+#
+# Cada catálogo mapea nombre_de_estrategia -> {provider, description,
+# requires_key}. "requires_key" es el nombre del campo en Settings que debe
+# tener un valor no vacío para que la estrategia sea utilizable; None si no
+# requiere ninguna API key (estrategias locales).
+
+AVAILABLE_ETL_DOCUMENT_STRATEGIES: Dict[str, Dict] = {
+    "local": {
+        "provider": "local",
+        "description": (
+            "Extracción local (PyMuPDF/pdfplumber/python-docx/pptx/EasyOCR). "
+            "Gratis, rápida, sin llamadas a API."
+        ),
+        "requires_key": None,
+    },
+    "gemini_vision": {
+        "provider": "google",
+        "description": (
+            "Gemini 1.5 Flash — lectura nativa de PDF, produce Markdown "
+            "limpio con descripción detallada de imágenes/tablas."
+        ),
+        "requires_key": "GOOGLE_API_KEY",
+    },
+    "gpt4o_mini_vision": {
+        "provider": "openai",
+        "description": (
+            "GPT-4o-mini Vision — PyMuPDF convierte cada página a imagen, "
+            "GPT-4o-mini genera Markdown a partir de las imágenes."
+        ),
+        "requires_key": "OPENAI_API_KEY",
+    },
+    "deepseek_vision": {
+        "provider": "deepseek",
+        "description": (
+            "DeepSeek Vision — PyMuPDF convierte cada página a imagen, "
+            "DeepSeek genera Markdown a partir de las imágenes."
+        ),
+        "requires_key": "DEEPSEEK_API_KEY",
+    },
+}
+
+AVAILABLE_ETL_AUDIO_STRATEGIES: Dict[str, Dict] = {
+    "faster_whisper_local": {
+        "provider": "local",
+        "description": "faster-whisper local — gratis, ya en uso en el sistema.",
+        "requires_key": None,
+    },
+    "whisper_api": {
+        "provider": "openai",
+        "description": "OpenAI Whisper API — transcripción en la nube.",
+        "requires_key": "OPENAI_API_KEY",
+    },
+    "deepgram": {
+        "provider": "deepgram",
+        "description": "Deepgram — transcripción de alta velocidad con diarización de hablantes.",
+        "requires_key": "DEEPGRAM_API_KEY",
+    },
+}
+
+AVAILABLE_CONTEXTUAL_STRATEGIES: Dict[str, Dict] = {
+    "none": {
+        "provider": None,
+        "description": "Sin enriquecimiento contextual (comportamiento actual, sin costo adicional).",
+        "requires_key": None,
+    },
+    "deepseek": {
+        "provider": "deepseek",
+        "description": "DeepSeek genera una cabecera contextual de 50-100 palabras por chunk antes de vectorizar.",
+        "requires_key": "DEEPSEEK_API_KEY",
+    },
+    "gpt4o_mini": {
+        "provider": "openai",
+        "description": "GPT-4o-mini genera una cabecera contextual de 50-100 palabras por chunk antes de vectorizar.",
+        "requires_key": "OPENAI_API_KEY",
+    },
+}
+
+AVAILABLE_SPARSE_EMBEDDING_STRATEGIES: Dict[str, Dict] = {
+    "bm25": {
+        "provider": "fastembed",
+        "description": "BM25 (Qdrant/bm25 vía FastEmbed) — estándar de búsqueda léxica dispersa.",
+        "requires_key": None,
+    },
+    "bge_m3": {
+        "provider": "fastembed",
+        "description": "BGE-M3 disperso (Qdrant/bge-m3 vía FastEmbed) — mayor calidad semántica dispersa.",
+        "requires_key": None,
+    },
+}
+
+AVAILABLE_RERANK_STRATEGIES: Dict[str, Dict] = {
+    "bge_local": {
+        "provider": "local",
+        "description": "BGE-Reranker (cross-encoder local, BAAI/bge-reranker-v2-m3) — gratis, sin API.",
+        "requires_key": None,
+    },
+    "cohere": {
+        "provider": "cohere",
+        "description": "Cohere Rerank v3 — reranking en la nube de alta calidad.",
+        "requires_key": "COHERE_API_KEY",
+    },
+}
+
+AVAILABLE_GENERATION_MODELS: Dict[str, Dict] = {
+    "gpt4o": {
+        "provider": "openai",
+        "model": "gpt-4o",
+        "description": "GPT-4o — máxima calidad de generación.",
+        "requires_key": "OPENAI_API_KEY",
+    },
+    "gpt4o_mini": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "description": "GPT-4o-mini — rápido y económico.",
+        "requires_key": "OPENAI_API_KEY",
+    },
+    "gemini": {
+        "provider": "google",
+        "model": "gemini-1.5-flash",
+        "description": "Gemini 1.5 Flash.",
+        "requires_key": "GOOGLE_API_KEY",
+    },
+    "deepseek": {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "description": "DeepSeek Chat.",
+        "requires_key": "DEEPSEEK_API_KEY",
+    },
 }
 
 
@@ -100,6 +250,14 @@ class Settings(BaseSettings):
     # ================= Qdrant =================
     QDRANT_HOST: str
     QDRANT_PORT: int
+    QDRANT_API_KEY: str = ""
+    QDRANT_HTTPS: bool = False
+    DEFAULT_VECTOR_SIZE: int = 1536
+    DEFAULT_DISTANCE: str = "Cosine"
+
+    @property
+    def QDRANT_PROTOCOL(self) -> str:
+        return "https" if self.QDRANT_HTTPS else "http"
 
     # ================= API Externa =================
     COLLECTIONS_API_URL: str
@@ -132,6 +290,30 @@ class Settings(BaseSettings):
     # webservice habilitado) — ya no se hace login con usuario/contraseña.
     MOODLE_URL: str
     MOODLE_TOKEN: str
+
+    # ================= LLM Generation & Vision (Pipeline RAG) =================
+    # Todas opcionales — se validan de forma perezosa por estrategia (no
+    # bloquean el arranque de la app si faltan; solo la estrategia que las
+    # requiere queda inutilizable hasta que se configuren).
+    OPENAI_API_KEY: str = ""
+    GOOGLE_API_KEY: str = ""
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
+    COHERE_API_KEY: str = ""
+    DEEPGRAM_API_KEY: str = ""
+
+    # ================= RAG Pipeline Defaults (Strategy Pattern) =================
+    # Selección por defecto de estrategia por etapa, usada cuando no hay
+    # override en runtime_config. Ver AVAILABLE_*_STRATEGIES arriba.
+    ETL_DOCUMENT_STRATEGY: str = "local"
+    ETL_AUDIO_STRATEGY: str = "faster_whisper_local"
+    CONTEXTUAL_STRATEGY: str = "none"
+    SPARSE_EMBEDDING_STRATEGY: str = "bm25"
+    RERANK_STRATEGY: str = "bge_local"
+    RERANK_TOP_K: int = 50
+    RERANK_TOP_N: int = 5
+    RERANK_BOOST_MULTIPLIER: float = 1.15
+    GENERATION_STRATEGY: str = "gpt4o_mini"
 
     class Config:
         env_file = ".env"
@@ -166,6 +348,56 @@ def get_model_dimensions(model_name: str) -> int:
 
 def uses_prefix(model_name: str) -> bool:
     return get_model_info(model_name).get("use_prefix", False)
+
+
+# Catálogos indexados por nombre de etapa, para resolución genérica
+# (usado por strategies/registry.py).
+STAGE_CATALOGS: Dict[str, Dict[str, Dict]] = {
+    "etl_document": AVAILABLE_ETL_DOCUMENT_STRATEGIES,
+    "etl_audio": AVAILABLE_ETL_AUDIO_STRATEGIES,
+    "contextual": AVAILABLE_CONTEXTUAL_STRATEGIES,
+    "dense": AVAILABLE_EMBEDDING_MODELS,
+    "sparse": AVAILABLE_SPARSE_EMBEDDING_STRATEGIES,
+    "rerank": AVAILABLE_RERANK_STRATEGIES,
+    "generation": AVAILABLE_GENERATION_MODELS,
+}
+
+STAGE_DEFAULTS: Dict[str, str] = {
+    "etl_document": "ETL_DOCUMENT_STRATEGY",
+    "etl_audio": "ETL_AUDIO_STRATEGY",
+    "contextual": "CONTEXTUAL_STRATEGY",
+    "dense": "EMBEDDING_MODEL",
+    "sparse": "SPARSE_EMBEDDING_STRATEGY",
+    "rerank": "RERANK_STRATEGY",
+    "generation": "GENERATION_STRATEGY",
+}
+
+
+def get_strategy_info(stage: str, strategy_name: str) -> Dict:
+    """Busca `strategy_name` en el catálogo de `stage` (una de las claves de
+    STAGE_CATALOGS). Lanza ValueError con las opciones válidas si no existe,
+    igual que get_model_info()."""
+    if stage not in STAGE_CATALOGS:
+        raise ValueError(
+            f"Etapa '{stage}' desconocida. Etapas válidas: {list(STAGE_CATALOGS.keys())}"
+        )
+    catalog = STAGE_CATALOGS[stage]
+    if strategy_name not in catalog:
+        raise ValueError(
+            f"Estrategia '{strategy_name}' no está en el catálogo de '{stage}'. "
+            f"Disponibles: {list(catalog.keys())}"
+        )
+    return catalog[strategy_name]
+
+
+def strategy_is_usable(stage: str, strategy_name: str) -> bool:
+    """True si la estrategia no requiere API key, o si la key requerida
+    tiene un valor no vacío en settings."""
+    info = get_strategy_info(stage, strategy_name)
+    requires_key = info.get("requires_key")
+    if not requires_key:
+        return True
+    return bool(getattr(settings, requires_key, "") or "")
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -23,3 +23,10 @@ faster-whisper==1.0.3
 easyocr==1.7.2
 olefile==0.47
 yt-dlp==2026.8.19
+
+# ── pipeline RAG: contextual retrieval, hibrida, reranking, generacion ──
+google-genai
+cohere
+deepgram-sdk
+fastembed
+av==12.3.0
