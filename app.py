@@ -38,6 +38,7 @@ from core import (
 import rag_pipeline
 from strategies import registry as strategy_registry
 from strategies.runtime_config import get_runtime_config
+from qdrant_admin import CollectionCreateRequest, CollectionUpdateRequest, get_qdrant_admin
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -152,10 +153,128 @@ async def list_models():
 
 
 @app.get("/api/collections", tags=["Compartido"])
-async def list_collections():
+async def list_collections(
+    detail: bool = Query(
+        False,
+        description=(
+            "Si es true, retorna el listado enriquecido (esquema, puntos, "
+            "estado, descripción) desde el gestor de administración de "
+            "Qdrant en vez de solo los nombres."
+        ),
+    ),
+):
     """Lista todas las colecciones disponibles en Qdrant."""
+    if detail:
+        from qdrant_admin import get_qdrant_admin
+
+        return {"collections": get_qdrant_admin().list_collections()}
     service = get_service()
     return {"collections": service.list_collections()}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# GESTIÓN QDRANT — administración de colecciones (dense y dense+sparse)
+# Absorbe el proyecto standalone "gestion quadrant": mismas 8 rutas,
+# apuntando a qdrant_admin.QdrantAdminManager en vez de un microservicio
+# aparte, con soporte adicional para el esquema híbrido.
+# ═══════════════════════════════════════════════════════════════════
+
+@app.post("/api/collections", status_code=201, tags=["Gestión Qdrant"])
+async def qdrant_create_collection(req: CollectionCreateRequest):
+    """Crea una colección en Qdrant. `vector_schema`: "hybrid" (dense+sparse,
+    requerido para el pipeline RAG configurable) o "legacy" (vector único,
+    compatible con el flujo anterior)."""
+    try:
+        return get_qdrant_admin().create_collection(
+            name=req.name,
+            description=req.description,
+            vector_schema=req.vector_schema,
+            dense_size=req.dense_size,
+            distance=req.distance,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/collections/{collection_name}", tags=["Gestión Qdrant"])
+async def qdrant_get_collection(collection_name: str):
+    """Información detallada de una colección (esquema, puntos, estado)."""
+    try:
+        return get_qdrant_admin().get_collection_info(collection_name)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.patch("/api/collections/{collection_name}", tags=["Gestión Qdrant"])
+async def qdrant_update_collection(collection_name: str, req: CollectionUpdateRequest):
+    """Actualiza la descripción de una colección."""
+    try:
+        return get_qdrant_admin().update_collection(collection_name, req.description)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.delete("/api/collections/{collection_name}", tags=["Gestión Qdrant"])
+async def qdrant_delete_collection(
+    collection_name: str,
+    force: bool = Query(False, description="Forzar eliminación aunque tenga vectores"),
+):
+    """Elimina una colección de Qdrant."""
+    try:
+        return get_qdrant_admin().delete_collection(collection_name, force=force)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/api/collections/{collection_name}/clear", tags=["Gestión Qdrant"])
+async def qdrant_clear_collection(collection_name: str):
+    """Elimina todos los vectores de una colección, conservando su
+    configuración (esquema legacy o híbrido)."""
+    try:
+        return get_qdrant_admin().clear_collection(collection_name)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/api/collections/{collection_name}/exists", tags=["Gestión Qdrant"])
+async def qdrant_collection_exists(collection_name: str):
+    """Verifica si una colección existe."""
+    return {
+        "collection_name": collection_name,
+        "exists": get_qdrant_admin().collection_exists(collection_name),
+    }
+
+
+@app.get("/api/collections/{collection_name}/documents", tags=["Gestión Qdrant"])
+async def qdrant_list_documents(collection_name: str):
+    """Lista los documentos únicos vectorizados en una colección."""
+    try:
+        return get_qdrant_admin().list_documents_in_collection(collection_name)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.delete("/api/collections/{collection_name}/documents/{filename:path}", tags=["Gestión Qdrant"])
+async def qdrant_delete_document(collection_name: str, filename: str):
+    """Elimina todos los chunks de un documento (por filename) de una colección."""
+    try:
+        return get_qdrant_admin().delete_document_by_filename(collection_name, filename)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 
 @app.get("/api/jobs/{job_id}", tags=["Compartido"])
