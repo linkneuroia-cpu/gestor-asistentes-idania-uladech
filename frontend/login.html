@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iniciar sesión — ULADECH Católica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue-800:#3D2352;--blue-700:#553171;--blue-650:#6D4A96;
+  --blue-400:#E8D9FA;--blue-200:#F9F5FF;
+  --gray-800:#2A1F3D;--gray-600:#6B5D80;--gray-500:#8B7D9E;
+  --neutral-300:#E3D6F5;--neutral-100:#F9F5FF;
+  --red-700:#D33A32;--red-200:#FCEEEE;
+  --radius:8px;--radius-lg:14px;
+  --shadow-md:0 8px 24px rgba(85,49,113,.14);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Inter',sans-serif;background:linear-gradient(160deg,var(--blue-200) 0%,var(--neutral-100) 60%,#fff 100%);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;color:var(--gray-800);
+}
+.card{
+  background:#fff;border:1px solid var(--neutral-300);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-md);padding:36px 32px;width:100%;max-width:380px;
+}
+.logo-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px}
+.logo-circle{width:64px;height:64px;border-radius:50%;background:#fff;border:1.5px solid var(--neutral-300);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.logo-circle img{max-width:80%;max-height:80%;object-fit:contain}
+.ent{font-size:12px;color:var(--blue-700);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.sys{font-size:15px;color:var(--gray-800);font-weight:700;text-align:center}
+.fg{margin-bottom:16px}
+.fl{display:block;font-size:13px;font-weight:500;color:var(--gray-800);margin-bottom:5px}
+.fc{width:100%;padding:10px 13px;border:1px solid var(--neutral-300);border-radius:var(--radius);
+  font-size:14px;color:var(--gray-800);background:#fff;outline:none;transition:border-color .17s ease,box-shadow .17s ease}
+.fc:focus{border-color:var(--blue-650);box-shadow:0 0 0 3px rgba(109,74,150,.18)}
+.btn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;
+  border-radius:var(--radius);font-size:14px;font-weight:600;background:var(--blue-700);color:#fff;
+  border:none;cursor:pointer;transition:background .17s ease;margin-top:6px}
+.btn:hover{background:var(--blue-800)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.alert{display:none;background:var(--red-200);color:var(--red-700);border-radius:var(--radius);
+  padding:10px 13px;font-size:13px;margin-bottom:16px}
+.alert.show{display:block}
+.foot{margin-top:20px;text-align:center;font-size:12px;color:var(--gray-500)}
+</style>
+</head>
+<body>
+<form class="card" id="login-form" autocomplete="on">
+  <div class="logo-wrap">
+    <div class="logo-circle"><img src="/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo ULADECH Católica"></div>
+    <span class="ent">ULADECH Católica</span>
+    <span class="sys">Sistema de Vectorización Documental</span>
+  </div>
+  <div class="alert" id="err"></div>
+  <div class="fg">
+    <label class="fl">Usuario</label>
+    <input class="fc" id="username" name="username" autocomplete="username" required>
+  </div>
+  <div class="fg">
+    <label class="fl">Contraseña</label>
+    <input class="fc" id="password" name="password" type="password" autocomplete="current-password" required>
+  </div>
+  <button class="btn" id="btn" type="submit">Iniciar sesión</button>
+  <div class="foot">Acceso restringido — gestor interno ULADECH Católica</div>
+</form>
+<script>
+const form = document.getElementById('login-form');
+const err = document.getElementById('err');
+const btn = document.getElementById('btn');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  err.classList.remove('show');
+  btn.disabled = true; btn.textContent = 'Ingresando…';
+  try {
+    const r = await fetch('/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || 'Error al iniciar sesión');
+    window.location.href = '/gestor';
+  } catch (e) {
+    err.textContent = e.message;
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Iniciar sesión';
+  }
+});
+</script>
+</body>
+</html>

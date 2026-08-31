@@ -354,7 +354,11 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   </div>
 
   <div class="hdr-right">
+    <span class="hdr-badge">{{ user.username if user else '' }}</span>
     <span class="hdr-badge">v2.0</span>
+    <button class="hdr-collapse-btn" onclick="logout()" title="Cerrar sesión" aria-label="Cerrar sesión" style="display:flex">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+    </button>
   </div>
 </header>
 
@@ -439,9 +443,17 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>
     <span class="nav-lbl">API Reference</span>
   </div>
+  {% if user and user.is_admin %}
+  <div class="sb-div"></div>
+  <div class="sb-lbl">Administración</div>
+  <div class="nav" onclick="showMod('usuarios');usrLoad()" id="nav-usuarios">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    <span class="nav-lbl">Usuarios</span>
+  </div>
+  {% endif %}
   <div class="sb-foot">
     <span>API Docs: <a href="/docs" target="_blank">/docs</a></span>
-    <span style="margin-top:4px;display:block;">Qdrant: /span>
+    <span style="margin-top:4px;display:block;">Sesión: {{ user.username if user else '' }}</span>
   </div>
 </nav>
 
@@ -1083,6 +1095,30 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <p class="muted mt16">Documentación interactiva completa: <a href="/docs" target="_blank">/docs</a></p>
   </div>
 </section>
+
+<!-- ═══ USUARIOS (solo administradores) ═══ -->
+<section class="mod" id="mod-usuarios">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--blue-700)"></div>Usuarios</h1>
+    <p>Cuentas con acceso al gestor. Solo un administrador puede crear o eliminar usuarios.</p>
+  </div>
+  <div class="card">
+    <div class="card-ttl">Crear usuario</div>
+    <div class="form-grid" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">
+      <div class="fg" style="flex:1;min-width:160px"><label class="fl">Usuario</label><input class="fc" id="usr-new-username"></div>
+      <div class="fg" style="flex:1;min-width:160px"><label class="fl">Contraseña</label><input class="fc" type="password" id="usr-new-password"></div>
+      <div class="fg" style="min-width:140px">
+        <label class="fl">Rol</label>
+        <select class="fc" id="usr-new-isadmin"><option value="false">Usuario normal</option><option value="true">Administrador</option></select>
+      </div>
+      <button class="btn btn-prim" onclick="usrCreate()" style="height:38px">Crear</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="fb card-ttl"><span>Listado</span><button class="btn btn-ghost btn-sm" onclick="usrLoad()">Actualizar</button></div>
+    <div class="tw"><table><thead><tr><th>Usuario</th><th>Rol</th><th>Creado</th><th>Último acceso</th><th>Acciones</th></tr></thead><tbody id="usr-tbl"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody></table></div>
+  </div>
+</section>
 </main>
 </div>
 <div class="ov" id="ov">
@@ -1122,6 +1158,7 @@ function closeModal(){$('ov').classList.remove('open')}
 
 async function api(path,opts={}){
   const r=await fetch(API+path,opts);
+  if(r.status===401){window.location.href='/login';throw new Error('Sesión expirada');}
   const j=await r.json();
   if(!r.ok)throw new Error(j.detail||JSON.stringify(j));
   return j;
@@ -1221,7 +1258,7 @@ function poll(id,onOk,onErr,ms=2500){
 // ── Nav ──
 const ALL_MODS=['semi','auto','upd','search','llmtest',
   'cfg-keys','cfg-etl','cfg-ctx','cfg-hybrid','cfg-rerank','cfg-gen',
-  'qdrant-dash','qdrant-cols','qdrant-crear','qdrant-verificar','qdrant-endpoints'];
+  'qdrant-dash','qdrant-cols','qdrant-crear','qdrant-verificar','qdrant-endpoints','usuarios'];
 
 function showMod(name){
   ALL_MODS.forEach(m=>{
@@ -1245,6 +1282,53 @@ function openMobileSidebar(){
 function closeMobileSidebar(){
   document.querySelector('.sb').classList.remove('open');
   document.body.classList.remove('sb-open');
+}
+
+async function logout(){
+  try{ await fetch('/logout',{method:'POST'}); }catch(e){}
+  window.location.href='/login';
+}
+
+// ═══ USUARIOS (admin) ═══
+async function usrLoad(){
+  const tbl=$('usr-tbl');
+  if(!tbl)return;
+  tbl.innerHTML='<tr><td colspan="5" class="muted">Cargando…</td></tr>';
+  try{
+    const d=await api('/api/usuarios');
+    const us=d.usuarios||[];
+    tbl.innerHTML=us.map(u=>`
+      <tr>
+        <td><strong>${esc(u.username)}</strong></td>
+        <td>${u.is_admin?'<span class="tag t-new">Administrador</span>':'<span class="tag" style="background:var(--neutral-200);color:var(--gray-600)">Usuario</span>'}</td>
+        <td>${esc((u.created_at||'').slice(0,10))}</td>
+        <td>${u.last_login?esc(u.last_login.slice(0,16).replace('T',' ')):'—'}</td>
+        <td><button class="btn btn-danger btn-sm" onclick='usrDelete(${u.id},${JSON.stringify(u.username)})'>Eliminar</button></td>
+      </tr>`).join('')||'<tr><td colspan="5" class="muted">Sin usuarios</td></tr>';
+  }catch(e){tbl.innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`}
+}
+
+async function usrCreate(){
+  const username=$('usr-new-username').value.trim();
+  const password=$('usr-new-password').value;
+  const isAdmin=$('usr-new-isadmin').value==='true';
+  if(!username||!password){showModal('Campos requeridos','<p>Ingresa usuario y contraseña.</p>');return;}
+  try{
+    await api('/api/usuarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,is_admin:isAdmin})});
+    $('usr-new-username').value='';$('usr-new-password').value='';
+    usrLoad();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+function usrDelete(id,username){
+  showModal('Confirmar eliminación',`<p>¿Eliminar el usuario <strong>${esc(username)}</strong>? No podrá volver a iniciar sesión.</p>
+    <div class="modal-foot" style="margin-top:14px"><button class="btn btn-danger btn-sm" onclick='closeModal();usrDeleteConfirmed(${id})'>Eliminar</button></div>`);
+}
+async function usrDeleteConfirmed(id){
+  try{
+    await api('/api/usuarios/'+id,{method:'DELETE'});
+    usrLoad();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
 // ── Collections ──

@@ -21,12 +21,13 @@ mimetypes.add_type("image/webp", ".webp")
 from pydantic import BaseModel
 from fastapi import (
     FastAPI, UploadFile, File, HTTPException,
-    BackgroundTasks, Query, Request
+    BackgroundTasks, Query, Request, Depends
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 from settings import (
     settings, validate_settings, AVAILABLE_EMBEDDING_MODELS,
     STAGE_CATALOGS, get_strategy_info, strategy_is_usable,
@@ -43,6 +44,8 @@ from core import (
 )
 import rag_pipeline
 import credentials
+import db
+import auth
 from strategies import registry as strategy_registry
 from strategies.runtime_config import get_runtime_config
 from qdrant_admin import CollectionCreateRequest, CollectionUpdateRequest, get_qdrant_admin
@@ -56,6 +59,11 @@ from qdrant_admin import CollectionCreateRequest, CollectionUpdateRequest, get_q
 async def lifespan(app: FastAPI):
     print("🚀 Iniciando Sistema de Vectorización v2...")
     validate_settings()
+    if db.check_connection():
+        print("✅ Postgres conectado")
+        auth.bootstrap_admin()
+    else:
+        print("⚠️ Postgres no disponible al arrancar — el login y las funciones de Asistentes/RD fallarán hasta que se restablezca la conexión.")
     # Pre-carga el modelo por defecto al arrancar
     get_service()
     print("✅ Sistema listo")
@@ -75,6 +83,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Rutas públicas (sin sesión): login, estáticos, chat público de
+# asistentes, y documentación/health. Todo lo demás requiere sesión. ──
+_PUBLIC_PATH_PREFIXES = ("/login", "/logout", "/img", "/asistente", "/docs", "/redoc", "/openapi.json", "/api/health")
+
+
+@app.middleware("http")
+async def auth_gate(request: Request, call_next):
+    path = request.url.path
+    if path == "/" or path.startswith(_PUBLIC_PATH_PREFIXES):
+        return await call_next(request)
+    if not request.session.get("user"):
+        if path.startswith("/api/"):
+            return JSONResponse({"detail": "No autenticado. Inicia sesión en /login."}, status_code=401)
+        return RedirectResponse("/login")
+    return await call_next(request)
+
+
+# NOTA de orden: Starlette apila los middlewares registrados con
+# add_middleware() de modo que el ÚLTIMO agregado queda MÁS externo (se
+# ejecuta primero). SessionMiddleware debe ejecutarse ANTES que auth_gate
+# (para que request.session ya exista cuando auth_gate lo lee), así que
+# se registra DESPUÉS en el código — verificado en vivo: registrarlo antes
+# rompía con "SessionMiddleware must be installed to access request.session".
+app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY, same_site="lax")
+
 
 Path("frontend").mkdir(exist_ok=True)
 templates = Jinja2Templates(directory="frontend")
@@ -116,12 +150,75 @@ def _resolve_model(model_name: Optional[str]) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# INTERFAZ WEB
+# INTERFAZ WEB + LOGIN
 # ═══════════════════════════════════════════════════════════════════
 
-@app.get("/vectorizacion", response_class=HTMLResponse, tags=["Interfaz"])
+@app.get("/", include_in_schema=False)
+async def root(request: Request):
+    return RedirectResponse("/gestor" if request.session.get("user") else "/login")
+
+
+@app.get("/gestor", response_class=HTMLResponse, tags=["Interfaz"])
 async def home(request: Request):
-    return templates.TemplateResponse("interfaz.html", {"request": request})
+    return templates.TemplateResponse("interfaz.html", {"request": request, "user": request.session.get("user")})
+
+
+@app.get("/login", response_class=HTMLResponse, tags=["Interfaz"])
+async def login_page(request: Request):
+    if request.session.get("user"):
+        return RedirectResponse("/gestor")
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/login", tags=["Interfaz"])
+async def login_submit(request: Request, req: LoginRequest):
+    user = await db.run(auth.authenticate, req.username, req.password)
+    if not user:
+        raise HTTPException(401, "Usuario o contraseña incorrectos.")
+    request.session["user"] = {"id": user["id"], "username": user["username"], "is_admin": user["is_admin"]}
+    return {"success": True}
+
+
+@app.post("/logout", tags=["Interfaz"])
+async def logout(request: Request):
+    request.session.clear()
+    return {"success": True}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# USUARIOS (solo administradores)
+# ═══════════════════════════════════════════════════════════════════
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+    is_admin: bool = False
+
+
+@app.get("/api/usuarios", tags=["Usuarios"])
+async def list_usuarios(user=Depends(auth.require_admin)):
+    return {"usuarios": await db.run(auth.list_users)}
+
+
+@app.post("/api/usuarios", status_code=201, tags=["Usuarios"])
+async def create_usuario(req: CreateUserRequest, user=Depends(auth.require_admin)):
+    try:
+        return await db.run(auth.create_user, req.username, req.password, req.is_admin)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/usuarios/{user_id}", tags=["Usuarios"])
+async def delete_usuario(user_id: int, user=Depends(auth.require_admin)):
+    if user_id == user["id"]:
+        raise HTTPException(400, "No puedes eliminar tu propio usuario mientras tienes sesión activa.")
+    await db.run(auth.delete_user, user_id)
+    return {"success": True}
 
 
 # ═══════════════════════════════════════════════════════════════════
