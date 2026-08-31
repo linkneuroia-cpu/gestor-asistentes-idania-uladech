@@ -311,6 +311,8 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center}
 .src:hover{border-color:var(--neutral-400)}
 .src.selected{border-color:var(--purple-700);background:var(--purple-200)}
+.src.readonly{cursor:default;opacity:.72}
+.src.readonly:hover{border-color:var(--neutral-300)}
 .src-icon{font-size:22px}
 .src-name{font-size:13px;font-weight:600;color:var(--gray-700)}
 .src-desc{font-size:11px;color:var(--gray-500)}
@@ -1701,8 +1703,10 @@ function asisCfgBlockHTML(prefix){
     </div>`).join('');
   const readonly=`
     <div class="card">
-      <div class="card-ttl">Capa de Extracción (ETL) y Contextual Retrieval <span class="muted" style="font-weight:400">— configuración global</span></div>
-      <div class="fh">Solo se usan al vectorizar contenido nuevo, no al responder — se administran desde "Configuración RAG".</div>
+      <div class="fb card-ttl"><span>Capa de Extracción (ETL) y Contextual Retrieval <span class="muted" style="font-weight:400">— configuración global</span></span>
+        <button class="btn btn-ghost btn-sm" onclick="showMod('cfg-etl');cfgLoadView('cfg-etl')">Ir a Configuración RAG →</button>
+      </div>
+      <div class="fh">Solo se usan al vectorizar contenido nuevo, no al responder — no se eligen por asistente, se cambian desde ahí antes de vectorizar.</div>
       ${ASIS_CFG_READONLY.map(s=>`<div id="${prefix}-cfgbox-${s.stage}" class="mt8"></div>`).join('')}
     </div>`;
   return editable+readonly;
@@ -1729,12 +1733,13 @@ async function asisCfgRenderStage(prefix,stage,label,interactive){
       </div>`;
     }
     cards+=(d.options||[]).map(o=>`
-      <div class="src ${(interactive?selected===o.name:o.name===d.current)?'selected':''}" style="flex:1 1 200px" ${interactive?`onclick='asisCfgSelect(${JSON.stringify(prefix)},${JSON.stringify(stage)},${JSON.stringify(o.name)})'`:''}>
+      <div class="src ${interactive?'':'readonly'} ${(interactive?selected===o.name:o.name===d.current)?'selected':''}" style="flex:1 1 200px" ${interactive?`onclick='asisCfgSelect(${JSON.stringify(prefix)},${JSON.stringify(stage)},${JSON.stringify(o.name)})'`:''}>
         <span class="src-name">${esc(o.name)}</span>
         <span class="src-desc">${esc(o.description||'')}</span>
         ${(!o.usable&&o.requires_key)?`<span class="tag t-warn" style="margin-top:4px">Requiere ${esc(o.requires_key)}</span>`:''}
       </div>`).join('');
-    box.innerHTML=`<div class="fl mt8">${esc(label)}</div><div class="srcs" style="flex-wrap:wrap">${cards}</div>`;
+    const roNote=interactive?'':' <span class="muted" style="font-weight:400">(solo lectura — cambia en "Configuración RAG")</span>';
+    box.innerHTML=`<div class="fl mt8">${esc(label)}${roNote}</div><div class="srcs" style="flex-wrap:wrap">${cards}</div>`;
   }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
 }
 

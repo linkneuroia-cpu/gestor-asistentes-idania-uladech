@@ -1099,12 +1099,15 @@ async def search(
     except ValueError as e:
         raise HTTPException(422, str(e))
 
+    from qdrant_admin import DENSE_VECTOR_NAME, get_qdrant_admin
+
     vector = await service.embed([query], is_query=True)
-    hits = service._client.query_points(
-        collection_name=collection_name,
-        query=vector[0],
-        limit=top_k,
-    ).points
+    query_kwargs = {"collection_name": collection_name, "query": vector[0], "limit": top_k}
+    if get_qdrant_admin().get_vector_schema(collection_name) == "hybrid":
+        # Colecciones híbridas usan vectores con nombre (dense/sparse) — sin
+        # `using`, Qdrant no sabe contra cuál vector buscar y responde 400.
+        query_kwargs["using"] = DENSE_VECTOR_NAME
+    hits = service._client.query_points(**query_kwargs).points
     return {
         "query":           query,
         "collection":      collection_name,
