@@ -1143,6 +1143,7 @@ class RagAnswerRequest(BaseModel):
     rerank_strategy: Optional[str] = None
     generation_strategy: Optional[str] = None
     top_n: Optional[int] = None
+    asistente_id: Optional[int] = None
 
 
 @app.get("/api/rag/retrieve", tags=["RAG"])
@@ -1196,7 +1197,9 @@ async def rag_retrieve(
 async def rag_answer(req: RagAnswerRequest):
     """
     Pipeline completo del tutor: recuperación híbrida → rerank → boost →
-    generación con el system prompt fijo. Usado por "Pruebas del LLM".
+    generación con el system prompt fijo. Usado por "Búsqueda semántica" y
+    por "Prueba de Asistente" (si `asistente_id` viene informado, se
+    agrega su `prompt_maestro` — misma lógica que la ruta pública).
     """
     from qdrant_admin import get_qdrant_admin
 
@@ -1211,6 +1214,23 @@ async def rag_answer(req: RagAnswerRequest):
             f"'hybrid' — créala o elige otra desde Gestión Qdrant.",
         )
 
+    extra_system_prompt = None
+    if req.asistente_id is not None:
+        asistente = await db.run(assistants.get_asistente, req.asistente_id)
+        if not asistente:
+            raise HTTPException(404, f"El asistente {req.asistente_id} no existe")
+        vinculo = await db.run(
+            db.fetch_one,
+            "SELECT 1 FROM colecciones_rd WHERE rd_id = %s AND qdrant_collection_name = %s",
+            (asistente["rd_id"], req.collection_name),
+        )
+        if not vinculo:
+            raise HTTPException(
+                400,
+                f"La colección '{req.collection_name}' no está vinculada a la RD de este asistente.",
+            )
+        extra_system_prompt = asistente.get("prompt_maestro")
+
     try:
         return await rag_pipeline.answer_query(
             collection_name=req.collection_name,
@@ -1220,6 +1240,7 @@ async def rag_answer(req: RagAnswerRequest):
             rerank_strategy_name=req.rerank_strategy,
             generation_strategy_name=req.generation_strategy,
             top_n=req.top_n,
+            extra_system_prompt=extra_system_prompt,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))

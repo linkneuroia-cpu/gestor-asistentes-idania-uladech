@@ -399,7 +399,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M9 13v2M15 13v2"/></svg>
     <span class="nav-lbl">Crear Asistente</span>
   </div>
-  <div class="nav" onclick="showMod('llmtest');llmtestLoadKeyStatus()" id="nav-llmtest">
+  <div class="nav" onclick="showMod('llmtest');llmtestLoad()" id="nav-llmtest">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
     <span class="nav-lbl">Prueba de Asistente</span>
   </div>
@@ -952,20 +952,17 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
 <section class="mod" id="mod-llmtest">
   <div class="mod-hdr">
     <h1><div class="accent" style="background:var(--red-700)"></div>Prueba de Asistente</h1>
-    <p>Chat de prueba: recuperación híbrida + reranking + generación contra la colección (curso) que elijas, usando la configuración RAG activa. Requiere una colección con esquema híbrido.</p>
+    <p>Prueba un asistente tal como respondería en su página pública: recuperación híbrida + reranking + generación con la configuración RAG activa, incluyendo su prompt maestro.</p>
   </div>
   <div class="card">
     <div class="fg">
-      <label class="fl">Modelo generador</label>
-      <select class="fc" id="llmtest-gen" onchange="llmtestLoadKeyStatus()"><option value="">Cargando…</option></select>
-      <div class="fh">Modelo usado solo para esta prueba — no cambia la configuración global de "Generador Final (LLM)".</div>
+      <label class="fl">Asistente <span class="req">*</span></label>
+      <select class="fc" id="llmtest-asis" onchange="llmtestOnAsisChange()"><option value="">Cargando…</option></select>
     </div>
-    <div id="llmtest-keystatus"></div>
-  </div>
-  <div class="card">
+    <div id="llmtest-asis-info"></div>
     <div class="fg">
       <label class="fl">Colección / curso <span class="req">*</span></label>
-      <select class="fc" id="llmtest-col"><option value="">— Selecciona —</option></select>
+      <select class="fc" id="llmtest-col" disabled><option value="">Elige un asistente primero</option></select>
     </div>
     <div class="fg">
       <label class="fl">Pregunta</label>
@@ -1563,7 +1560,7 @@ async function loadCols(){
     const d=await api('/api/collections');
     const cols=d.collections||[];
     const opts='<option value="">— Selecciona —</option>'+cols.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    ['semi-col','auto-col','upd-col','srch-col','llmtest-col'].forEach(id=>{const e=$(id);if(e)e.innerHTML=opts});
+    ['semi-col','auto-col','upd-col','srch-col'].forEach(id=>{const e=$(id);if(e)e.innerHTML=opts});
   }catch(e){console.error(e)}
 }
 
@@ -2161,7 +2158,6 @@ async function credSave(field){
   try{
     await api('/api/config/credentials/'+field,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:val})});
     if($('cred-box'))credLoad();
-    if($('llmtest-keystatus'))llmtestLoadKeyStatus();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
@@ -2182,32 +2178,43 @@ async function credTest(field){
 // GPT-4o-mini, Gemini...) se prueba, sin cambiar la configuración global
 // de "Generador Final (LLM)", y probar/guardar su clave sin salir de esta
 // sección.
-let LLMTEST_GEN_OPTIONS=[];
+let LLMTEST_ASISTENTES=[];
 
-async function llmtestLoadKeyStatus(){
-  const sel=$('llmtest-gen');
-  const box=$('llmtest-keystatus');
-  if(!sel||!box)return;
-
+async function llmtestLoad(){
+  const sel=$('llmtest-asis');
+  if(!sel)return;
+  sel.innerHTML='<option value="">Cargando…</option>';
+  $('llmtest-asis-info').innerHTML='';
+  $('llmtest-col').innerHTML='<option value="">Elige un asistente primero</option>';
+  $('llmtest-col').disabled=true;
   try{
-    if(LLMTEST_GEN_OPTIONS.length===0){
-      const genCfg=await api('/api/config/generation');
-      LLMTEST_GEN_OPTIONS=genCfg.options||[];
-      sel.innerHTML=LLMTEST_GEN_OPTIONS.map(o=>`<option value="${esc(o.name)}" ${o.name===genCfg.current?'selected':''}>${esc(o.name)}${o.usable?'':' (requiere clave)'}</option>`).join('');
-    }
+    const d=await api('/api/asistentes');
+    LLMTEST_ASISTENTES=d.asistentes||[];
+    sel.innerHTML='<option value="">— Selecciona —</option>'+LLMTEST_ASISTENTES.map(a=>`<option value="${a.id}">${esc(a.nombre)}${a.activo?'':' (inactivo)'}</option>`).join('');
+  }catch(e){sel.innerHTML='<option value="">Error al cargar</option>'}
+}
 
-    const selected=sel.value||(LLMTEST_GEN_OPTIONS[0]&&LLMTEST_GEN_OPTIONS[0].name);
-    const current=LLMTEST_GEN_OPTIONS.find(o=>o.name===selected);
-    if(!current||!current.requires_key){
-      box.innerHTML=`<div class="alert a-ok">"${esc(selected||'')}" no requiere API key.</div>`;
-      return;
-    }
-
-    const credsResp=await api('/api/config/credentials');
-    const cred=(credsResp.credentials||[]).find(c=>c.field===current.requires_key);
-    if(!cred){box.innerHTML='';return;}
-    box.innerHTML=`<div class="muted" style="margin-bottom:6px">"${esc(selected)}" requiere ${esc(current.requires_key)}</div>`+credCardHTML(cred);
-  }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
+async function llmtestOnAsisChange(){
+  const id=$('llmtest-asis').value;
+  const info=$('llmtest-asis-info');
+  const colSel=$('llmtest-col');
+  if(!id){
+    info.innerHTML='';
+    colSel.innerHTML='<option value="">Elige un asistente primero</option>';
+    colSel.disabled=true;
+    return;
+  }
+  const asis=LLMTEST_ASISTENTES.find(a=>String(a.id)===String(id));
+  info.innerHTML=`<div class="fh" style="margin:-4px 0 10px">RD: <strong>${esc(asis.rd_nombre||'')}</strong>${asis.prompt_maestro?` · Prompt maestro: "${esc(asis.prompt_maestro)}"`:' · Sin prompt maestro'}</div>`;
+  colSel.innerHTML='<option value="">Cargando…</option>';
+  colSel.disabled=true;
+  try{
+    const rd=await api(`/api/rds/${asis.rd_id}`);
+    const cols=rd.colecciones||[];
+    if(!cols.length){colSel.innerHTML='<option value="">Esta RD no tiene colecciones vinculadas</option>';return;}
+    colSel.innerHTML='<option value="">— Selecciona —</option>'+cols.map(c=>`<option value="${esc(c.qdrant_collection_name)}">${esc(c.qdrant_collection_name)} (curso ${c.moodle_courseid})</option>`).join('');
+    colSel.disabled=false;
+  }catch(e){colSel.innerHTML='<option value="">Error al cargar</option>'}
 }
 
 // ═══ PRUEBAS DEL LLM ═══
@@ -2218,13 +2225,12 @@ function sourceTag(t){
 }
 
 async function ragAsk(){
-  const col=$('llmtest-col').value,q=$('llmtest-q').value.trim();
-  const genModel=$('llmtest-gen').value||null;
-  if(!col||!q){showModal('Campos requeridos','<p>Selecciona una colección e ingresa una pregunta.</p>');return;}
+  const asisId=$('llmtest-asis').value,col=$('llmtest-col').value,q=$('llmtest-q').value.trim();
+  if(!asisId||!col||!q){showModal('Campos requeridos','<p>Selecciona un asistente, una colección e ingresa una pregunta.</p>');return;}
   const btn=$('llmtest-btn');btn.disabled=true;
   $('llmtest-result').innerHTML='<div class="pbox"><div class="spin"></div><p>Recuperando, rerankeando y generando la respuesta…</p></div>';
   try{
-    const d=await api('/api/rag/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({collection_name:col,query:q,generation_strategy:genModel})});
+    const d=await api('/api/rag/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({collection_name:col,query:q,asistente_id:Number(asisId)})});
     const sources=d.sources||[];
     $('llmtest-result').innerHTML=`
       <div class="card">
