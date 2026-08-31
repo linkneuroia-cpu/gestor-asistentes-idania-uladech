@@ -369,7 +369,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   <button class="sb-close-btn" onclick="closeMobileSidebar()" title="Cerrar menú" aria-label="Cerrar menú">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
   </button>
-  <div class="sb-lbl">Asistentes</div>
+  <div class="sb-lbl">Vectorización</div>
   <div class="nav active" onclick="showMod('semi')" id="nav-semi">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
     <span class="nav-lbl">Semiautomático</span>
@@ -386,14 +386,22 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <span class="nav-badge b-upd">Reemplazar</span>
   </div>
   <div class="sb-div"></div>
-  <div class="sb-lbl">Utilidades</div>
+  <div class="sb-lbl">Asistentes</div>
   <div class="nav" onclick="showMod('search')" id="nav-search">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <span class="nav-lbl">Búsqueda semántica</span>
   </div>
+  <div class="nav" onclick="showMod('rd');rdLoad()" id="nav-rd">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5-10-5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg>
+    <span class="nav-lbl">Gestión RD</span>
+  </div>
+  <div class="nav" onclick="showMod('asis');asisLoad()" id="nav-asis">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M9 13v2M15 13v2"/></svg>
+    <span class="nav-lbl">Crear Asistente</span>
+  </div>
   <div class="nav" onclick="showMod('llmtest');llmtestLoadKeyStatus()" id="nav-llmtest">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-    <span class="nav-lbl">Pruebas del LLM</span>
+    <span class="nav-lbl">Prueba de Asistente</span>
   </div>
   <div class="sb-div"></div>
   <div class="sb-lbl">Configuración RAG</div>
@@ -431,7 +439,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5M3 12a9 3 0 0018 0"/></svg>
     <span class="nav-lbl">Colecciones</span>
   </div>
-  <div class="nav" onclick="showMod('qdrant-crear')" id="nav-qdrant-crear">
+  <div class="nav" onclick="showMod('qdrant-crear');qLoadRdOptions()" id="nav-qdrant-crear">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     <span class="nav-lbl">Crear colección</span>
   </div>
@@ -893,10 +901,57 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   </div>
 </section>
 
-<!-- ═══ PRUEBAS DEL LLM ═══ -->
+<!-- ═══ GESTIÓN RD ═══ -->
+<section class="mod" id="mod-rd">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--blue-700)"></div>Gestión RD</h1>
+    <p>Aulas RD: cada una se vincula a un curso de Moodle y puede tener varias colecciones y asistentes asignados. Cada colección creada en "Gestión Qdrant" se asigna a una RD + un curso específico.</p>
+  </div>
+  <div class="card">
+    <div class="card-ttl">Crear RD</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">
+      <div class="fg" style="flex:2;min-width:240px"><label class="fl">Nombre</label><input class="fc" id="rd-new-nombre" placeholder="Ej: RD-PRE-DERECHO-BL-..."></div>
+      <div class="fg" style="min-width:140px"><label class="fl">Course ID (Moodle)</label><input class="fc" type="number" id="rd-new-courseid"></div>
+      <div class="fg" style="flex:1;min-width:200px"><label class="fl">URL del curso (opcional)</label><input class="fc" id="rd-new-url" placeholder="https://campus.uladech.edu.pe/course/view.php?id="></div>
+      <button class="btn btn-prim" onclick="rdCreate()" style="height:38px">Crear</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="fb card-ttl"><span>Listado (<span id="rd-count">0</span>)</span><button class="btn btn-ghost btn-sm" onclick="rdLoad()">Actualizar</button></div>
+    <div class="tw"><table><thead><tr><th>Nombre</th><th>Course ID</th><th>Colecciones</th><th>Asistentes</th><th>Acciones</th></tr></thead><tbody id="rd-tbl"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody></table></div>
+  </div>
+</section>
+
+<!-- ═══ CREAR ASISTENTE ═══ -->
+<section class="mod" id="mod-asis">
+  <div class="mod-hdr">
+    <h1><div class="accent" style="background:var(--purple-700)"></div>Crear Asistente</h1>
+    <p>Un asistente es un chatbot público ligado a una RD: responde usando las colecciones de esa RD, saluda al usuario por su nombre (vía Moodle) y guarda todo su historial.</p>
+  </div>
+  <div class="card">
+    <div class="card-ttl">Nuevo asistente</div>
+    <div class="fg"><label class="fl">Nombre del asistente</label><input class="fc" id="asis-new-nombre" placeholder="Ej: Tutor de Introducción al Derecho"></div>
+    <div class="fg">
+      <label class="fl">RD (aula)</label>
+      <select class="fc" id="asis-new-rd"><option value="">— Selecciona —</option></select>
+    </div>
+    <div class="fg">
+      <label class="fl">Prompt maestro (contexto adicional para el asistente)</label>
+      <textarea class="fc" id="asis-new-prompt" rows="4" placeholder="Ej: Eres el asistente del curso de Introducción a las Ciencias Jurídicas. Responde con tono formal y académico…"></textarea>
+      <div class="fh">Se agrega al prompt del sistema fijo (prioridad al material del curso) — no lo reemplaza.</div>
+    </div>
+    <button class="btn btn-prim" onclick="asisCreate()">Crear asistente</button>
+  </div>
+  <div class="card">
+    <div class="fb card-ttl"><span>Listado</span><button class="btn btn-ghost btn-sm" onclick="asisLoad()">Actualizar</button></div>
+    <div class="tw"><table><thead><tr><th>Nombre</th><th>RD</th><th>Estado</th><th>URL pública</th><th>Acciones</th></tr></thead><tbody id="asis-tbl"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody></table></div>
+  </div>
+</section>
+
+<!-- ═══ PRUEBA DE ASISTENTE ═══ -->
 <section class="mod" id="mod-llmtest">
   <div class="mod-hdr">
-    <h1><div class="accent" style="background:var(--red-700)"></div>Pruebas del LLM</h1>
+    <h1><div class="accent" style="background:var(--red-700)"></div>Prueba de Asistente</h1>
     <p>Chat de prueba: recuperación híbrida + reranking + generación contra la colección (curso) que elijas, usando la configuración RAG activa. Requiere una colección con esquema híbrido.</p>
   </div>
   <div class="card">
@@ -1047,6 +1102,16 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
         <option value="Euclid">Euclid — distancia euclídea</option>
         <option value="Dot">Dot — producto punto</option>
       </select>
+    </div>
+    <div class="div"></div>
+    <div class="fg">
+      <label class="fl">RD (aula) a la que pertenece <span class="muted">— opcional</span></label>
+      <select class="fc" id="q-create-rd"><option value="">— Sin asignar —</option></select>
+      <div class="fh">Necesario para que un asistente pueda encontrar esta colección.</div>
+    </div>
+    <div class="fg">
+      <label class="fl">Course ID de Moodle para esta colección <span class="muted">— opcional</span></label>
+      <input class="fc" type="number" id="q-create-courseid" style="max-width:200px">
     </div>
     <button class="btn btn-prim" onclick="qCreate()">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
@@ -1256,7 +1321,7 @@ function poll(id,onOk,onErr,ms=2500){
 }
 
 // ── Nav ──
-const ALL_MODS=['semi','auto','upd','search','llmtest',
+const ALL_MODS=['semi','auto','upd','search','rd','asis','llmtest',
   'cfg-keys','cfg-etl','cfg-ctx','cfg-hybrid','cfg-rerank','cfg-gen',
   'qdrant-dash','qdrant-cols','qdrant-crear','qdrant-verificar','qdrant-endpoints','usuarios'];
 
@@ -1328,6 +1393,167 @@ async function usrDeleteConfirmed(id){
   try{
     await api('/api/usuarios/'+id,{method:'DELETE'});
     usrLoad();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+// ═══ GESTIÓN RD ═══
+async function rdLoad(){
+  const tbl=$('rd-tbl');
+  if(!tbl)return;
+  tbl.innerHTML='<tr><td colspan="5" class="muted">Cargando…</td></tr>';
+  try{
+    const d=await api('/api/rds');
+    const list=d.rds||[];
+    $('rd-count').textContent=list.length;
+    tbl.innerHTML=list.map(r=>`
+      <tr>
+        <td><strong>${esc(r.nombre)}</strong></td>
+        <td>${r.moodle_courseid}</td>
+        <td>${r.total_colecciones}</td>
+        <td>${r.total_asistentes}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="rdEdit(${r.id})">Editar</button>
+          <button class="btn btn-danger btn-sm" onclick='rdDelete(${r.id},${JSON.stringify(r.nombre)},${r.total_colecciones},${r.total_asistentes})'>Eliminar</button>
+        </td>
+      </tr>`).join('')||'<tr><td colspan="5" class="muted">Sin RD registradas</td></tr>';
+  }catch(e){tbl.innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`}
+}
+
+async function rdCreate(){
+  const nombre=$('rd-new-nombre').value.trim();
+  const courseid=$('rd-new-courseid').value;
+  if(!nombre||!courseid){showModal('Campos requeridos','<p>Ingresa nombre y course ID.</p>');return;}
+  try{
+    await api('/api/rds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nombre, moodle_courseid:parseInt(courseid), moodle_course_url:$('rd-new-url').value.trim()||null,
+    })});
+    $('rd-new-nombre').value='';$('rd-new-courseid').value='';$('rd-new-url').value='';
+    rdLoad();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+async function rdEdit(id){
+  try{
+    const rd=await api('/api/rds/'+id);
+    showModal(`Editar RD #${id}`,`
+      <div class="fg"><label class="fl">Nombre</label><input class="fc" id="rd-edit-nombre" value="${esc(rd.nombre)}"></div>
+      <div class="fg"><label class="fl">Course ID (Moodle)</label><input class="fc" type="number" id="rd-edit-courseid" value="${rd.moodle_courseid}"></div>
+      <div class="fg"><label class="fl">URL del curso</label><input class="fc" id="rd-edit-url" value="${esc(rd.moodle_course_url||'')}"></div>
+      <div class="card-ttl mt16">Colecciones asignadas (${rd.colecciones.length})</div>
+      <div class="dl">${rd.colecciones.map(c=>`<div class="di"><div class="di-info"><div class="di-name">${esc(c.qdrant_collection_name)}</div><div class="di-meta">Course ID: ${c.moodle_courseid}</div></div></div>`).join('')||'<p class="muted">Ninguna</p>'}</div>
+      <div class="card-ttl mt16">Asistentes asignados (${rd.asistentes.length})</div>
+      <div class="dl">${rd.asistentes.map(a=>`<div class="di"><div class="di-info"><div class="di-name">${esc(a.nombre)}</div><div class="di-meta">${a.activo?'Activo':'Inactivo'}</div></div></div>`).join('')||'<p class="muted">Ninguno</p>'}</div>
+      <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick="rdEditSave(${id})">Guardar</button></div>
+    `);
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+async function rdEditSave(id){
+  try{
+    await api('/api/rds/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nombre:$('rd-edit-nombre').value.trim(),
+      moodle_courseid:parseInt($('rd-edit-courseid').value),
+      moodle_course_url:$('rd-edit-url').value.trim()||null,
+    })});
+    closeModal();
+    rdLoad();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+function rdDelete(id,nombre,totalColecciones,totalAsistentes){
+  const blocked=totalColecciones>0||totalAsistentes>0;
+  showModal('Confirmar eliminación',`<p>¿Eliminar la RD <strong>${esc(nombre)}</strong>?</p>
+    ${blocked?`<div class="alert a-warn mt8">Tiene ${totalColecciones} colección(es) y ${totalAsistentes} asistente(s) asignados — no se podrá eliminar hasta reasignarlos o eliminarlos primero.</div>`:''}
+    <div class="modal-foot" style="margin-top:14px"><button class="btn btn-danger btn-sm" onclick='closeModal();rdDeleteConfirmed(${id})'>Eliminar</button></div>`);
+}
+async function rdDeleteConfirmed(id){
+  try{
+    await api('/api/rds/'+id,{method:'DELETE'});
+    rdLoad();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+// ═══ CREAR ASISTENTE ═══
+async function asisLoadRdOptions(){
+  const sel=$('asis-new-rd');
+  try{
+    const d=await api('/api/rds');
+    sel.innerHTML='<option value="">— Selecciona —</option>'+(d.rds||[]).map(r=>`<option value="${r.id}">${esc(r.nombre)}</option>`).join('');
+  }catch(e){}
+}
+
+async function asisLoad(){
+  asisLoadRdOptions();
+  const tbl=$('asis-tbl');
+  if(!tbl)return;
+  tbl.innerHTML='<tr><td colspan="5" class="muted">Cargando…</td></tr>';
+  try{
+    const d=await api('/api/asistentes');
+    const list=d.asistentes||[];
+    tbl.innerHTML=list.map(a=>`
+      <tr>
+        <td><strong>${esc(a.nombre)}</strong></td>
+        <td>${esc(a.rd_nombre||'—')}</td>
+        <td>${a.activo?'<span class="tag t-new">Activo</span>':'<span class="tag t-warn">Inactivo</span>'}</td>
+        <td><a href="${esc(a.public_url)}" target="_blank" style="font-family:monospace;font-size:11px">${esc(a.public_url)}</a></td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="asisEdit(${a.id})">Editar</button>
+          <button class="btn btn-danger btn-sm" onclick='asisDelete(${a.id},${JSON.stringify(a.nombre)})'>Eliminar</button>
+        </td>
+      </tr>`).join('')||'<tr><td colspan="5" class="muted">Sin asistentes creados</td></tr>';
+  }catch(e){tbl.innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`}
+}
+
+async function asisCreate(){
+  const nombre=$('asis-new-nombre').value.trim();
+  const rdId=$('asis-new-rd').value;
+  if(!nombre||!rdId){showModal('Campos requeridos','<p>Ingresa un nombre y selecciona una RD.</p>');return;}
+  try{
+    const d=await api('/api/asistentes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nombre, rd_id:parseInt(rdId), prompt_maestro:$('asis-new-prompt').value.trim()||null,
+    })});
+    showModal('Asistente creado',`<p><strong>${esc(nombre)}</strong> fue creado.</p><p class="mt8">URL pública:<br><a href="${esc(d.public_url)}" target="_blank">${esc(d.public_url)}</a></p>`);
+    $('asis-new-nombre').value='';$('asis-new-prompt').value='';
+    asisLoad();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+async function asisEdit(id){
+  try{
+    const a=await api('/api/asistentes/'+id);
+    const rdOpts=await api('/api/rds');
+    showModal(`Editar asistente #${id}`,`
+      <div class="fg"><label class="fl">Nombre</label><input class="fc" id="asis-edit-nombre" value="${esc(a.nombre)}"></div>
+      <div class="fg"><label class="fl">RD</label><select class="fc" id="asis-edit-rd">${(rdOpts.rds||[]).map(r=>`<option value="${r.id}" ${r.id===a.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">Prompt maestro</label><textarea class="fc" id="asis-edit-prompt" rows="4">${esc(a.prompt_maestro||'')}</textarea></div>
+      <div class="fg"><label class="fl">Estado</label><select class="fc" id="asis-edit-activo"><option value="true" ${a.activo?'selected':''}>Activo</option><option value="false" ${!a.activo?'selected':''}>Inactivo</option></select></div>
+      <p class="muted">URL pública: <a href="${esc(a.public_url)}" target="_blank">${esc(a.public_url)}</a></p>
+      <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick="asisEditSave(${id})">Guardar</button></div>
+    `);
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+async function asisEditSave(id){
+  try{
+    await api('/api/asistentes/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nombre:$('asis-edit-nombre').value.trim(),
+      rd_id:parseInt($('asis-edit-rd').value),
+      prompt_maestro:$('asis-edit-prompt').value.trim()||null,
+      activo:$('asis-edit-activo').value==='true',
+    })});
+    closeModal();
+    asisLoad();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+function asisDelete(id,nombre){
+  showModal('Confirmar eliminación',`<p>¿Eliminar el asistente <strong>${esc(nombre)}</strong>? Se eliminarán también sus sesiones y mensajes guardados.</p>
+    <div class="modal-foot" style="margin-top:14px"><button class="btn btn-danger btn-sm" onclick='closeModal();asisDeleteConfirmed(${id})'>Eliminar</button></div>`);
+}
+async function asisDeleteConfirmed(id){
+  try{
+    await api('/api/asistentes/'+id,{method:'DELETE'});
+    asisLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
@@ -2117,6 +2343,8 @@ async function qDeleteColConfirmed(name,force){
 async function qCreate(){
   const name=$('q-create-name').value.trim();
   if(!name){showModal('Campo requerido','<p>Ingresa un nombre de colección.</p>');return;}
+  const rdId=$('q-create-rd').value;
+  const courseId=$('q-create-courseid').value;
   try{
     await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       name,
@@ -2124,11 +2352,22 @@ async function qCreate(){
       vector_schema:qSchemaSelected,
       dense_size:parseInt($('q-create-size').value)||1536,
       distance:$('q-create-distance').value,
+      rd_id:rdId?parseInt(rdId):null,
+      moodle_courseid:courseId?parseInt(courseId):null,
     })});
     showModal('Colección creada',`<p>La colección <strong>${esc(name)}</strong> fue creada correctamente (esquema ${qSchemaSelected}).</p>`);
-    $('q-create-name').value='';$('q-create-desc').value='';
+    $('q-create-name').value='';$('q-create-desc').value='';$('q-create-courseid').value='';
     loadCols();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+async function qLoadRdOptions(){
+  const sel=$('q-create-rd');
+  if(!sel)return;
+  try{
+    const d=await api('/api/rds');
+    sel.innerHTML='<option value="">— Sin asignar —</option>'+(d.rds||[]).map(r=>`<option value="${r.id}">${esc(r.nombre)}</option>`).join('');
+  }catch(e){}
 }
 
 async function qVerify(){

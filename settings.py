@@ -329,6 +329,11 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = "changeme123"
     SESSION_SECRET_KEY: str = "change-this-session-secret-in-env"
 
+    # ================= Asistentes públicos =================
+    # Dominio público donde queda expuesto /asistente/{token} — ajustar en
+    # .env cuando se despliegue detrás de un dominio real.
+    PUBLIC_BASE_URL: str = "http://localhost:8100"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

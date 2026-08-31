@@ -8,6 +8,7 @@ FastAPI — un solo puerto (8100), tres asistentes:
   · /api/          → endpoints compartidos (colecciones, job status, modelos)
 """
 
+import asyncio
 import mimetypes
 import uuid
 from pathlib import Path
@@ -37,6 +38,7 @@ from definitions import (get_service,
     AutoPreviewRequest, AutoVectorizeRequest,
     UpdateVectorizeRequest,
     _sanitize_filename,
+    get_moodle_user_fullname,
 )
 from core import (
     SemiAutoCore, AutoCore, UpdateCore,
@@ -46,6 +48,8 @@ import rag_pipeline
 import credentials
 import db
 import auth
+import rds
+import assistants
 from strategies import registry as strategy_registry
 from strategies.runtime_config import get_runtime_config
 from qdrant_admin import CollectionCreateRequest, CollectionUpdateRequest, get_qdrant_admin
@@ -291,9 +295,11 @@ async def list_collections(
 async def qdrant_create_collection(req: CollectionCreateRequest):
     """Crea una colección en Qdrant. `vector_schema`: "hybrid" (dense+sparse,
     requerido para el pipeline RAG configurable) o "legacy" (vector único,
-    compatible con el flujo anterior)."""
+    compatible con el flujo anterior). Si se dan `rd_id`+`moodle_courseid`,
+    la colección queda asignada a esa RD/curso en Postgres (colecciones_rd)
+    — necesario para que los asistentes puedan resolverla."""
     try:
-        return get_qdrant_admin().create_collection(
+        result = get_qdrant_admin().create_collection(
             name=req.name,
             description=req.description,
             vector_schema=req.vector_schema,
@@ -304,6 +310,14 @@ async def qdrant_create_collection(req: CollectionCreateRequest):
         raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(500, str(e))
+
+    if req.rd_id is not None and req.moodle_courseid is not None:
+        try:
+            await db.run(rds.link_collection, req.name, req.rd_id, req.moodle_courseid)
+        except ValueError as e:
+            raise HTTPException(400, f"Colección creada, pero no se pudo asignar a la RD: {e}")
+
+    return result
 
 
 @app.get("/api/collections/{collection_name}", tags=["Gestión Qdrant"])
@@ -333,13 +347,15 @@ async def qdrant_delete_collection(
     collection_name: str,
     force: bool = Query(False, description="Forzar eliminación aunque tenga vectores"),
 ):
-    """Elimina una colección de Qdrant."""
+    """Elimina una colección de Qdrant y su vínculo con la RD (si tenía)."""
     try:
-        return get_qdrant_admin().delete_collection(collection_name, force=force)
+        result = get_qdrant_admin().delete_collection(collection_name, force=force)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(500, str(e))
+    await db.run(rds.unlink_collection, collection_name)
+    return result
 
 
 @app.post("/api/collections/{collection_name}/clear", tags=["Gestión Qdrant"])
@@ -383,6 +399,201 @@ async def qdrant_delete_document(collection_name: str, filename: str):
         raise HTTPException(404, str(e))
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# RD (aulas)  /api/rds/*
+# ═══════════════════════════════════════════════════════════════════
+
+class RdCreateRequest(BaseModel):
+    nombre: str
+    moodle_courseid: int
+    moodle_course_url: Optional[str] = None
+
+
+class RdUpdateRequest(BaseModel):
+    nombre: Optional[str] = None
+    moodle_courseid: Optional[int] = None
+    moodle_course_url: Optional[str] = None
+
+
+@app.get("/api/rds", tags=["RD"])
+async def list_rds_endpoint():
+    """Todas las RD, con conteo de colecciones y asistentes asignados."""
+    return {"rds": await db.run(rds.list_rds)}
+
+
+@app.get("/api/rds/{rd_id}", tags=["RD"])
+async def get_rd_endpoint(rd_id: int):
+    """Detalle de una RD: sus colecciones y asistentes asignados."""
+    detail = await db.run(rds.get_rd_detail, rd_id)
+    if not detail:
+        raise HTTPException(404, f"La RD {rd_id} no existe")
+    return detail
+
+
+@app.post("/api/rds", status_code=201, tags=["RD"])
+async def create_rd_endpoint(req: RdCreateRequest):
+    return await db.run(rds.create_rd, req.nombre, req.moodle_courseid, req.moodle_course_url)
+
+
+@app.patch("/api/rds/{rd_id}", tags=["RD"])
+async def update_rd_endpoint(rd_id: int, req: RdUpdateRequest):
+    try:
+        return await db.run(rds.update_rd, rd_id, req.nombre, req.moodle_courseid, req.moodle_course_url)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.delete("/api/rds/{rd_id}", tags=["RD"])
+async def delete_rd_endpoint(rd_id: int):
+    try:
+        await db.run(rds.delete_rd, rd_id)
+        return {"success": True}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ASISTENTES (CRUD)  /api/asistentes/*
+# ═══════════════════════════════════════════════════════════════════
+
+class AsistenteCreateRequest(BaseModel):
+    nombre: str
+    rd_id: int
+    prompt_maestro: Optional[str] = None
+
+
+class AsistenteUpdateRequest(BaseModel):
+    nombre: Optional[str] = None
+    rd_id: Optional[int] = None
+    prompt_maestro: Optional[str] = None
+    activo: Optional[bool] = None
+
+
+@app.get("/api/asistentes", tags=["Asistentes"])
+async def list_asistentes_endpoint():
+    return {"asistentes": await db.run(assistants.list_asistentes)}
+
+
+@app.get("/api/asistentes/{asistente_id}", tags=["Asistentes"])
+async def get_asistente_endpoint(asistente_id: int):
+    a = await db.run(assistants.get_asistente, asistente_id)
+    if not a:
+        raise HTTPException(404, f"El asistente {asistente_id} no existe")
+    return a
+
+
+@app.post("/api/asistentes", status_code=201, tags=["Asistentes"])
+async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(auth.get_current_user)):
+    try:
+        return await db.run(assistants.create_asistente, req.nombre, req.rd_id, req.prompt_maestro, user["id"])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.patch("/api/asistentes/{asistente_id}", tags=["Asistentes"])
+async def update_asistente_endpoint(asistente_id: int, req: AsistenteUpdateRequest):
+    try:
+        return await db.run(
+            assistants.update_asistente, asistente_id, req.nombre, req.rd_id, req.prompt_maestro, req.activo
+        )
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.delete("/api/asistentes/{asistente_id}", tags=["Asistentes"])
+async def delete_asistente_endpoint(asistente_id: int):
+    try:
+        await db.run(assistants.delete_asistente, asistente_id)
+        return {"success": True}
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ASISTENTE PÚBLICO (sin login)  /asistente/{token}
+# ═══════════════════════════════════════════════════════════════════
+
+@app.get("/asistente/{token}", response_class=HTMLResponse, tags=["Asistente público"])
+async def asistente_chat_page(token: str, request: Request, courseid: int = Query(...), userid: int = Query(...)):
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        return templates.TemplateResponse(
+            "asistente_chat.html",
+            {"request": request, "error": "Este asistente no existe o no está activo."},
+            status_code=404,
+        )
+
+    collection_name = await db.run(rds.resolve_collection, asistente["rd_id"], courseid)
+    if not collection_name:
+        return templates.TemplateResponse(
+            "asistente_chat.html",
+            {
+                "request": request,
+                "error": f"No hay ninguna colección asignada a este curso (id {courseid}) en la RD de este asistente.",
+            },
+            status_code=404,
+        )
+
+    loop = asyncio.get_event_loop()
+    fullname = await loop.run_in_executor(None, get_moodle_user_fullname, userid)
+
+    sesion = await db.run(
+        assistants.get_or_create_sesion,
+        asistente["id"], courseid, userid, None, fullname, collection_name,
+    )
+    historial = await db.run(assistants.get_mensajes, sesion["id"])
+
+    return templates.TemplateResponse(
+        "asistente_chat.html",
+        {
+            "request": request,
+            "error": None,
+            "token": token,
+            "asistente_nombre": asistente["nombre"],
+            "sesion_id": sesion["id"],
+            "saludo_nombre": fullname or "",
+            "historial": historial,
+        },
+    )
+
+
+class AsistenteMensajeRequest(BaseModel):
+    sesion_id: int
+    pregunta: str
+
+
+@app.post("/asistente/{token}/mensaje", tags=["Asistente público"])
+async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+
+    sesion = await db.run(assistants.get_sesion, req.sesion_id)
+    if not sesion or sesion["asistente_id"] != asistente["id"]:
+        raise HTTPException(404, "Sesión no válida para este asistente.")
+
+    if not req.pregunta or not req.pregunta.strip():
+        raise HTTPException(400, "La pregunta no puede estar vacía.")
+
+    await db.run(assistants.save_mensaje, req.sesion_id, "user", req.pregunta)
+
+    try:
+        result = await rag_pipeline.answer_query(
+            collection_name=sesion["qdrant_collection_name"],
+            query=req.pregunta,
+            extra_system_prompt=asistente.get("prompt_maestro"),
+        )
+    except Exception as e:
+        raise HTTPException(502, f"Error generando la respuesta: {e}")
+
+    await db.run(
+        assistants.save_mensaje,
+        req.sesion_id, "assistant", result["answer"], result["sources"], result["config_used"],
+    )
+
+    return result
 
 
 @app.get("/api/jobs/{job_id}", tags=["Compartido"])

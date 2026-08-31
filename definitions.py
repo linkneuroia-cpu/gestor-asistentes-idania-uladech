@@ -1087,6 +1087,34 @@ _YOUTUBE_RE = re.compile(
 )
 
 
+def get_moodle_user_fullname(userid: int) -> Optional[str]:
+    """Nombre completo del usuario de Moodle (para el saludo del asistente
+    público). Usa core_user_get_users_by_field — verificado en vivo que el
+    MOODLE_TOKEN actual tiene permiso para esta función. Retorna None si el
+    usuario no existe o la llamada falla (el saludo genérico es el
+    fallback, no debe romper la ruta pública)."""
+    try:
+        url = f"{settings.MOODLE_URL}/webservice/rest/server.php"
+        params = {
+            "wstoken": settings.MOODLE_TOKEN,
+            "wsfunction": "core_user_get_users_by_field",
+            "moodlewsrestformat": "json",
+            "field": "id",
+            "values[0]": userid,
+        }
+        r = requests.get(url, params=params, verify=False, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, dict) and "exception" in data:
+            print(f"⚠️ Moodle no pudo resolver el usuario {userid}: {data.get('message')}")
+            return None
+        if data and isinstance(data, list):
+            return data[0].get("fullname")
+    except Exception as e:
+        print(f"⚠️ Error consultando nombre de usuario Moodle {userid}: {e}")
+    return None
+
+
 def get_course_resources(curid: int) -> List[Dict[str, Any]]:
     """
     Consulta la API de Moodle y retorna los recursos (módulos) del curso.

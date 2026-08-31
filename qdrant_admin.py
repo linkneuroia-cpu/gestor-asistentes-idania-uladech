@@ -50,6 +50,11 @@ class CollectionCreateRequest(BaseModel):
     vector_schema: VectorSchema = "hybrid"
     dense_size: int = settings.DEFAULT_VECTOR_SIZE
     distance: str = settings.DEFAULT_DISTANCE
+    # RD (aula) + curso de Moodle al que queda asignada esta colección —
+    # opcional a nivel de Qdrant (no se guarda en el payload de Qdrant),
+    # se persiste en Postgres (colecciones_rd) desde el endpoint de app.py.
+    rd_id: Optional[int] = None
+    moodle_courseid: Optional[int] = None
 
 
 class CollectionUpdateRequest(BaseModel):

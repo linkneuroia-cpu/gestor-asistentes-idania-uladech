@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ asistente_nombre or "Asistente" }} — ULADECH Católica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue-800:#3D2352;--blue-700:#553171;--blue-650:#6D4A96;
+  --blue-400:#E8D9FA;--blue-200:#F9F5FF;
+  --gray-800:#2A1F3D;--gray-700:#4A3D5C;--gray-600:#6B5D80;--gray-500:#8B7D9E;
+  --neutral-300:#E3D6F5;--neutral-200:#F5EEFF;--neutral-100:#F9F5FF;
+  --red-700:#D33A32;--red-200:#FCEEEE;--green-700:#1B9D6B;--green-400:#E3F3EC;
+  --radius:10px;--radius-lg:16px;--shadow-md:0 8px 24px rgba(85,49,113,.14);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Inter',sans-serif;background:linear-gradient(160deg,var(--blue-200) 0%,var(--neutral-100) 60%,#fff 100%);
+  color:var(--gray-800);display:flex;flex-direction:column;
+}
+.hdr{display:flex;align-items:center;gap:12px;padding:14px 18px;background:#fff;border-bottom:1px solid var(--neutral-300)}
+.logo-circle{width:38px;height:38px;border-radius:50%;background:#fff;border:1.5px solid var(--neutral-300);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.logo-circle img{max-width:78%;max-height:78%;object-fit:contain}
+.hdr-txt{line-height:1.25}
+.hdr-txt .ent{font-size:10px;color:var(--blue-700);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.hdr-txt .sys{font-size:14px;font-weight:700}
+.wrap{flex:1;display:flex;flex-direction:column;max-width:680px;width:100%;margin:0 auto;padding:16px;min-height:0}
+.chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:6px 2px 16px}
+.msg{max-width:82%;padding:11px 14px;border-radius:var(--radius-lg);font-size:14px;line-height:1.55;white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:var(--blue-700);color:#fff;border-bottom-right-radius:4px}
+.msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--neutral-300);border-bottom-left-radius:4px;box-shadow:var(--shadow-md)}
+.sources{align-self:flex-start;max-width:82%;display:flex;flex-direction:column;gap:6px;margin-top:-4px}
+.src-card{background:var(--neutral-100);border:1px solid var(--neutral-300);border-radius:var(--radius);padding:8px 11px;font-size:12px;color:var(--gray-600)}
+.src-tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--green-400);color:var(--green-700);margin-bottom:3px}
+.src-tag.biblio{background:var(--blue-400);color:var(--blue-700)}
+.typing{align-self:flex-start;display:flex;gap:4px;padding:12px 16px}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--gray-500);animation:blink 1.2s infinite ease-in-out}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.3}40%{opacity:1}}
+.inputbar{display:flex;gap:8px;padding:10px;background:#fff;border:1px solid var(--neutral-300);border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
+.inputbar textarea{flex:1;border:none;outline:none;resize:none;font-family:inherit;font-size:14px;padding:6px 8px;max-height:110px}
+.sendbtn{width:40px;height:40px;border-radius:50%;background:var(--blue-700);color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.sendbtn:hover{background:var(--blue-800)}
+.sendbtn:disabled{opacity:.5;cursor:not-allowed}
+.errbox{max-width:420px;margin:auto;text-align:center;padding:32px;background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
+.errbox h2{font-size:17px;margin-bottom:8px}
+.errbox p{color:var(--gray-600);font-size:14px}
+</style>
+</head>
+<body>
+{% if error %}
+<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div class="errbox">
+    <div class="logo-circle" style="width:56px;height:56px;margin:0 auto 14px"><img src="/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo"></div>
+    <h2>No se pudo abrir el asistente</h2>
+    <p>{{ error }}</p>
+  </div>
+</div>
+{% else %}
+<header class="hdr">
+  <div class="logo-circle"><img src="/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo ULADECH Católica"></div>
+  <div class="hdr-txt">
+    <div class="ent">ULADECH Católica</div>
+    <div class="sys">{{ asistente_nombre }}</div>
+  </div>
+</header>
+<div class="wrap">
+  <div class="chat" id="chat">
+    {% if not historial %}
+    <div class="msg assistant">{% if saludo_nombre %}Hola {{ saludo_nombre }}, {% else %}Hola, {% endif %}soy <strong>{{ asistente_nombre }}</strong>. Pregúntame lo que necesites sobre el curso.</div>
+    {% endif %}
+    {% for m in historial %}
+      <div class="msg {{ m.rol }}">{{ m.contenido }}</div>
+    {% endfor %}
+  </div>
+  <div class="inputbar">
+    <textarea id="q" rows="1" placeholder="Escribe tu pregunta…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviar();}"></textarea>
+    <button class="sendbtn" id="sendbtn" onclick="enviar()" aria-label="Enviar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+</div>
+<script>
+const TOKEN = {{ token|tojson }};
+let SESION_ID = {{ sesion_id|tojson }};
+const chat = document.getElementById('chat');
+const q = document.getElementById('q');
+const btn = document.getElementById('sendbtn');
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function scrollBottom(){chat.scrollTop = chat.scrollHeight}
+scrollBottom();
+
+function addMsg(role, text){
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = text;
+  chat.appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+function addSources(sources){
+  if(!sources || !sources.length) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'sources';
+  wrap.innerHTML = sources.slice(0,3).map(s => `
+    <div class="src-card">
+      <span class="src-tag ${s.source_type==='bibliografia'?'biblio':''}">${s.source_type==='bibliografia'?'Bibliografía':'Material del curso'}</span>
+      <div>${esc(s.filename||'')}</div>
+    </div>`).join('');
+  chat.appendChild(wrap);
+  scrollBottom();
+}
+
+async function enviar(){
+  const pregunta = q.value.trim();
+  if(!pregunta) return;
+  addMsg('user', pregunta);
+  q.value='';
+  btn.disabled = true;
+  const typing = document.createElement('div');
+  typing.className = 'typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  chat.appendChild(typing);
+  scrollBottom();
+  try{
+    const r = await fetch(`/asistente/${TOKEN}/mensaje`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({sesion_id: SESION_ID, pregunta}),
+    });
+    const j = await r.json();
+    typing.remove();
+    if(!r.ok) throw new Error(j.detail || 'Error al responder');
+    addMsg('assistant', j.answer);
+    addSources(j.sources);
+  }catch(e){
+    typing.remove();
+    addMsg('assistant', '⚠️ ' + e.message);
+  }finally{
+    btn.disabled = false;
+    q.focus();
+  }
+}
+</script>
+{% endif %}
+</body>
+</html>
