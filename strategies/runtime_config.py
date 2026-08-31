@@ -1,48 +1,66 @@
 """Override en memoria de la estrategia activa por etapa.
 
 Sembrado desde `.env` (a través de settings.py) cuando no hay override;
-sobrescrito vía POST /api/config/{stage}. Se persiste en un archivo JSON
-junto al proyecto para que la selección sobreviva un reinicio del
-servidor (mismo espíritu que la persistencia de credenciales en .env) —
-si el archivo no existe o está corrupto, simplemente se arranca sin
-overrides (usa los defaults de .env), sin romper el arranque.
+sobrescrito vía POST /api/config/{stage}. Se persiste en la tabla
+`configuracion` de Postgres (clave con prefijo "stage:") — mismo lugar
+donde vive el resto de la configuración del gestor (ver credentials.py).
+Carga perezosa (no al importar el módulo, sino en el primer get/set) para
+no romper el arranque si Postgres aún no está disponible en ese instante;
+ante cualquier error de conexión se degrada a "sin overrides" (usa los
+defaults de .env) en vez de tumbar el proceso.
 """
-import json
-from pathlib import Path
 from typing import Dict, Optional
 
-_STATE_PATH = Path(__file__).parent.parent / "runtime_config.json"
+_KEY_PREFIX = "stage:"
 
 
 class RuntimeConfig:
     def __init__(self):
-        self._overrides: Dict[str, str] = self._load()
+        self._overrides: Optional[Dict[str, str]] = None
 
-    def _load(self) -> Dict[str, str]:
+    def _ensure_loaded(self) -> Dict[str, str]:
+        if self._overrides is not None:
+            return self._overrides
         try:
-            return json.loads(_STATE_PATH.read_text(encoding="utf-8"))
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {}
+            import db
 
-    def _save(self) -> None:
-        try:
-            _STATE_PATH.write_text(json.dumps(self._overrides, indent=2, ensure_ascii=False), encoding="utf-8")
-        except OSError as e:
-            print(f"⚠️ No se pudo persistir runtime_config.json: {e}")
+            rows = db.fetch_all(
+                "SELECT clave, valor FROM configuracion WHERE clave LIKE %s",
+                (f"{_KEY_PREFIX}%",),
+            )
+            self._overrides = {r["clave"][len(_KEY_PREFIX):]: r["valor"] for r in rows}
+        except Exception as e:
+            print(f"⚠️ No se pudo cargar la configuración de estrategias desde Postgres: {e}")
+            self._overrides = {}
+        return self._overrides
 
     def get(self, stage: str) -> Optional[str]:
-        return self._overrides.get(stage)
+        return self._ensure_loaded().get(stage)
 
     def set(self, stage: str, strategy_name: str) -> None:
-        self._overrides[stage] = strategy_name
-        self._save()
+        self._ensure_loaded()[stage] = strategy_name
+        try:
+            import db
+
+            db.execute(
+                "INSERT INTO configuracion (clave, valor, es_secreto) VALUES (%s, %s, FALSE) "
+                "ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = now()",
+                (f"{_KEY_PREFIX}{stage}", strategy_name),
+            )
+        except Exception as e:
+            print(f"⚠️ No se pudo guardar la estrategia de '{stage}' en Postgres: {e}")
 
     def clear(self, stage: str) -> None:
-        self._overrides.pop(stage, None)
-        self._save()
+        self._ensure_loaded().pop(stage, None)
+        try:
+            import db
+
+            db.execute("DELETE FROM configuracion WHERE clave = %s", (f"{_KEY_PREFIX}{stage}",))
+        except Exception as e:
+            print(f"⚠️ No se pudo limpiar la estrategia de '{stage}' en Postgres: {e}")
 
     def get_all(self) -> Dict[str, str]:
-        return dict(self._overrides)
+        return dict(self._ensure_loaded())
 
 
 _runtime_config = RuntimeConfig()

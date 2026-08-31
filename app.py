@@ -62,6 +62,7 @@ async def lifespan(app: FastAPI):
     if db.check_connection():
         print("✅ Postgres conectado")
         auth.bootstrap_admin()
+        credentials.load_all_into_settings()
     else:
         print("⚠️ Postgres no disponible al arrancar — el login y las funciones de Asistentes/RD fallarán hasta que se restablezca la conexión.")
     # Pre-carga el modelo por defecto al arrancar

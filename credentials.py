@@ -4,16 +4,13 @@ credentials.py
 Gestión de credenciales (API keys) del pipeline RAG, configurables desde
 la sección "Claves de API" de la interfaz: registro de campos, prueba de
 conexión real contra cada proveedor, y persistencia tanto en `settings`
-(memoria, efecto inmediato) como en `.env` (disco, sobrevive un reinicio).
+(memoria, efecto inmediato) como en Postgres (tabla `configuracion` —
+"todas las configuraciones del gestor" centralizadas ahí, no en .env).
 """
 import asyncio
-import re
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from settings import settings
-
-ENV_PATH = Path(__file__).parent / ".env"
 
 CREDENTIAL_FIELDS: Dict[str, Dict[str, Any]] = {
     "OPENAI_API_KEY": {"label": "OpenAI API Key", "provider": "openai", "secret": True},
@@ -62,22 +59,14 @@ def list_credentials() -> List[Dict[str, Any]]:
     return result
 
 
-def _update_env_file(key: str, value: str) -> None:
-    """Actualiza o agrega la línea KEY=value en .env, preservando el resto
-    del archivo (comentarios, otras variables, orden)."""
-    if not ENV_PATH.exists():
-        ENV_PATH.write_text(f"{key}={value}\n", encoding="utf-8")
-        return
+def _save_to_db(field: str, value: str, es_secreto: bool) -> None:
+    import db
 
-    text = ENV_PATH.read_text(encoding="utf-8")
-    pattern = re.compile(rf"^{re.escape(key)}=.*$", re.MULTILINE)
-    if pattern.search(text):
-        text = pattern.sub(f"{key}={value}", text, count=1)
-    else:
-        if not text.endswith("\n"):
-            text += "\n"
-        text += f"{key}={value}\n"
-    ENV_PATH.write_text(text, encoding="utf-8")
+    db.execute(
+        "INSERT INTO configuracion (clave, valor, es_secreto) VALUES (%s, %s, %s) "
+        "ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, es_secreto = EXCLUDED.es_secreto, updated_at = now()",
+        (field, value, es_secreto),
+    )
 
 
 def set_credential(field: str, value: str) -> Dict[str, Any]:
@@ -86,15 +75,39 @@ def set_credential(field: str, value: str) -> Dict[str, Any]:
             f"Campo de credencial '{field}' desconocido. Válidos: {list(CREDENTIAL_FIELDS)}"
         )
 
-    setattr(settings, field, value)
-    _update_env_file(field, value)
-
     meta = CREDENTIAL_FIELDS[field]
+    setattr(settings, field, value)
+    _save_to_db(field, value, meta["secret"])
+
     return {
         "field": field,
         "configured": bool(value),
         "masked_value": _mask(value) if meta["secret"] else value,
     }
+
+
+def load_all_into_settings() -> None:
+    """Hydrata `settings` en memoria con las credenciales ya guardadas en
+    Postgres — se llama una vez al arrancar (lifespan de app.py), porque
+    `settings` es una instancia nueva en cada arranque (solo lee .env por
+    defecto) y las credenciales ahora viven en la tabla `configuracion`,
+    no en .env."""
+    import db
+
+    try:
+        rows = db.fetch_all(
+            "SELECT clave, valor FROM configuracion WHERE clave = ANY(%s)",
+            (list(CREDENTIAL_FIELDS.keys()),),
+        )
+    except Exception as e:
+        print(f"⚠️ No se pudieron cargar credenciales desde Postgres: {e}")
+        return
+
+    for row in rows:
+        if row["valor"] is not None:
+            setattr(settings, row["clave"], row["valor"])
+    if rows:
+        print(f"🔑 {len(rows)} credencial(es) cargada(s) desde Postgres")
 
 
 # ============================================================================
