@@ -48,8 +48,17 @@ class CollectionCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
     vector_schema: VectorSchema = "hybrid"
+    # dense_size: solo se usa tal cual para colecciones "legacy". Para
+    # "hybrid", se ignora y se deriva del embedding maestro de la RD (ver
+    # app.py qdrant_create_collection) — o de `dense_strategy` si es la
+    # primera colección real de esa RD.
     dense_size: int = settings.DEFAULT_VECTOR_SIZE
     distance: str = settings.DEFAULT_DISTANCE
+    # Solo necesario/usado cuando la RD todavía no tiene un embedding
+    # maestro fijado (su primera colección híbrida) — fija el de ahí en
+    # adelante para toda la RD. Se ignora si la RD ya tiene uno.
+    dense_strategy: Optional[str] = None
+    sparse_strategy: Optional[str] = None
     # RD (aula) + curso de Moodle al que queda asignada esta colección —
     # obligatorios: toda colección debe poder encontrarse desde un asistente.
     # No se guardan en el payload de Qdrant, se persisten en Postgres

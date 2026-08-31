@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 
 import db
 
+_UNSET = object()  # distingue "no viene en el request" de "viene como null"
+
 
 def list_rds() -> List[Dict[str, Any]]:
     """Todas las RD, con conteo de colecciones reales, cursos registrados
@@ -66,19 +68,58 @@ def update_rd(
     nombre: Optional[str] = None,
     moodle_courseid: Optional[int] = None,
     moodle_course_url: Optional[str] = None,
+    dense_strategy: Any = _UNSET,
+    sparse_strategy: Any = _UNSET,
 ) -> Dict[str, Any]:
+    """dense_strategy/sparse_strategy son el embedding "maestro" de la RD:
+    todas sus colecciones deben compartirlo para ser intercambiables entre
+    sí (mismo asistente, distinto courseid). Solo se pueden fijar/cambiar
+    mientras la RD no tenga ninguna colección real todavía — una vez que
+    existe una, cambiar el embedding dejaría vectores incomparables entre
+    colecciones de la misma RD."""
     existing = get_rd(rd_id)
     if not existing:
         raise ValueError(f"La RD {rd_id} no existe")
+    embedding_changed = (
+        (dense_strategy is not _UNSET and dense_strategy != existing["dense_strategy"])
+        or (sparse_strategy is not _UNSET and sparse_strategy != existing["sparse_strategy"])
+    )
+    if embedding_changed and has_real_collections(rd_id):
+        raise ValueError(
+            "No se puede cambiar el embedding de esta RD: ya tiene colecciones reales creadas "
+            "y deben ser intercambiables entre sí. Elimínalas primero si de verdad necesitas cambiarlo."
+        )
     return db.execute_returning(
-        "UPDATE rds SET nombre=%s, moodle_courseid=%s, moodle_course_url=%s, updated_at=now() "
-        "WHERE id=%s RETURNING *",
+        "UPDATE rds SET nombre=%s, moodle_courseid=%s, moodle_course_url=%s, "
+        "dense_strategy=%s, sparse_strategy=%s, updated_at=now() WHERE id=%s RETURNING *",
         (
             nombre if nombre is not None else existing["nombre"],
             moodle_courseid if moodle_courseid is not None else existing["moodle_courseid"],
             moodle_course_url if moodle_course_url is not None else existing["moodle_course_url"],
+            existing["dense_strategy"] if dense_strategy is _UNSET else dense_strategy,
+            existing["sparse_strategy"] if sparse_strategy is _UNSET else sparse_strategy,
             rd_id,
         ),
+    )
+
+
+def has_real_collections(rd_id: int) -> bool:
+    row = db.fetch_one(
+        "SELECT 1 FROM colecciones_rd WHERE rd_id = %s AND qdrant_collection_name IS NOT NULL LIMIT 1",
+        (rd_id,),
+    )
+    return row is not None
+
+
+def set_embedding(rd_id: int, dense_strategy: Optional[str], sparse_strategy: Optional[str]) -> Dict[str, Any]:
+    """Fija el embedding maestro de la RD sin pasar por las validaciones de
+    update_rd — usado internamente al crear la primera colección real de
+    una RD que todavía no tenía nada fijado (ver app.py qdrant_create_collection)."""
+    if not get_rd(rd_id):
+        raise ValueError(f"La RD {rd_id} no existe")
+    return db.execute_returning(
+        "UPDATE rds SET dense_strategy=%s, sparse_strategy=%s, updated_at=now() WHERE id=%s RETURNING *",
+        (dense_strategy, sparse_strategy, rd_id),
     )
 
 
@@ -196,6 +237,16 @@ def unlink_collection(qdrant_collection_name: str) -> None:
     de borrar la fila, para no perder el registro del curso."""
     db.execute(
         "UPDATE colecciones_rd SET qdrant_collection_name = NULL WHERE qdrant_collection_name = %s",
+        (qdrant_collection_name,),
+    )
+
+
+def get_rd_for_collection(qdrant_collection_name: str) -> Optional[Dict[str, Any]]:
+    """Colección -> su RD (con dense_strategy/sparse_strategy, el embedding
+    maestro que todas las colecciones de esa RD deben compartir). `None` si
+    la colección no está vinculada a ninguna RD."""
+    return db.fetch_one(
+        "SELECT r.* FROM colecciones_rd c JOIN rds r ON r.id = c.rd_id WHERE c.qdrant_collection_name = %s",
         (qdrant_collection_name,),
     )
 

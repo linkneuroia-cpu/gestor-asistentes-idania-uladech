@@ -56,11 +56,14 @@ _STRATEGY_FIELDS = (
     "etl_document_strategy",
     "etl_audio_strategy",
     "contextual_strategy",
-    "dense_strategy",
-    "sparse_strategy",
     "rerank_strategy",
     "generation_strategy",
 )
+# dense_strategy/sparse_strategy YA NO se escriben desde aquí: son el
+# embedding maestro de la RD (rds.dense_strategy/sparse_strategy), no del
+# asistente — todas las colecciones de una RD deben compartirlo. Las
+# columnas siguen existiendo en `asistentes` (no se eliminaron, evita una
+# migración destructiva) pero quedan sin uso de aquí en adelante.
 
 
 def create_asistente(
@@ -71,8 +74,6 @@ def create_asistente(
     etl_document_strategy: Optional[str] = None,
     etl_audio_strategy: Optional[str] = None,
     contextual_strategy: Optional[str] = None,
-    dense_strategy: Optional[str] = None,
-    sparse_strategy: Optional[str] = None,
     rerank_strategy: Optional[str] = None,
     generation_strategy: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -83,12 +84,12 @@ def create_asistente(
         "INSERT INTO asistentes "
         "(nombre, rd_id, prompt_maestro, token, created_by, "
         "etl_document_strategy, etl_audio_strategy, contextual_strategy, "
-        "dense_strategy, sparse_strategy, rerank_strategy, generation_strategy) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
+        "rerank_strategy, generation_strategy) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
         (
             nombre, rd_id, prompt_maestro, token, created_by,
             etl_document_strategy, etl_audio_strategy, contextual_strategy,
-            dense_strategy, sparse_strategy, rerank_strategy, generation_strategy,
+            rerank_strategy, generation_strategy,
         ),
     )
     return _with_url(row)
@@ -103,12 +104,10 @@ def update_asistente(
     etl_document_strategy: Any = _UNSET,
     etl_audio_strategy: Any = _UNSET,
     contextual_strategy: Any = _UNSET,
-    dense_strategy: Any = _UNSET,
-    sparse_strategy: Any = _UNSET,
     rerank_strategy: Any = _UNSET,
     generation_strategy: Any = _UNSET,
 ) -> Dict[str, Any]:
-    """Los 7 campos de estrategia distinguen "no venía en el request"
+    """Los campos de estrategia distinguen "no venía en el request"
     (`_UNSET`, default — deja el valor actual intacto) de "venía como
     `null`" (limpia esa etapa a "usar el valor por defecto del sistema") —
     necesario para que el modal de edición pueda volver una etapa a
@@ -124,8 +123,6 @@ def update_asistente(
         "etl_document_strategy": etl_document_strategy,
         "etl_audio_strategy": etl_audio_strategy,
         "contextual_strategy": contextual_strategy,
-        "dense_strategy": dense_strategy,
-        "sparse_strategy": sparse_strategy,
         "rerank_strategy": rerank_strategy,
         "generation_strategy": generation_strategy,
     }
@@ -136,7 +133,7 @@ def update_asistente(
     row = db.execute_returning(
         "UPDATE asistentes SET nombre=%s, rd_id=%s, prompt_maestro=%s, activo=%s, "
         "etl_document_strategy=%s, etl_audio_strategy=%s, contextual_strategy=%s, "
-        "dense_strategy=%s, sparse_strategy=%s, rerank_strategy=%s, generation_strategy=%s, "
+        "rerank_strategy=%s, generation_strategy=%s, "
         "updated_at=now() WHERE id=%s RETURNING *",
         (
             nombre if nombre is not None else existing["nombre"],
@@ -207,6 +204,21 @@ def get_or_create_sesion(
 
 def get_sesion(sesion_id: int) -> Optional[Dict[str, Any]]:
     return db.fetch_one("SELECT * FROM asistente_sesiones WHERE id = %s", (sesion_id,))
+
+
+def list_sesiones(asistente_id: int, moodle_courseid: int, moodle_userid: int) -> List[Dict[str, Any]]:
+    """Todas las conversaciones de un alumno con este asistente en este
+    curso, más recientes primero, con una vista previa (su primer mensaje).
+    Usado por la sidebar de historial de la página pública."""
+    return db.fetch_all(
+        "SELECT s.id, s.started_at, s.last_activity_at, "
+        "  (SELECT contenido FROM asistente_mensajes m WHERE m.sesion_id = s.id AND m.rol = 'user' "
+        "   ORDER BY m.created_at ASC LIMIT 1) AS preview "
+        "FROM asistente_sesiones s "
+        "WHERE s.asistente_id = %s AND s.moodle_courseid = %s AND s.moodle_userid = %s "
+        "ORDER BY s.last_activity_at DESC",
+        (asistente_id, moodle_courseid, moodle_userid),
+    )
 
 
 def get_mensajes(sesion_id: int) -> List[Dict[str, Any]]:

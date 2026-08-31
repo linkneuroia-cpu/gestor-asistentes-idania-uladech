@@ -1027,7 +1027,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
         </div>
       </div>
     </div>
-    <div class="fg">
+    <div class="fg hidden" id="q-create-size-box">
       <label class="fl">Tamaño de vector denso</label>
       <input class="fc" type="number" id="q-create-size" value="1536" style="max-width:160px">
     </div>
@@ -1042,9 +1042,10 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <div class="div"></div>
     <div class="fg">
       <label class="fl">RD (aula) a la que pertenece <span class="req">*</span></label>
-      <select class="fc" id="q-create-rd"><option value="">— Selecciona —</option></select>
+      <select class="fc" id="q-create-rd" onchange="qCreateOnRdChange()"><option value="">— Selecciona —</option></select>
       <div class="fh">Necesario para que un asistente pueda encontrar esta colección.</div>
     </div>
+    <div id="q-create-embedding-box"></div>
     <div class="fg">
       <label class="fl">Course ID de Moodle para esta colección <span class="req">*</span></label>
       <input class="fc" type="number" id="q-create-courseid" style="max-width:200px">
@@ -1373,15 +1374,41 @@ async function rdCreate(){
 async function rdEdit(id){
   try{
     const rd=await api('/api/rds/'+id);
+    const hasReal=(rd.colecciones||[]).some(c=>c.qdrant_collection_name);
+    let embeddingBlock;
+    if(hasReal){
+      embeddingBlock=`<div class="fg"><label class="fl">Embedding maestro</label>
+        <div class="fh">${esc(rd.dense_strategy||'valor por defecto del sistema')} / ${esc(rd.sparse_strategy||'valor por defecto del sistema')} — no se puede cambiar: esta RD ya tiene colecciones reales creadas.</div>
+      </div>`;
+    }else{
+      embeddingBlock=`<div class="fg"><label class="fl">Embedding denso</label>
+          <select class="fc" id="rd-edit-dense"><option value="">Cargando…</option></select>
+          <div class="fh">Se puede fijar aquí, o se fija automáticamente al crear la primera colección de esta RD.</div>
+        </div>
+        <div class="fg"><label class="fl">Embedding disperso</label>
+          <select class="fc" id="rd-edit-sparse">
+            <option value="" ${!rd.sparse_strategy?'selected':''}>Valor por defecto del sistema</option>
+            <option value="bm25" ${rd.sparse_strategy==='bm25'?'selected':''}>bm25</option>
+            <option value="bge_m3" ${rd.sparse_strategy==='bge_m3'?'selected':''}>bge_m3</option>
+          </select>
+        </div>`;
+    }
     showModal(`Editar RD #${id}`,`
       <div class="fg"><label class="fl">Nombre</label><input class="fc" id="rd-edit-nombre" value="${esc(rd.nombre)}"></div>
       <div class="fg"><label class="fl">Course ID original (Moodle)</label><input class="fc" type="number" id="rd-edit-courseid" value="${rd.moodle_courseid}"></div>
       <div class="fg"><label class="fl">URL del curso</label><input class="fc" id="rd-edit-url" value="${esc(rd.moodle_course_url||'')}"></div>
+      ${embeddingBlock}
       <div class="card-ttl mt16">Asistentes asignados (${rd.asistentes.length})</div>
       <div class="dl">${rd.asistentes.map(a=>`<div class="di"><div class="di-info"><div class="di-name">${esc(a.nombre)}</div><div class="di-meta">${a.activo?'Activo':'Inactivo'}</div></div></div>`).join('')||'<p class="muted">Ninguno</p>'}</div>
       <p class="muted mt8">Los cursos y colecciones de esta RD se gestionan desde el botón "Cursos" del listado.</p>
-      <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick="rdEditSave(${id})">Guardar</button></div>
+      <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick='rdEditSave(${id},${hasReal})'>Guardar</button></div>
     `);
+    if(!hasReal){
+      try{
+        const d=await api('/api/config/dense');
+        $('rd-edit-dense').innerHTML='<option value="">Valor por defecto del sistema</option>'+(d.options||[]).map(o=>`<option value="${esc(o.name)}" ${o.name===rd.dense_strategy?'selected':''}>${esc(o.name)}</option>`).join('');
+      }catch(e){$('rd-edit-dense').innerHTML='<option value="">Error al cargar</option>'}
+    }
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
@@ -1430,10 +1457,13 @@ async function rdCourseRemove(entryId,rdId){
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
-function rdCourseCreateCol(rdId,courseid){
+let RDCC_RD=null;
+
+async function rdCourseCreateCol(rdId,courseid){
+  try{ RDCC_RD=await api('/api/rds/'+rdId); }catch(e){ RDCC_RD=null; }
   showModal('Crear colección',`
     <div class="fg"><label class="fl">Nombre <span class="req">*</span></label><input class="fc" id="rdcc-name" placeholder="Ej: Curso_${courseid}"></div>
-    <div class="fg"><label class="fl">Tamaño de vector denso</label><input class="fc" type="number" id="rdcc-size" value="1536" style="max-width:160px"></div>
+    ${qEmbeddingFieldHTML('rdcc',RDCC_RD)}
     <div class="fg"><label class="fl">Métrica de distancia</label>
       <select class="fc" id="rdcc-distance" style="max-width:200px">
         <option value="Cosine">Cosine</option><option value="Euclid">Euclid</option><option value="Dot">Dot</option>
@@ -1442,15 +1472,21 @@ function rdCourseCreateCol(rdId,courseid){
     <p class="muted">RD: #${rdId} · Course ID: ${courseid}</p>
     <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick='rdCourseCreateColConfirm(${rdId},${courseid})'>Crear</button></div>
   `);
+  if(!RDCC_RD||!RDCC_RD.dense_strategy)qEmbeddingFieldLoadOptions('rdcc');
 }
 
 async function rdCourseCreateColConfirm(rdId,courseid){
   const name=$('rdcc-name').value.trim();
   if(!name){showModal('Campo requerido','<p>Ingresa un nombre para la colección.</p>');return;}
+  const denseStrategy=qEmbeddingFieldValue('rdcc',RDCC_RD);
+  if(!(RDCC_RD&&RDCC_RD.dense_strategy)&&!denseStrategy){
+    showModal('Campo requerido','<p>Selecciona un embedding denso — es la primera colección de esta RD.</p>');
+    return;
+  }
   try{
     await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       name, vector_schema:'hybrid',
-      dense_size:parseInt($('rdcc-size').value)||1536,
+      dense_strategy:denseStrategy,
       distance:$('rdcc-distance').value,
       rd_id:rdId, moodle_courseid:courseid,
     })});
@@ -1458,13 +1494,18 @@ async function rdCourseCreateColConfirm(rdId,courseid){
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
-async function rdEditSave(id){
+async function rdEditSave(id,hasReal){
+  const body={
+    nombre:$('rd-edit-nombre').value.trim(),
+    moodle_courseid:parseInt($('rd-edit-courseid').value),
+    moodle_course_url:$('rd-edit-url').value.trim()||null,
+  };
+  if(!hasReal){
+    body.dense_strategy=$('rd-edit-dense').value||null;
+    body.sparse_strategy=$('rd-edit-sparse').value||null;
+  }
   try{
-    await api('/api/rds/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      nombre:$('rd-edit-nombre').value.trim(),
-      moodle_courseid:parseInt($('rd-edit-courseid').value),
-      moodle_course_url:$('rd-edit-url').value.trim()||null,
-    })});
+    await api('/api/rds/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     closeModal();
     rdLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
@@ -1488,22 +1529,43 @@ async function rdDeleteConfirmed(id){
 // (por pestañas). Ambos reutilizan /api/config/{stage} (catálogo con
 // descripciones) para las 7 etapas RAG, pero guardan la selección en el
 // asistente (POST/PATCH /api/asistentes) — nunca en la config global. ──
+// dense/sparse NO están aquí: son el embedding maestro de la RD (se
+// muestran de solo lectura en el grupo 3, heredados — ver asisWizStep3HTML).
 const ASIS_STAGE_DEFS=[
   {stage:'etl_document',label:'Extracción de documentos (PDF/PPT/Word)'},
   {stage:'etl_audio',label:'Transcripción de audio/video'},
   {stage:'contextual',label:'Enriquecimiento contextual'},
-  {stage:'dense',label:'Embedding denso'},
-  {stage:'sparse',label:'Embedding disperso'},
   {stage:'rerank',label:'Motor de reranking'},
   {stage:'generation',label:'Modelo generador'},
 ];
+// Grupos numerados de la Configuración RAG — el grupo 3 (Índexación y
+// Búsqueda Híbrida) no tiene "stages" propios: se renderiza aparte,
+// de solo lectura, heredado de la RD.
 const ASIS_CFG_GROUPS=[
-  {name:'Capa de Extracción (ETL) y Multimodalidad',stages:['etl_document','etl_audio']},
-  {name:'Contextual Retrieval',stages:['contextual']},
-  {name:'Indexación y Búsqueda Híbrida',stages:['dense','sparse']},
-  {name:'Reranking y Priorización',stages:['rerank']},
-  {name:'Generador Final (LLM)',stages:['generation']},
+  {n:1,name:'Capa de Extracción (ETL) y Multimodalidad',stages:['etl_document','etl_audio']},
+  {n:2,name:'Contextual Retrieval',stages:['contextual']},
+  {n:3,name:'Indexación y Búsqueda Híbrida',readonly:true},
+  {n:4,name:'Reranking y Priorización',stages:['rerank']},
+  {n:5,name:'Generador Final (LLM)',stages:['generation']},
 ];
+
+function asisCfgGroupsHTML(idPrefix,rd){
+  const denseLabel=rd&&rd.dense_strategy?rd.dense_strategy:'Valor por defecto del sistema';
+  const sparseLabel=rd&&rd.sparse_strategy?rd.sparse_strategy:'Valor por defecto del sistema';
+  return ASIS_CFG_GROUPS.map(g=>{
+    if(g.readonly){
+      return `<div class="card">
+        <div class="card-ttl">${g.n}. ${esc(g.name)} <span class="muted" style="font-weight:400">— heredado de la RD, no editable aquí</span></div>
+        <div class="fh">Todas las colecciones de la RD comparten este embedding para ser intercambiables entre sí. Se cambia desde "Gestión RD" (solo si la RD todavía no tiene colecciones reales).</div>
+        <div class="dl mt8">
+          <div class="di"><div class="di-info"><div class="di-name">Embedding denso</div><div class="di-meta">${esc(denseLabel)}</div></div></div>
+          <div class="di"><div class="di-info"><div class="di-name">Embedding disperso</div><div class="di-meta">${esc(sparseLabel)}</div></div></div>
+        </div>
+      </div>`;
+    }
+    return `<div class="card"><div class="card-ttl">${g.n}. ${esc(g.name)}</div>${g.stages.map(s=>`<div id="${idPrefix}-cfgbox-${s}" class="mt8"></div>`).join('')}</div>`;
+  }).join('');
+}
 
 async function asisLoad(){
   const tbl=$('asis-tbl');
@@ -1531,7 +1593,7 @@ const ASIS_WIZ_STEPS=['Datos básicos','Curso y colección','Configuración RAG'
 let ASIS_WIZ=null;
 
 async function asisWizardOpen(){
-  ASIS_WIZ={step:1,maxStep:1,nombre:'',rd_id:null,rds:[],courseid:null,collectionName:null,cursos:[],promptMaestro:'',cfg:{}};
+  ASIS_WIZ={step:1,maxStep:1,nombre:'',rd_id:null,rds:[],courseid:null,courseName:null,promptMaestro:'',cfg:{}};
   showModalWide('Crear asistente','<div id="wiz-body"><p class="muted">Cargando…</p></div>');
   try{ const d=await api('/api/rds'); ASIS_WIZ.rds=d.rds||[]; }catch(e){}
   asisWizardRender();
@@ -1569,7 +1631,6 @@ function asisWizardRender(){
       ${ASIS_WIZ.step<5?`<button class="btn btn-prim btn-sm" onclick="asisWizardNext()">Siguiente →</button>`:`<button class="btn btn-prim btn-sm" onclick="asisWizardSubmit()">Crear asistente</button>`}
     </div>`;
 
-  if(ASIS_WIZ.step===2)asisWizInitStep2();
   if(ASIS_WIZ.step===3)ASIS_STAGE_DEFS.forEach(s=>asisWizRenderStage(s));
 }
 
@@ -1591,72 +1652,36 @@ function asisWizStep1HTML(){
 
 function asisWizStep2HTML(){
   return `
-    <div class="fg"><label class="fl">Curso de esta RD</label>
-      <select class="fc" id="wiz-courseid" onchange="asisWizOnCourseChange()"><option value="">Cargando…</option></select>
-      <div class="fh">¿No está el curso que buscas? Agrégalo desde "Gestión RD" → Cursos.</div>
+    <div class="fg"><label class="fl">Course ID (Moodle)</label>
+      <div style="display:flex;gap:8px">
+        <input class="fc" type="number" id="wiz-courseid" value="${ASIS_WIZ.courseid||''}" placeholder="Ej: 1396">
+        <button class="btn btn-out btn-sm" style="white-space:nowrap" onclick="asisWizLookupCourse()">Buscar en Moodle</button>
+      </div>
+      <div class="fh">Se usa para confirmar el curso real — el asistente resuelve la colección correcta en tiempo real por RD + Course ID, no hace falta crearla ahora.</div>
     </div>
-    <div id="wiz-course-status" class="fh"></div>`;
+    <div id="wiz-course-status" class="fh">${ASIS_WIZ.courseName?`<span style="color:var(--green-700)">✓ ${esc(ASIS_WIZ.courseName)}</span>`:''}</div>`;
 }
 
-async function asisWizInitStep2(){
-  const sel=$('wiz-courseid');
-  if(!sel)return;
-  sel.innerHTML='<option value="">Cargando…</option>';
-  try{
-    const rd=await api('/api/rds/'+ASIS_WIZ.rd_id);
-    ASIS_WIZ.cursos=rd.colecciones||[];
-    sel.innerHTML=ASIS_WIZ.cursos.map(c=>`<option value="${c.moodle_courseid}" ${String(c.moodle_courseid)===String(ASIS_WIZ.courseid)?'selected':''}>Curso ${c.moodle_courseid}${c.qdrant_collection_name?` (${esc(c.qdrant_collection_name)})`:' (sin colección)'}</option>`).join('')||'<option value="">Sin cursos registrados</option>';
-    asisWizOnCourseChange();
-  }catch(e){sel.innerHTML='<option value="">Error al cargar</option>'}
-}
-
-function asisWizOnCourseChange(){
-  const sel=$('wiz-courseid');
+async function asisWizLookupCourse(){
+  const courseId=$('wiz-courseid').value;
   const status=$('wiz-course-status');
-  const courseId=sel.value;
-  ASIS_WIZ.courseid=courseId?parseInt(courseId):null;
-  if(!courseId){status.innerHTML='';ASIS_WIZ.collectionName=null;return;}
-  const curso=ASIS_WIZ.cursos.find(c=>String(c.moodle_courseid)===String(courseId));
-  if(curso&&curso.qdrant_collection_name){
-    ASIS_WIZ.collectionName=curso.qdrant_collection_name;
-    status.innerHTML=`<span style="color:var(--green-700)">✓ Colección lista: ${esc(curso.qdrant_collection_name)}</span>`;
-  }else{
-    ASIS_WIZ.collectionName=null;
-    status.innerHTML=`<span style="color:var(--red-700)">Este curso todavía no tiene colección.</span> <button class="btn btn-prim btn-sm" style="margin-left:6px" onclick='asisWizCreateCol()'>Crear colección</button>`;
+  if(!courseId){asisWizError('Ingresa un Course ID.');return;}
+  status.innerHTML='<span class="muted">Consultando Moodle…</span>';
+  try{
+    const d=await api('/api/moodle/curso/'+courseId);
+    ASIS_WIZ.courseid=parseInt(courseId);
+    ASIS_WIZ.courseName=d.fullname;
+    status.innerHTML=`<span style="color:var(--green-700)">✓ ${esc(d.fullname)}</span>`;
+  }catch(e){
+    ASIS_WIZ.courseid=null;ASIS_WIZ.courseName=null;
+    status.innerHTML=`<span style="color:var(--red-700)">${esc(e.message)}</span>`;
   }
 }
 
-function asisWizCreateCol(){
-  showModal('Crear colección',`
-    <div class="fg"><label class="fl">Nombre <span class="req">*</span></label><input class="fc" id="wizcc-name" placeholder="Ej: Curso_${ASIS_WIZ.courseid}"></div>
-    <div class="fg"><label class="fl">Tamaño de vector denso</label><input class="fc" type="number" id="wizcc-size" value="1536" style="max-width:160px"></div>
-    <div class="fg"><label class="fl">Métrica de distancia</label>
-      <select class="fc" id="wizcc-distance" style="max-width:200px"><option value="Cosine">Cosine</option><option value="Euclid">Euclid</option><option value="Dot">Dot</option></select>
-    </div>
-    <div class="modal-foot" style="margin-top:14px">
-      <button class="btn btn-ghost btn-sm" onclick="asisWizardReopen()">Cancelar</button>
-      <button class="btn btn-prim btn-sm" onclick="asisWizCreateColConfirm()">Crear</button>
-    </div>
-  `);
-}
-
-async function asisWizCreateColConfirm(){
-  const name=$('wizcc-name').value.trim();
-  if(!name){showModal('Campo requerido','<p>Ingresa un nombre para la colección.</p>');return;}
-  try{
-    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      name, vector_schema:'hybrid',
-      dense_size:parseInt($('wizcc-size').value)||1536,
-      distance:$('wizcc-distance').value,
-      rd_id:ASIS_WIZ.rd_id, moodle_courseid:ASIS_WIZ.courseid,
-    })});
-    asisWizardReopen();
-  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
-}
-
 function asisWizStep3HTML(){
+  const rd=ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id);
   return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
-    ASIS_CFG_GROUPS.map(g=>`<div class="card"><div class="card-ttl">${esc(g.name)}</div>${g.stages.map(s=>`<div id="wiz-cfgbox-${s}" class="mt8"></div>`).join('')}</div>`).join('');
+    asisCfgGroupsHTML('wiz',rd);
 }
 
 async function asisWizRenderStage(stageDef){
@@ -1697,13 +1722,16 @@ function asisWizStep5HTML(){
       <div class="card-ttl">Resumen</div>
       <p><b>Nombre:</b> ${esc(ASIS_WIZ.nombre)}</p>
       <p class="mt8"><b>RD:</b> ${esc(rd?rd.nombre:'')}</p>
-      <p class="mt8"><b>Curso:</b> ${ASIS_WIZ.courseid} ${ASIS_WIZ.collectionName?`— colección ${esc(ASIS_WIZ.collectionName)}`:'<span style="color:var(--red-700)">— sin colección</span>'}</p>
+      <p class="mt8"><b>Curso:</b> ${esc(ASIS_WIZ.courseName)} (id ${ASIS_WIZ.courseid})</p>
       <p class="mt8"><b>Prompt maestro:</b> ${ASIS_WIZ.promptMaestro?esc(ASIS_WIZ.promptMaestro):'<span class="muted">Ninguno</span>'}</p>
     </div>
-    <div class="card"><div class="card-ttl">Configuración RAG</div><div class="dl">${cfgLines}</div></div>`;
+    <div class="card"><div class="card-ttl">Configuración RAG</div><div class="dl">${cfgLines}</div>
+      <p class="muted mt8">3. Índexación y Búsqueda Híbrida: hereda el embedding maestro de la RD (no se elige aquí).</p>
+    </div>
+    <p class="muted">La colección para el curso ${ASIS_WIZ.courseid} se resuelve en tiempo real al recibir preguntas — créala cuando quieras desde "Gestión RD → Cursos" o "Gestión Qdrant".</p>`;
 }
 
-function asisWizardNext(){
+async function asisWizardNext(){
   if(ASIS_WIZ.step===1){
     const nombre=$('wiz-nombre').value.trim();
     const rdId=$('wiz-rd').value;
@@ -1711,8 +1739,15 @@ function asisWizardNext(){
     ASIS_WIZ.nombre=nombre;ASIS_WIZ.rd_id=parseInt(rdId);
   }
   if(ASIS_WIZ.step===2){
-    if(!ASIS_WIZ.courseid){asisWizError('Elige un curso de la RD.');return;}
-    if(!ASIS_WIZ.collectionName){asisWizError('Este curso todavía no tiene colección — créala antes de continuar.');return;}
+    if(!ASIS_WIZ.courseid||!ASIS_WIZ.courseName){
+      asisWizError('Ingresa un Course ID y confírmalo con "Buscar en Moodle".');
+      return;
+    }
+    try{
+      await api(`/api/rds/${ASIS_WIZ.rd_id}/courseids`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({moodle_courseid:ASIS_WIZ.courseid})});
+    }catch(e){
+      if(!/ya está registrado/i.test(e.message)){asisWizError(e.message);return;}
+    }
   }
   if(ASIS_WIZ.step===4){
     ASIS_WIZ.promptMaestro=$('wiz-prompt').value.trim();
@@ -1743,8 +1778,6 @@ async function asisWizardSubmit(){
       etl_document_strategy:ASIS_WIZ.cfg.etl_document||null,
       etl_audio_strategy:ASIS_WIZ.cfg.etl_audio||null,
       contextual_strategy:ASIS_WIZ.cfg.contextual||null,
-      dense_strategy:ASIS_WIZ.cfg.dense||null,
-      sparse_strategy:ASIS_WIZ.cfg.sparse||null,
       rerank_strategy:ASIS_WIZ.cfg.rerank||null,
       generation_strategy:ASIS_WIZ.cfg.generation||null,
     })});
@@ -1767,7 +1800,7 @@ async function asisEditOpen(id){
       id, tab:'general', data:a, rds:rdOpts.rds||[],
       cfg:{
         etl_document:a.etl_document_strategy, etl_audio:a.etl_audio_strategy, contextual:a.contextual_strategy,
-        dense:a.dense_strategy, sparse:a.sparse_strategy, rerank:a.rerank_strategy, generation:a.generation_strategy,
+        rerank:a.rerank_strategy, generation:a.generation_strategy,
       },
     };
     showModalWide(`Editar asistente — ${esc(a.nombre)}`,'<div id="edit-body"></div>');
@@ -1832,8 +1865,9 @@ function asisEditPromptHTML(){
 }
 
 function asisEditCfgHTML(){
+  const rd=ASIS_EDIT.rds.find(r=>r.id===ASIS_EDIT.data.rd_id);
   return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
-    ASIS_CFG_GROUPS.map(g=>`<div class="card"><div class="card-ttl">${esc(g.name)}</div>${g.stages.map(s=>`<div id="edit-cfgbox-${s}" class="mt8"></div>`).join('')}</div>`).join('');
+    asisCfgGroupsHTML('edit',rd);
 }
 
 async function asisEditRenderStage(stageDef){
@@ -1868,8 +1902,6 @@ async function asisEditSubmit(){
       etl_document_strategy:ASIS_EDIT.cfg.etl_document||null,
       etl_audio_strategy:ASIS_EDIT.cfg.etl_audio||null,
       contextual_strategy:ASIS_EDIT.cfg.contextual||null,
-      dense_strategy:ASIS_EDIT.cfg.dense||null,
-      sparse_strategy:ASIS_EDIT.cfg.sparse||null,
       rerank_strategy:ASIS_EDIT.cfg.rerank||null,
       generation_strategy:ASIS_EDIT.cfg.generation||null,
     })});
@@ -2552,6 +2584,55 @@ function qSelectSchema(s){
   qSchemaSelected=s;
   $('q-schema-hybrid').classList.toggle('selected',s==='hybrid');
   $('q-schema-legacy').classList.toggle('selected',s==='legacy');
+  // El tamaño de vector solo se pide a mano en legacy — en hybrid se
+  // deriva del embedding maestro de la RD elegida (ver qCreateOnRdChange).
+  if(s==='legacy'){show('q-create-size-box');}else{hide('q-create-size-box');}
+  $('q-create-embedding-box').innerHTML=s==='hybrid'?qEmbeddingFieldHTML('q-create',Q_CREATE_RD):'';
+  if(s==='hybrid'&&(!Q_CREATE_RD||!Q_CREATE_RD.dense_strategy))qEmbeddingFieldLoadOptions('q-create');
+}
+
+// ── Campo de embedding compartido entre "Crear colección" (Gestión
+// Qdrant), "Gestión RD → Cursos → Crear colección" y el wizard de
+// asistentes: si la RD elegida ya tiene un embedding maestro fijado se
+// muestra de solo lectura (el tamaño se deriva en el backend); si no, se
+// pide elegir un dense_strategy que queda fijado para toda la RD. ──
+function qEmbeddingFieldHTML(idPrefix,rd){
+  if(rd&&rd.dense_strategy){
+    return `<div class="fg"><label class="fl">Embedding (heredado de la RD)</label>
+      <div class="fh">Esta RD ya usa <b>${esc(rd.dense_strategy)}</b> / <b>${esc(rd.sparse_strategy||'bm25')}</b> — todas sus colecciones deben compartirlo.</div>
+    </div>`;
+  }
+  return `<div class="fg"><label class="fl">Embedding denso <span class="req">*</span> <span class="muted">— primera colección de esta RD, queda fijado para todas las siguientes</span></label>
+    <select class="fc" id="${idPrefix}-dense-strategy"><option value="">Cargando…</option></select>
+  </div>`;
+}
+
+async function qEmbeddingFieldLoadOptions(idPrefix){
+  const sel=$(idPrefix+'-dense-strategy');
+  if(!sel)return;
+  try{
+    const d=await api('/api/config/dense');
+    sel.innerHTML='<option value="">— Selecciona —</option>'+(d.options||[]).map(o=>`<option value="${esc(o.name)}">${esc(o.name)} (${esc(o.description||'')})</option>`).join('');
+  }catch(e){sel.innerHTML='<option value="">Error al cargar</option>'}
+}
+
+function qEmbeddingFieldValue(idPrefix,rd){
+  if(rd&&rd.dense_strategy)return null;
+  const sel=$(idPrefix+'-dense-strategy');
+  return sel?sel.value||null:null;
+}
+
+let Q_CREATE_RD=null;
+async function qCreateOnRdChange(){
+  const rdId=$('q-create-rd').value;
+  Q_CREATE_RD=null;
+  if(rdId){
+    try{ Q_CREATE_RD=await api('/api/rds/'+rdId); }catch(e){}
+  }
+  if(qSchemaSelected==='hybrid'){
+    $('q-create-embedding-box').innerHTML=qEmbeddingFieldHTML('q-create',Q_CREATE_RD);
+    if(!Q_CREATE_RD||!Q_CREATE_RD.dense_strategy)qEmbeddingFieldLoadOptions('q-create');
+  }
 }
 
 function qSchemaTag(schema){
@@ -2670,16 +2751,26 @@ async function qCreate(){
   const rdId=$('q-create-rd').value;
   const courseId=$('q-create-courseid').value;
   if(!name||!rdId||!courseId){showModal('Campos requeridos','<p>Ingresa un nombre, selecciona una RD e ingresa un Course ID.</p>');return;}
+  const body={
+    name,
+    description:$('q-create-desc').value.trim()||null,
+    vector_schema:qSchemaSelected,
+    distance:$('q-create-distance').value,
+    rd_id:parseInt(rdId),
+    moodle_courseid:parseInt(courseId),
+  };
+  if(qSchemaSelected==='legacy'){
+    body.dense_size=parseInt($('q-create-size').value)||1536;
+  }else{
+    const denseStrategy=qEmbeddingFieldValue('q-create',Q_CREATE_RD);
+    if(!(Q_CREATE_RD&&Q_CREATE_RD.dense_strategy)&&!denseStrategy){
+      showModal('Campo requerido','<p>Selecciona un embedding denso — es la primera colección de esta RD.</p>');
+      return;
+    }
+    body.dense_strategy=denseStrategy;
+  }
   try{
-    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      name,
-      description:$('q-create-desc').value.trim()||null,
-      vector_schema:qSchemaSelected,
-      dense_size:parseInt($('q-create-size').value)||1536,
-      distance:$('q-create-distance').value,
-      rd_id:parseInt(rdId),
-      moodle_courseid:parseInt(courseId),
-    })});
+    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     showModal('Colección creada',`<p>La colección <strong>${esc(name)}</strong> fue creada correctamente (esquema ${qSchemaSelected}).</p>`);
     $('q-create-name').value='';$('q-create-desc').value='';$('q-create-courseid').value='';
     loadCols();

@@ -24,8 +24,14 @@ _pool: Optional[psycopg2.pool.ThreadedConnectionPool] = None
 def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
     global _pool
     if _pool is None:
+        # minconn=5: precalienta 5 conexiones al arrancar. El host de Postgres
+        # está en otra red (~15-25ms de ping) — abrir una conexión nueva ahí
+        # cuesta ~70ms (handshake TCP + auth) vs ~40ms de una query sobre una
+        # conexión ya abierta. Con minconn=1 (el default anterior), cualquier
+        # solicitud concurrente pagaba ese costo extra de conexión; con 5
+        # precalentadas, las primeras 5 solicitudes simultáneas no lo pagan.
         _pool = psycopg2.pool.ThreadedConnectionPool(
-            minconn=1,
+            minconn=5,
             maxconn=10,
             host=settings.PG_HOST,
             port=settings.PG_PORT,

@@ -1115,6 +1115,34 @@ def get_moodle_user_fullname(userid: int) -> Optional[str]:
     return None
 
 
+def get_moodle_course_name(courseid: int) -> Optional[str]:
+    """Nombre completo (`fullname`) del curso de Moodle, para confirmar en
+    el paso "Curso" del wizard de asistentes. Usa core_course_get_courses
+    (options[ids][]) — verificado en vivo que el MOODLE_TOKEN actual tiene
+    permiso para esta función; core_course_get_courses_by_field está
+    bloqueada para este token. Retorna None si el curso no existe o la
+    llamada falla."""
+    try:
+        url = f"{settings.MOODLE_URL}/webservice/rest/server.php"
+        params = {
+            "wstoken": settings.MOODLE_TOKEN,
+            "wsfunction": "core_course_get_courses",
+            "moodlewsrestformat": "json",
+            "options[ids][0]": courseid,
+        }
+        r = requests.get(url, params=params, verify=False, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, dict) and "exception" in data:
+            print(f"⚠️ Moodle no pudo resolver el curso {courseid}: {data.get('message')}")
+            return None
+        if data and isinstance(data, list):
+            return data[0].get("fullname")
+    except Exception as e:
+        print(f"⚠️ Error consultando nombre de curso Moodle {courseid}: {e}")
+    return None
+
+
 def get_course_resources(curid: int) -> List[Dict[str, Any]]:
     """
     Consulta la API de Moodle y retorna los recursos (módulos) del curso.

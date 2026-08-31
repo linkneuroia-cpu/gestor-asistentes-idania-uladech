@@ -31,14 +31,14 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from settings import (
     settings, validate_settings, AVAILABLE_EMBEDDING_MODELS,
-    STAGE_CATALOGS, get_strategy_info, strategy_is_usable,
+    STAGE_CATALOGS, get_strategy_info, strategy_is_usable, get_model_dimensions,
 )
 
 from definitions import (get_service,
     AutoPreviewRequest, AutoVectorizeRequest,
     UpdateVectorizeRequest,
     _sanitize_filename,
-    get_moodle_user_fullname,
+    get_moodle_user_fullname, get_moodle_course_name,
 )
 from core import (
     SemiAutoCore, AutoCore, UpdateCore,
@@ -311,15 +311,48 @@ async def qdrant_create_collection(req: CollectionCreateRequest):
     requerido para el pipeline RAG configurable) o "legacy" (vector único,
     compatible con el flujo anterior). `rd_id`+`moodle_courseid` son
     obligatorios: la colección queda asignada a esa RD/curso en Postgres
-    (colecciones_rd) — sin eso ningún asistente podría encontrarla. Si el
-    RD/curso no existe o ya tiene otra colección asignada, la colección
-    recién creada en Qdrant se revierte para no dejar huérfanos."""
+    (colecciones_rd) — sin eso ningún asistente podría encontrarla.
+
+    Para colecciones híbridas, el tamaño de vector denso NO se recibe del
+    cliente: si la RD ya tiene un embedding maestro fijado, se deriva de
+    ahí (ignora lo que venga en `dense_size`/`dense_strategy`, todas las
+    colecciones de una RD deben ser intercambiables entre sí); si es la
+    primera colección real de la RD, `dense_strategy` es obligatorio y
+    queda fijado como el embedding maestro de esa RD de ahí en adelante.
+
+    Si el RD/curso no existe, ya tiene otra colección asignada, o falla
+    fijar el embedding maestro, la colección recién creada en Qdrant se
+    revierte para no dejar huérfanos."""
+    dense_size = req.dense_size
+    lock_in_embedding: Optional[tuple] = None  # (dense_strategy, sparse_strategy) a fijar tras crear
+
+    if req.vector_schema == "hybrid":
+        rd = await db.run(rds.get_rd, req.rd_id)
+        if not rd:
+            raise HTTPException(400, f"La RD {req.rd_id} no existe")
+        if rd.get("dense_strategy"):
+            dense_size = get_model_dimensions(rd["dense_strategy"])
+        else:
+            if not req.dense_strategy:
+                raise HTTPException(
+                    400,
+                    "Esta RD todavía no tiene un embedding maestro fijado — es su primera "
+                    "colección, indica 'dense_strategy' para fijarlo.",
+                )
+            try:
+                get_strategy_info("dense", req.dense_strategy)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            dense_size = get_model_dimensions(req.dense_strategy)
+            sparse_strategy = req.sparse_strategy or settings.SPARSE_EMBEDDING_STRATEGY
+            lock_in_embedding = (req.dense_strategy, sparse_strategy)
+
     try:
         result = get_qdrant_admin().create_collection(
             name=req.name,
             description=req.description,
             vector_schema=req.vector_schema,
-            dense_size=req.dense_size,
+            dense_size=dense_size,
             distance=req.distance,
         )
     except ValueError as e:
@@ -329,6 +362,8 @@ async def qdrant_create_collection(req: CollectionCreateRequest):
 
     try:
         await db.run(rds.link_collection, req.name, req.rd_id, req.moodle_courseid)
+        if lock_in_embedding:
+            await db.run(rds.set_embedding, req.rd_id, *lock_in_embedding)
     except ValueError as e:
         try:
             get_qdrant_admin().delete_collection(req.name, force=True)
@@ -450,6 +485,10 @@ class RdUpdateRequest(BaseModel):
     nombre: Optional[str] = None
     moodle_courseid: Optional[int] = None
     moodle_course_url: Optional[str] = None
+    # Embedding maestro de la RD — solo se puede cambiar mientras no tenga
+    # colecciones reales creadas (ver rds.update_rd).
+    dense_strategy: Optional[str] = None
+    sparse_strategy: Optional[str] = None
 
 
 @app.get("/api/rds", tags=["RD"])
@@ -474,10 +513,14 @@ async def create_rd_endpoint(req: RdCreateRequest):
 
 @app.patch("/api/rds/{rd_id}", tags=["RD"])
 async def update_rd_endpoint(rd_id: int, req: RdUpdateRequest):
+    fields = req.model_dump(exclude_unset=True)
+    strategy_kwargs = {k: fields[k] for k in ("dense_strategy", "sparse_strategy") if k in fields}
     try:
-        return await db.run(rds.update_rd, rd_id, req.nombre, req.moodle_courseid, req.moodle_course_url)
+        return await db.run(
+            rds.update_rd, rd_id, req.nombre, req.moodle_courseid, req.moodle_course_url, **strategy_kwargs
+        )
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        raise HTTPException(400, str(e))
 
 
 @app.delete("/api/rds/{rd_id}", tags=["RD"])
@@ -512,6 +555,17 @@ async def remove_rd_courseid_endpoint(entry_id: int):
         raise HTTPException(400, str(e))
 
 
+@app.get("/api/moodle/curso/{courseid}", tags=["RD"])
+async def moodle_curso_endpoint(courseid: int):
+    """Nombre real del curso de Moodle — paso 2 del wizard de asistentes,
+    para confirmar el Course ID antes de asociarlo a una RD."""
+    loop = asyncio.get_event_loop()
+    fullname = await loop.run_in_executor(None, get_moodle_course_name, courseid)
+    if not fullname:
+        raise HTTPException(404, f"Moodle no reconoce el Course ID {courseid}.")
+    return {"id": courseid, "fullname": fullname}
+
+
 # ═══════════════════════════════════════════════════════════════════
 # ASISTENTES (CRUD)  /api/asistentes/*
 # ═══════════════════════════════════════════════════════════════════
@@ -520,8 +574,6 @@ _ASISTENTE_STRATEGY_FIELDS = (
     "etl_document_strategy",
     "etl_audio_strategy",
     "contextual_strategy",
-    "dense_strategy",
-    "sparse_strategy",
     "rerank_strategy",
     "generation_strategy",
 )
@@ -531,14 +583,15 @@ class AsistenteCreateRequest(BaseModel):
     nombre: str
     rd_id: int
     prompt_maestro: Optional[str] = None
-    # Config RAG 100% propia del asistente — None/omitido = usa el valor
-    # por defecto del sistema. etl_document/etl_audio/contextual también
-    # se consultan automáticamente al vectorizar (ver core._build_pipeline_config).
+    # Config RAG propia del asistente — None/omitido = usa el valor por
+    # defecto del sistema. etl_document/etl_audio/contextual también se
+    # consultan automáticamente al vectorizar (ver core._build_pipeline_config).
+    # dense/sparse NO van aquí: son el embedding maestro de la RD
+    # (rds.dense_strategy/sparse_strategy) — todas las colecciones de una
+    # RD deben compartirlo, así que el asistente solo lo hereda/muestra.
     etl_document_strategy: Optional[str] = None
     etl_audio_strategy: Optional[str] = None
     contextual_strategy: Optional[str] = None
-    dense_strategy: Optional[str] = None
-    sparse_strategy: Optional[str] = None
     rerank_strategy: Optional[str] = None
     generation_strategy: Optional[str] = None
 
@@ -554,8 +607,6 @@ class AsistenteUpdateRequest(BaseModel):
     etl_document_strategy: Optional[str] = None
     etl_audio_strategy: Optional[str] = None
     contextual_strategy: Optional[str] = None
-    dense_strategy: Optional[str] = None
-    sparse_strategy: Optional[str] = None
     rerank_strategy: Optional[str] = None
     generation_strategy: Optional[str] = None
 
@@ -689,12 +740,17 @@ async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
     history = await db.run(assistants.get_recent_history, req.sesion_id)
     await db.run(assistants.save_mensaje, req.sesion_id, "user", req.pregunta)
 
+    # dense/sparse son el embedding maestro de la RD (no del asistente):
+    # todas las colecciones de la RD deben compartirlo para que un mismo
+    # asistente pueda responder con cualquiera de ellas indistintamente.
+    rd = await db.run(rds.get_rd_for_collection, sesion["qdrant_collection_name"]) or {}
+
     try:
         result = await rag_pipeline.answer_query(
             collection_name=sesion["qdrant_collection_name"],
             query=req.pregunta,
-            dense_strategy_name=asistente.get("dense_strategy"),
-            sparse_strategy_name=asistente.get("sparse_strategy"),
+            dense_strategy_name=rd.get("dense_strategy"),
+            sparse_strategy_name=rd.get("sparse_strategy"),
             rerank_strategy_name=asistente.get("rerank_strategy"),
             generation_strategy_name=asistente.get("generation_strategy"),
             extra_system_prompt=asistente.get("prompt_maestro"),
@@ -737,6 +793,39 @@ async def asistente_nueva_conversacion(token: str, req: AsistenteNuevaConversaci
         True,
     )
     return {"sesion_id": sesion["id"], "saludo_nombre": fullname or ""}
+
+
+@app.get("/asistente/{token}/conversaciones", tags=["Asistente público"])
+async def asistente_listar_conversaciones(token: str, courseid: int = Query(...), userid: int = Query(...)):
+    """Sidebar de historial: todas las conversaciones de este alumno con
+    este asistente en este curso, más recientes primero, con vista previa."""
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+    sesiones = await db.run(assistants.list_sesiones, asistente["id"], courseid, userid)
+    return {"conversaciones": sesiones}
+
+
+@app.get("/asistente/{token}/conversaciones/{sesion_id}", tags=["Asistente público"])
+async def asistente_ver_conversacion(
+    token: str, sesion_id: int, courseid: int = Query(...), userid: int = Query(...)
+):
+    """Mensajes de una conversación anterior — valida que pertenezca a
+    este asistente/curso/usuario antes de devolverlos (mismo criterio de
+    acceso que el resto de la ruta pública: el token + los parámetros)."""
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+    sesion = await db.run(assistants.get_sesion, sesion_id)
+    if (
+        not sesion
+        or sesion["asistente_id"] != asistente["id"]
+        or sesion["moodle_courseid"] != courseid
+        or sesion["moodle_userid"] != userid
+    ):
+        raise HTTPException(404, "Conversación no encontrada.")
+    historial = await db.run(assistants.get_mensajes, sesion_id)
+    return {"sesion_id": sesion_id, "historial": historial}
 
 
 @app.get("/api/jobs/{job_id}", tags=["Compartido"])
@@ -1382,9 +1471,11 @@ async def rag_answer(req: RagAnswerRequest):
         extra_system_prompt = asistente.get("prompt_maestro")
         # La config propia del asistente aplica salvo que el request la
         # override explícitamente (así "Prueba de Asistente" prueba
-        # exactamente lo que respondería en público).
-        dense_strategy = dense_strategy or asistente.get("dense_strategy")
-        sparse_strategy = sparse_strategy or asistente.get("sparse_strategy")
+        # exactamente lo que respondería en público). dense/sparse son el
+        # embedding maestro de la RD, no del asistente.
+        rd = await db.run(rds.get_rd, asistente["rd_id"]) or {}
+        dense_strategy = dense_strategy or rd.get("dense_strategy")
+        sparse_strategy = sparse_strategy or rd.get("sparse_strategy")
         rerank_strategy = rerank_strategy or asistente.get("rerank_strategy")
         generation_strategy = generation_strategy or asistente.get("generation_strategy")
 

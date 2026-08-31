@@ -43,15 +43,18 @@ DEFAULT_SOURCE_TYPE = "curso_propio"
 def _build_pipeline_config(collection_name: str, source_type: Optional[str]) -> Optional[PipelineConfig]:
     """
     Si la colección destino es híbrida (vectores nombrados dense+sparse),
-    arma automáticamente el PipelineConfig. Para cada etapa, usa primero la
-    config propia del asistente dueño de la colección (el activo más
-    recientemente actualizado de la RD a la que está vinculada, vía
-    assistants.get_asistente_config_for_collection) y, si ese campo es
-    NULL o no hay ningún asistente vinculado todavía, cae al valor por
-    defecto del sistema (strategy_registry.get_all_active() — config
+    arma automáticamente el PipelineConfig. ETL/audio/contextual usan
+    primero la config propia del asistente dueño de la colección (el
+    activo más recientemente actualizado de la RD a la que está vinculada,
+    vía assistants.get_asistente_config_for_collection); dense/sparse usan
+    el embedding "maestro" de la RD (rds.get_rd_for_collection) — todas
+    las colecciones de una RD deben compartirlo para ser intercambiables
+    entre sí, así que ya no son configurables por asistente. Si algún
+    campo es NULL, o no hay asistente/RD vinculado todavía, cae al valor
+    por defecto del sistema (strategy_registry.get_all_active() — config
     congelada en Postgres o default de .env). El usuario no arma nada
     manualmente: los 3 mecanismos de vectorización no cambian su UI, solo
-    consultan automáticamente al asistente antes de vectorizar.
+    consultan automáticamente antes de vectorizar.
 
     Si la colección es legacy (vector único sin nombre) o no se puede
     determinar su esquema (aún no existe, error de conexión), retorna None
@@ -73,6 +76,7 @@ def _build_pipeline_config(collection_name: str, source_type: Optional[str]) -> 
         return None
 
     import assistants as assistants_module
+    import rds as rds_module
 
     active = strategy_registry.get_all_active()
     try:
@@ -80,6 +84,11 @@ def _build_pipeline_config(collection_name: str, source_type: Optional[str]) -> 
     except Exception as e:
         print(f"⚠️ No se pudo consultar la config del asistente para '{collection_name}': {e}")
         asis_cfg = {}
+    try:
+        rd = rds_module.get_rd_for_collection(collection_name) or {}
+    except Exception as e:
+        print(f"⚠️ No se pudo consultar la RD de '{collection_name}': {e}")
+        rd = {}
 
     def pick(active_key: str, asis_field: str) -> str:
         return asis_cfg.get(asis_field) or active[active_key]
@@ -88,8 +97,8 @@ def _build_pipeline_config(collection_name: str, source_type: Optional[str]) -> 
         etl_document_strategy=pick("etl_document", "etl_document_strategy"),
         etl_audio_strategy=pick("etl_audio", "etl_audio_strategy"),
         contextual_strategy=pick("contextual", "contextual_strategy"),
-        dense_strategy=pick("dense", "dense_strategy"),
-        sparse_strategy=pick("sparse", "sparse_strategy"),
+        dense_strategy=rd.get("dense_strategy") or active["dense"],
+        sparse_strategy=rd.get("sparse_strategy") or active["sparse"],
         source_type=source_type or DEFAULT_SOURCE_TYPE,
     )
 

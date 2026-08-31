@@ -28,9 +28,32 @@ body{
 .hdr-txt{line-height:1.25}
 .hdr-txt .ent{font-size:10px;color:var(--blue-700);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
 .hdr-txt .sys{font-size:14px;font-weight:700}
-.newconv-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:99px;border:1px solid var(--neutral-300);background:#fff;color:var(--blue-700);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0}
-.newconv-btn:hover{background:var(--neutral-100)}
+.hist-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:99px;border:1px solid var(--neutral-300);background:#fff;color:var(--blue-700);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0}
+.hist-btn:hover{background:var(--neutral-100)}
 .wrap{flex:1;display:flex;flex-direction:column;max-width:680px;width:100%;margin:0 auto;padding:16px;min-height:0}
+
+/* ── Sidebar de historial: overlay off-canvas en cualquier ancho,
+   abierta/cerrada con el botón "Historial" del header ── */
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(13,16,40,.35);z-index:40}
+.sidebar-backdrop.open{display:block}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:300px;max-width:85vw;background:#fff;
+  border-right:1px solid var(--neutral-300);z-index:50;transform:translateX(-100%);
+  transition:transform .25s ease;display:flex;flex-direction:column;box-shadow:var(--shadow-md)}
+.sidebar.open{transform:translateX(0)}
+.sidebar-hdr{padding:14px 16px;border-bottom:1px solid var(--neutral-300);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.sidebar-hdr b{font-size:13px;color:var(--gray-800)}
+.sidebar-close{background:none;border:none;font-size:18px;color:var(--gray-500);cursor:pointer;line-height:1;padding:2px}
+.sidebar-close:hover{color:var(--gray-700)}
+.sidebar-newconv{width:calc(100% - 28px);margin:12px 14px;padding:10px;border-radius:10px;border:1px solid var(--blue-700);
+  background:var(--blue-700);color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0}
+.sidebar-newconv:hover{background:var(--blue-800)}
+.sidebar-list{flex:1;overflow-y:auto;padding:0 8px 14px}
+.conv-item{padding:10px;border-radius:8px;cursor:pointer;margin-bottom:3px}
+.conv-item:hover{background:var(--neutral-100)}
+.conv-item.active{background:var(--blue-200);border:1px solid var(--blue-700)}
+.conv-date{font-size:10px;color:var(--gray-500);text-transform:uppercase;letter-spacing:.3px}
+.conv-preview{font-size:12.5px;color:var(--gray-700);margin-top:2px;overflow:hidden;text-overflow:ellipsis;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:6px 2px 16px}
 .msg{max-width:82%;padding:11px 14px;border-radius:var(--radius-lg);font-size:14px;line-height:1.55;white-space:pre-wrap}
 .msg.user{align-self:flex-end;background:var(--blue-700);color:#fff;border-bottom-right-radius:4px}
@@ -63,16 +86,25 @@ body{
   </div>
 </div>
 {% else %}
+<div class="sidebar-backdrop" id="sbdrop" onclick="toggleSidebar(false)"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-hdr">
+    <b>Historial de conversaciones</b>
+    <button class="sidebar-close" onclick="toggleSidebar(false)" aria-label="Cerrar">✕</button>
+  </div>
+  <button class="sidebar-newconv" onclick="nuevaConversacion()">+ Nueva conversación</button>
+  <div class="sidebar-list" id="conv-list"><p class="muted" style="padding:10px;font-size:12px;color:var(--gray-500)">Cargando…</p></div>
+</aside>
 <header class="hdr">
+  <button class="hist-btn" onclick="toggleSidebar(true)" title="Ver conversaciones anteriores">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    Historial
+  </button>
   <div class="logo-circle"><img src="/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo ULADECH Católica"></div>
   <div class="hdr-txt" style="flex:1">
     <div class="ent">ULADECH Católica</div>
     <div class="sys">{{ asistente_nombre }}</div>
   </div>
-  <button class="newconv-btn" onclick="nuevaConversacion()" title="Empezar una conversación nueva, sin recordar lo anterior">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-    Nueva conversación
-  </button>
 </header>
 <div class="wrap">
   <div class="chat" id="chat">
@@ -169,8 +201,55 @@ async function nuevaConversacion(){
     SESION_ID = j.sesion_id;
     chat.innerHTML = '';
     addMsg('assistant', (j.saludo_nombre ? `Hola ${j.saludo_nombre}, ` : 'Hola, ') + `soy ${document.querySelector('.sys').textContent}. Pregúntame lo que necesites sobre el curso.`);
+    toggleSidebar(false);
   }catch(e){
     addMsg('assistant', '⚠️ ' + e.message);
+  }
+}
+
+// ── Historial (sidebar) ──
+function toggleSidebar(open){
+  document.getElementById('sidebar').classList.toggle('open', open);
+  document.getElementById('sbdrop').classList.toggle('open', open);
+  if(open) loadConversaciones();
+}
+
+function fmtConvDate(iso){
+  try{
+    return new Date(iso).toLocaleString('es-PE', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+  }catch(e){ return ''; }
+}
+
+async function loadConversaciones(){
+  const list = document.getElementById('conv-list');
+  list.innerHTML = '<p class="muted" style="padding:10px;font-size:12px;color:var(--gray-500)">Cargando…</p>';
+  try{
+    const r = await fetch(`/asistente/${TOKEN}/conversaciones?courseid=${COURSEID}&userid=${USERID}`);
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.detail || 'No se pudo cargar el historial');
+    const convs = j.conversaciones || [];
+    list.innerHTML = convs.map(c => `
+      <div class="conv-item ${c.id===SESION_ID?'active':''}" onclick="abrirConversacion(${c.id})">
+        <div class="conv-date">${fmtConvDate(c.last_activity_at)}</div>
+        <div class="conv-preview">${esc(c.preview || '(sin mensajes)')}</div>
+      </div>`).join('') || '<p class="muted" style="padding:10px;font-size:12px;color:var(--gray-500)">Todavía no tienes conversaciones anteriores.</p>';
+  }catch(e){
+    list.innerHTML = `<p style="padding:10px;font-size:12px;color:var(--red-700)">${esc(e.message)}</p>`;
+  }
+}
+
+async function abrirConversacion(sesionId){
+  if(sesionId === SESION_ID){ toggleSidebar(false); return; }
+  try{
+    const r = await fetch(`/asistente/${TOKEN}/conversaciones/${sesionId}?courseid=${COURSEID}&userid=${USERID}`);
+    const j = await r.json();
+    if(!r.ok) throw new Error(j.detail || 'No se pudo abrir esa conversación');
+    SESION_ID = sesionId;
+    chat.innerHTML = '';
+    (j.historial || []).forEach(m => addMsg(m.rol, m.contenido));
+    toggleSidebar(false);
+  }catch(e){
+    alert(e.message);
   }
 }
 </script>
