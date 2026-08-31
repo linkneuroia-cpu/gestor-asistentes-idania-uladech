@@ -1549,22 +1549,71 @@ const ASIS_CFG_GROUPS=[
   {n:5,name:'Generador Final (LLM)',stages:['generation']},
 ];
 
-function asisCfgGroupsHTML(idPrefix,rd){
-  const denseLabel=rd&&rd.dense_strategy?rd.dense_strategy:'Valor por defecto del sistema';
-  const sparseLabel=rd&&rd.sparse_strategy?rd.sparse_strategy:'Valor por defecto del sistema';
+function asisCfgGroupsHTML(idPrefix,rd,returnFn){
   return ASIS_CFG_GROUPS.map(g=>{
     if(g.readonly){
+      let embeddingContent;
+      if(rd&&rd.dense_strategy){
+        embeddingContent=`<div class="dl mt8">
+          <div class="di"><div class="di-info"><div class="di-name">Colección madre</div><div class="di-meta">${esc(rd.dense_strategy)} / ${esc(rd.sparse_strategy||'bm25')}</div></div></div>
+        </div>`;
+      }else if(rd){
+        embeddingContent=`<div class="alert a-warn mt8">Esta RD todavía no tiene una colección madre.</div>
+          <button class="btn btn-prim btn-sm mt8" onclick='asisCfgCreateMadre(${rd.id},${JSON.stringify(returnFn)})'>Crear colección madre</button>`;
+      }else{
+        embeddingContent=`<div class="fh">Selecciona una RD en el paso 1 primero.</div>`;
+      }
       return `<div class="card">
         <div class="card-ttl">${g.n}. ${esc(g.name)} <span class="muted" style="font-weight:400">— heredado de la RD, no editable aquí</span></div>
-        <div class="fh">Todas las colecciones de la RD comparten este embedding para ser intercambiables entre sí. Se cambia desde "Gestión RD" (solo si la RD todavía no tiene colecciones reales).</div>
-        <div class="dl mt8">
-          <div class="di"><div class="di-info"><div class="di-name">Embedding denso</div><div class="di-meta">${esc(denseLabel)}</div></div></div>
-          <div class="di"><div class="di-info"><div class="di-name">Embedding disperso</div><div class="di-meta">${esc(sparseLabel)}</div></div></div>
-        </div>
+        <div class="fh">Todas las colecciones de la RD comparten este embedding (la "colección madre") para ser intercambiables entre sí. Se cambia desde "Gestión RD" (solo si la RD todavía no tiene colecciones reales).</div>
+        ${embeddingContent}
       </div>`;
     }
     return `<div class="card"><div class="card-ttl">${g.n}. ${esc(g.name)}</div>${g.stages.map(s=>`<div id="${idPrefix}-cfgbox-${s}" class="mt8"></div>`).join('')}</div>`;
   }).join('');
+}
+
+// Crea la "colección madre" de una RD (su primera colección real) usando
+// el courseid original de la RD — no requiere haber elegido un curso
+// todavía. `returnFn`: nombre de la función global que reabre el modal
+// (wizard o edición) desde el que se llamó, para volver ahí al terminar.
+async function asisCfgCreateMadre(rdId,returnFn){
+  showModal('Crear colección madre',`
+    <div class="fg"><label class="fl">Nombre <span class="req">*</span></label><input class="fc" id="madre-name" placeholder="Ej: Curso_..."></div>
+    ${qEmbeddingFieldHTML('madre',null)}
+    <div class="fg"><label class="fl">Métrica de distancia</label>
+      <select class="fc" id="madre-distance" style="max-width:200px"><option value="Cosine">Cosine</option><option value="Euclid">Euclid</option><option value="Dot">Dot</option></select>
+    </div>
+    <div class="modal-foot" style="margin-top:14px">
+      <button class="btn btn-ghost btn-sm" onclick='${returnFn}()'>Cancelar</button>
+      <button class="btn btn-prim btn-sm" id="madre-confirm-btn" onclick='asisCfgCreateMadreConfirm(${rdId},${JSON.stringify(returnFn)})'>Crear</button>
+    </div>
+  `);
+  qEmbeddingFieldLoadOptions('madre');
+}
+
+async function asisCfgCreateMadreConfirm(rdId,returnFn){
+  const name=$('madre-name').value.trim();
+  if(!name){showModal('Campo requerido','<p>Ingresa un nombre para la colección.</p>');return;}
+  const denseStrategy=qEmbeddingFieldValue('madre',null);
+  if(!denseStrategy){showModal('Campo requerido','<p>Selecciona un embedding denso.</p>');return;}
+  const btnEl=$('madre-confirm-btn');
+  if(btnEl){btnEl.disabled=true;btnEl.textContent='Creando…';}
+  try{
+    const rd=await api('/api/rds/'+rdId);
+    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name, vector_schema:'hybrid',
+      dense_strategy:denseStrategy,
+      distance:$('madre-distance').value,
+      rd_id:rdId, moodle_courseid:rd.moodle_courseid,
+    })});
+    const updatedRd=await api('/api/rds/'+rdId);
+    if(typeof ASIS_WIZ!=='undefined'&&ASIS_WIZ){const i=ASIS_WIZ.rds.findIndex(r=>r.id===rdId);if(i>=0)ASIS_WIZ.rds[i]=updatedRd;}
+    if(typeof ASIS_EDIT!=='undefined'&&ASIS_EDIT){const i=ASIS_EDIT.rds.findIndex(r=>r.id===rdId);if(i>=0)ASIS_EDIT.rds[i]=updatedRd;}
+    window[returnFn]();
+  }catch(e){
+    showModal('Error',`<p>${esc(e.message)}</p>`);
+  }
 }
 
 async function asisLoad(){
@@ -1589,11 +1638,11 @@ async function asisLoad(){
 }
 
 // ── Wizard de creación (5 fases, marcadas conforme se completan) ──
-const ASIS_WIZ_STEPS=['Datos básicos','Curso y colección','Configuración RAG','Prompt maestro','Revisar y crear'];
+const ASIS_WIZ_STEPS=['Datos básicos','Configuración RAG','Curso','Prompt maestro','Revisar y crear'];
 let ASIS_WIZ=null;
 
 async function asisWizardOpen(){
-  ASIS_WIZ={step:1,maxStep:1,nombre:'',rd_id:null,rds:[],courseid:null,courseName:null,promptMaestro:'',cfg:{}};
+  ASIS_WIZ={step:1,maxStep:1,nombre:'',rd_id:null,rds:[],courseid:null,courseName:null,promptMaestro:'',mensajeBienvenida:'',cfg:{}};
   showModalWide('Crear asistente','<div id="wiz-body"><p class="muted">Cargando…</p></div>');
   try{ const d=await api('/api/rds'); ASIS_WIZ.rds=d.rds||[]; }catch(e){}
   asisWizardRender();
@@ -1631,7 +1680,8 @@ function asisWizardRender(){
       ${ASIS_WIZ.step<5?`<button class="btn btn-prim btn-sm" onclick="asisWizardNext()">Siguiente →</button>`:`<button class="btn btn-prim btn-sm" onclick="asisWizardSubmit()">Crear asistente</button>`}
     </div>`;
 
-  if(ASIS_WIZ.step===3)ASIS_STAGE_DEFS.forEach(s=>asisWizRenderStage(s));
+  if(ASIS_WIZ.step===2)ASIS_STAGE_DEFS.forEach(s=>asisWizRenderStage(s));
+  if(ASIS_WIZ.step===3)asisWizInitStep3();
 }
 
 function asisWizError(msg){
@@ -1651,37 +1701,63 @@ function asisWizStep1HTML(){
 }
 
 function asisWizStep2HTML(){
-  return `
-    <div class="fg"><label class="fl">Course ID (Moodle)</label>
-      <div style="display:flex;gap:8px">
-        <input class="fc" type="number" id="wiz-courseid" value="${ASIS_WIZ.courseid||''}" placeholder="Ej: 1396">
-        <button class="btn btn-out btn-sm" style="white-space:nowrap" onclick="asisWizLookupCourse()">Buscar en Moodle</button>
-      </div>
-      <div class="fh">Se usa para confirmar el curso real — el asistente resuelve la colección correcta en tiempo real por RD + Course ID, no hace falta crearla ahora.</div>
-    </div>
-    <div id="wiz-course-status" class="fh">${ASIS_WIZ.courseName?`<span style="color:var(--green-700)">✓ ${esc(ASIS_WIZ.courseName)}</span>`:''}</div>`;
-}
-
-async function asisWizLookupCourse(){
-  const courseId=$('wiz-courseid').value;
-  const status=$('wiz-course-status');
-  if(!courseId){asisWizError('Ingresa un Course ID.');return;}
-  status.innerHTML='<span class="muted">Consultando Moodle…</span>';
-  try{
-    const d=await api('/api/moodle/curso/'+courseId);
-    ASIS_WIZ.courseid=parseInt(courseId);
-    ASIS_WIZ.courseName=d.fullname;
-    status.innerHTML=`<span style="color:var(--green-700)">✓ ${esc(d.fullname)}</span>`;
-  }catch(e){
-    ASIS_WIZ.courseid=null;ASIS_WIZ.courseName=null;
-    status.innerHTML=`<span style="color:var(--red-700)">${esc(e.message)}</span>`;
-  }
+  const rd=ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id);
+  return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
+    asisCfgGroupsHTML('wiz',rd,'asisWizardReopen');
 }
 
 function asisWizStep3HTML(){
-  const rd=ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id);
-  return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
-    asisCfgGroupsHTML('wiz',rd);
+  return `<div id="wiz-courses-list"><p class="muted">Cargando…</p></div>
+    <div class="card-ttl mt16">Agregar un curso</div>
+    <div class="fg"><label class="fl">Course ID (Moodle)</label>
+      <div style="display:flex;gap:8px">
+        <input class="fc" type="number" id="wiz-courseid" placeholder="Ej: 1396">
+        <button class="btn btn-out btn-sm" style="white-space:nowrap" id="wiz-addcourse-btn" onclick="asisWizAddCourse()">Buscar y agregar</button>
+      </div>
+    </div>
+    <div id="wiz-course-status" class="fh"></div>`;
+}
+
+async function asisWizInitStep3(){
+  const box=$('wiz-courses-list');
+  if(!box)return;
+  try{
+    const rd=await api('/api/rds/'+ASIS_WIZ.rd_id);
+    const cursos=rd.colecciones||[];
+    if(!cursos.length){
+      box.innerHTML=`<p class="muted">Esta RD todavía no tiene cursos registrados — puedes continuar de todas formas y agregar uno cuando quieras, aquí abajo o desde "Gestión RD → Cursos".</p>`;
+      return;
+    }
+    box.innerHTML=`<div class="dl">${cursos.map(c=>`
+      <div class="di"><div class="di-info">
+        <div class="di-name">Curso ${c.moodle_courseid}${c.qdrant_collection_name?` → ${esc(c.qdrant_collection_name)}`:''}</div>
+        <div class="di-meta">${c.qdrant_collection_name?'Colección asignada':'Sin colección todavía'}</div>
+      </div></div>`).join('')}</div>`;
+  }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
+}
+
+async function asisWizAddCourse(){
+  const courseId=$('wiz-courseid').value;
+  const status=$('wiz-course-status');
+  const btnEl=$('wiz-addcourse-btn');
+  if(!courseId){asisWizError('Ingresa un Course ID.');return;}
+  btnEl.disabled=true;
+  status.innerHTML='<span class="muted">Consultando Moodle…</span>';
+  try{
+    const d=await api('/api/moodle/curso/'+courseId);
+    try{
+      await api(`/api/rds/${ASIS_WIZ.rd_id}/courseids`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({moodle_courseid:parseInt(courseId)})});
+    }catch(e){
+      if(!/ya está registrado/i.test(e.message))throw e;
+    }
+    status.innerHTML=`<span style="color:var(--green-700)">✓ ${esc(d.fullname)} agregado.</span>`;
+    $('wiz-courseid').value='';
+    asisWizInitStep3();
+  }catch(e){
+    status.innerHTML=`<span style="color:var(--red-700)">${esc(e.message)}</span>`;
+  }finally{
+    btnEl.disabled=false;
+  }
 }
 
 async function asisWizRenderStage(stageDef){
@@ -1711,6 +1787,10 @@ function asisWizStep4HTML(){
   return `<div class="fg"><label class="fl">Prompt maestro (contexto adicional para el asistente)</label>
     <textarea class="fc" id="wiz-prompt" rows="5" placeholder="Ej: Eres el asistente del curso de Introducción a las Ciencias Jurídicas. Responde con tono formal y académico…">${esc(ASIS_WIZ.promptMaestro)}</textarea>
     <div class="fh">Se agrega al prompt del sistema fijo (prioridad al material del curso) — no lo reemplaza.</div>
+  </div>
+  <div class="fg"><label class="fl">Mensaje de bienvenida <span class="muted">— opcional</span></label>
+    <textarea class="fc" id="wiz-saludo" rows="3" placeholder="Ej: soy IdanIA. Pregúntame lo que necesites sobre el curso.">${esc(ASIS_WIZ.mensajeBienvenida)}</textarea>
+    <div class="fh">Se muestra al abrir el chat, después de "Hola [nombre del alumno], ". Déjalo vacío para usar el mensaje por defecto ("soy ${esc(ASIS_WIZ.nombre)}. Pregúntame lo que necesites sobre el curso.").</div>
   </div>`;
 }
 
@@ -1722,13 +1802,13 @@ function asisWizStep5HTML(){
       <div class="card-ttl">Resumen</div>
       <p><b>Nombre:</b> ${esc(ASIS_WIZ.nombre)}</p>
       <p class="mt8"><b>RD:</b> ${esc(rd?rd.nombre:'')}</p>
-      <p class="mt8"><b>Curso:</b> ${esc(ASIS_WIZ.courseName)} (id ${ASIS_WIZ.courseid})</p>
       <p class="mt8"><b>Prompt maestro:</b> ${ASIS_WIZ.promptMaestro?esc(ASIS_WIZ.promptMaestro):'<span class="muted">Ninguno</span>'}</p>
+      <p class="mt8"><b>Mensaje de bienvenida:</b> ${ASIS_WIZ.mensajeBienvenida?esc(ASIS_WIZ.mensajeBienvenida):'<span class="muted">Por defecto</span>'}</p>
     </div>
     <div class="card"><div class="card-ttl">Configuración RAG</div><div class="dl">${cfgLines}</div>
-      <p class="muted mt8">3. Índexación y Búsqueda Híbrida: hereda el embedding maestro de la RD (no se elige aquí).</p>
+      <p class="muted mt8">3. Índexación y Búsqueda Híbrida: hereda la colección madre de la RD (no se elige aquí).</p>
     </div>
-    <p class="muted">La colección para el curso ${ASIS_WIZ.courseid} se resuelve en tiempo real al recibir preguntas — créala cuando quieras desde "Gestión RD → Cursos" o "Gestión Qdrant".</p>`;
+    <p class="muted">Este asistente responderá para cualquier courseid que la RD tenga registrado — agrega o quita cursos cuando quieras desde "Gestión RD → Cursos".</p>`;
 }
 
 async function asisWizardNext(){
@@ -1738,19 +1818,9 @@ async function asisWizardNext(){
     if(!nombre||!rdId){asisWizError('Ingresa un nombre y selecciona una RD.');return;}
     ASIS_WIZ.nombre=nombre;ASIS_WIZ.rd_id=parseInt(rdId);
   }
-  if(ASIS_WIZ.step===2){
-    if(!ASIS_WIZ.courseid||!ASIS_WIZ.courseName){
-      asisWizError('Ingresa un Course ID y confírmalo con "Buscar en Moodle".');
-      return;
-    }
-    try{
-      await api(`/api/rds/${ASIS_WIZ.rd_id}/courseids`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({moodle_courseid:ASIS_WIZ.courseid})});
-    }catch(e){
-      if(!/ya está registrado/i.test(e.message)){asisWizError(e.message);return;}
-    }
-  }
   if(ASIS_WIZ.step===4){
     ASIS_WIZ.promptMaestro=$('wiz-prompt').value.trim();
+    ASIS_WIZ.mensajeBienvenida=$('wiz-saludo').value.trim();
   }
   ASIS_WIZ.step++;
   if(ASIS_WIZ.step>ASIS_WIZ.maxStep)ASIS_WIZ.maxStep=ASIS_WIZ.step;
@@ -1758,7 +1828,10 @@ async function asisWizardNext(){
 }
 
 function asisWizardBack(){
-  if(ASIS_WIZ.step===4){const el=$('wiz-prompt');if(el)ASIS_WIZ.promptMaestro=el.value.trim();}
+  if(ASIS_WIZ.step===4){
+    const p=$('wiz-prompt');if(p)ASIS_WIZ.promptMaestro=p.value.trim();
+    const s=$('wiz-saludo');if(s)ASIS_WIZ.mensajeBienvenida=s.value.trim();
+  }
   ASIS_WIZ.step--;
   asisWizardRender();
 }
@@ -1766,15 +1839,21 @@ function asisWizardBack(){
 function asisWizardGoto(n){
   if(n>ASIS_WIZ.maxStep||n===ASIS_WIZ.step)return;
   if(ASIS_WIZ.step===1){const el=$('wiz-nombre');if(el)ASIS_WIZ.nombre=el.value.trim();}
-  if(ASIS_WIZ.step===4){const el=$('wiz-prompt');if(el)ASIS_WIZ.promptMaestro=el.value.trim();}
+  if(ASIS_WIZ.step===4){
+    const p=$('wiz-prompt');if(p)ASIS_WIZ.promptMaestro=p.value.trim();
+    const s=$('wiz-saludo');if(s)ASIS_WIZ.mensajeBienvenida=s.value.trim();
+  }
   ASIS_WIZ.step=n;
   asisWizardRender();
 }
 
 async function asisWizardSubmit(){
+  const btnEl=document.querySelector('#wiz-body .modal-foot .btn-prim');
+  if(btnEl){btnEl.disabled=true;btnEl.textContent='Creando…';}
   try{
     const d=await api('/api/asistentes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       nombre:ASIS_WIZ.nombre, rd_id:ASIS_WIZ.rd_id, prompt_maestro:ASIS_WIZ.promptMaestro||null,
+      mensaje_bienvenida:ASIS_WIZ.mensajeBienvenida||null,
       etl_document_strategy:ASIS_WIZ.cfg.etl_document||null,
       etl_audio_strategy:ASIS_WIZ.cfg.etl_audio||null,
       contextual_strategy:ASIS_WIZ.cfg.contextual||null,
@@ -1785,11 +1864,14 @@ async function asisWizardSubmit(){
     ASIS_WIZ=null;
     showModal('Asistente creado',`<p><strong>${esc(nombre)}</strong> fue creado.</p><p class="mt8">URL pública:<br><a href="${esc(d.public_url)}" target="_blank">${esc(d.public_url)}</a></p>`);
     asisLoad();
-  }catch(e){asisWizError(e.message);}
+  }catch(e){
+    asisWizError(e.message);
+    if(btnEl){btnEl.disabled=false;btnEl.textContent='Crear asistente';}
+  }
 }
 
 // ── Edición (modal seccionado por pestañas, no un solo scroll) ──
-const ASIS_EDIT_TABS=[{id:'general',label:'General'},{id:'curso',label:'Curso y colección'},{id:'prompt',label:'Prompt maestro'},{id:'cfg',label:'Configuración RAG'}];
+const ASIS_EDIT_TABS=[{id:'general',label:'General'},{id:'curso',label:'Curso y colección'},{id:'prompt',label:'Prompt y saludo'},{id:'cfg',label:'Configuración RAG'}];
 let ASIS_EDIT=null;
 
 async function asisEditOpen(id){
@@ -1808,6 +1890,11 @@ async function asisEditOpen(id){
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
+function asisEditReopen(){
+  showModalWide(`Editar asistente — ${esc(ASIS_EDIT.data.nombre)}`,'<div id="edit-body"></div>');
+  asisEditRender();
+}
+
 function asisEditTabsHTML(){
   return `<div class="wiz-tabs">${ASIS_EDIT_TABS.map(t=>`<div class="wiz-tab ${ASIS_EDIT.tab===t.id?'active':''}" onclick="asisEditGoto('${t.id}')">${esc(t.label)}</div>`).join('')}</div>`;
 }
@@ -1820,6 +1907,7 @@ function asisEditCapture(){
   }
   if(ASIS_EDIT.tab==='prompt'){
     const p=$('edit-prompt'); if(p)ASIS_EDIT.data.prompt_maestro=p.value.trim();
+    const s=$('edit-saludo'); if(s)ASIS_EDIT.data.mensaje_bienvenida=s.value.trim();
   }
 }
 
@@ -1861,13 +1949,17 @@ function asisEditCursoHTML(){
 
 function asisEditPromptHTML(){
   return `<div class="fg"><label class="fl">Prompt maestro</label><textarea class="fc" id="edit-prompt" rows="5">${esc(ASIS_EDIT.data.prompt_maestro||'')}</textarea>
-    <div class="fh">Se agrega al prompt del sistema fijo — no lo reemplaza.</div></div>`;
+    <div class="fh">Se agrega al prompt del sistema fijo — no lo reemplaza.</div></div>
+  <div class="fg"><label class="fl">Mensaje de bienvenida <span class="muted">— opcional</span></label>
+    <textarea class="fc" id="edit-saludo" rows="3" placeholder="Ej: soy IdanIA. Pregúntame lo que necesites sobre el curso.">${esc(ASIS_EDIT.data.mensaje_bienvenida||'')}</textarea>
+    <div class="fh">Se muestra al abrir el chat, después de "Hola [nombre del alumno], ". Déjalo vacío para usar el mensaje por defecto ("soy ${esc(ASIS_EDIT.data.nombre)}. Pregúntame lo que necesites sobre el curso.").</div>
+  </div>`;
 }
 
 function asisEditCfgHTML(){
   const rd=ASIS_EDIT.rds.find(r=>r.id===ASIS_EDIT.data.rd_id);
   return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
-    asisCfgGroupsHTML('edit',rd);
+    asisCfgGroupsHTML('edit',rd,'asisEditReopen');
 }
 
 async function asisEditRenderStage(stageDef){
@@ -1896,9 +1988,12 @@ function asisEditCfgSelect(stage,name){
 async function asisEditSubmit(){
   asisEditCapture();
   const a=ASIS_EDIT.data;
+  const btnEl=document.querySelector('#edit-body .modal-foot .btn-prim');
+  if(btnEl){btnEl.disabled=true;btnEl.textContent='Guardando…';}
   try{
     await api('/api/asistentes/'+ASIS_EDIT.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       nombre:a.nombre, rd_id:a.rd_id, prompt_maestro:a.prompt_maestro||null, activo:a.activo,
+      mensaje_bienvenida:a.mensaje_bienvenida||null,
       etl_document_strategy:ASIS_EDIT.cfg.etl_document||null,
       etl_audio_strategy:ASIS_EDIT.cfg.etl_audio||null,
       contextual_strategy:ASIS_EDIT.cfg.contextual||null,
@@ -1911,6 +2006,7 @@ async function asisEditSubmit(){
   }catch(e){
     const el=$('edit-err');
     if(el)el.innerHTML=`<div class="alert a-err mt8">${esc(e.message)}</div>`;
+    if(btnEl){btnEl.disabled=false;btnEl.textContent='Guardar';}
   }
 }
 

@@ -594,6 +594,9 @@ class AsistenteCreateRequest(BaseModel):
     contextual_strategy: Optional[str] = None
     rerank_strategy: Optional[str] = None
     generation_strategy: Optional[str] = None
+    # None/omitido = "soy {nombre}. Pregúntame lo que necesites sobre el
+    # curso." — se agrega después de "Hola {nombre del alumno}, ".
+    mensaje_bienvenida: Optional[str] = None
 
 
 class AsistenteUpdateRequest(BaseModel):
@@ -609,6 +612,7 @@ class AsistenteUpdateRequest(BaseModel):
     contextual_strategy: Optional[str] = None
     rerank_strategy: Optional[str] = None
     generation_strategy: Optional[str] = None
+    mensaje_bienvenida: Optional[str] = None
 
 
 @app.get("/api/asistentes", tags=["Asistentes"])
@@ -627,6 +631,7 @@ async def get_asistente_endpoint(asistente_id: int):
 @app.post("/api/asistentes", status_code=201, tags=["Asistentes"])
 async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(auth.get_current_user)):
     strategy_kwargs = {field: getattr(req, field) for field in _ASISTENTE_STRATEGY_FIELDS}
+    strategy_kwargs["mensaje_bienvenida"] = req.mensaje_bienvenida
     try:
         return await db.run(
             assistants.create_asistente,
@@ -643,7 +648,7 @@ async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(au
 @app.patch("/api/asistentes/{asistente_id}", tags=["Asistentes"])
 async def update_asistente_endpoint(asistente_id: int, req: AsistenteUpdateRequest):
     fields = req.model_dump(exclude_unset=True)
-    kwargs = {k: fields[k] for k in _ASISTENTE_STRATEGY_FIELDS if k in fields}
+    kwargs = {k: fields[k] for k in (*_ASISTENTE_STRATEGY_FIELDS, "mensaje_bienvenida") if k in fields}
     try:
         return await db.run(
             assistants.update_asistente,
@@ -708,6 +713,7 @@ async def asistente_chat_page(token: str, request: Request, courseid: int = Quer
             "error": None,
             "token": token,
             "asistente_nombre": asistente["nombre"],
+            "mensaje_bienvenida": asistente.get("mensaje_bienvenida"),
             "sesion_id": sesion["id"],
             "saludo_nombre": fullname or "",
             "historial": historial,
@@ -792,7 +798,11 @@ async def asistente_nueva_conversacion(token: str, req: AsistenteNuevaConversaci
         asistente["id"], req.courseid, req.userid, None, fullname, collection_name,
         True,
     )
-    return {"sesion_id": sesion["id"], "saludo_nombre": fullname or ""}
+    return {
+        "sesion_id": sesion["id"],
+        "saludo_nombre": fullname or "",
+        "mensaje_bienvenida": asistente.get("mensaje_bienvenida"),
+    }
 
 
 @app.get("/asistente/{token}/conversaciones", tags=["Asistente público"])

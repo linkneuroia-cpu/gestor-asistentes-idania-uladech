@@ -76,6 +76,7 @@ def create_asistente(
     contextual_strategy: Optional[str] = None,
     rerank_strategy: Optional[str] = None,
     generation_strategy: Optional[str] = None,
+    mensaje_bienvenida: Optional[str] = None,
 ) -> Dict[str, Any]:
     if not db.fetch_one("SELECT id FROM rds WHERE id = %s", (rd_id,)):
         raise ValueError(f"La RD {rd_id} no existe")
@@ -84,12 +85,12 @@ def create_asistente(
         "INSERT INTO asistentes "
         "(nombre, rd_id, prompt_maestro, token, created_by, "
         "etl_document_strategy, etl_audio_strategy, contextual_strategy, "
-        "rerank_strategy, generation_strategy) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
+        "rerank_strategy, generation_strategy, mensaje_bienvenida) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
         (
             nombre, rd_id, prompt_maestro, token, created_by,
             etl_document_strategy, etl_audio_strategy, contextual_strategy,
-            rerank_strategy, generation_strategy,
+            rerank_strategy, generation_strategy, mensaje_bienvenida,
         ),
     )
     return _with_url(row)
@@ -106,12 +107,13 @@ def update_asistente(
     contextual_strategy: Any = _UNSET,
     rerank_strategy: Any = _UNSET,
     generation_strategy: Any = _UNSET,
+    mensaje_bienvenida: Any = _UNSET,
 ) -> Dict[str, Any]:
-    """Los campos de estrategia distinguen "no venía en el request"
-    (`_UNSET`, default — deja el valor actual intacto) de "venía como
-    `null`" (limpia esa etapa a "usar el valor por defecto del sistema") —
-    necesario para que el modal de edición pueda volver una etapa a
-    default sin tocar las demás. nombre/rd_id/prompt_maestro/activo
+    """Los campos de estrategia (y mensaje_bienvenida) distinguen "no venía
+    en el request" (`_UNSET`, default — deja el valor actual intacto) de
+    "venía como `null`" (limpia ese campo a su comportamiento por defecto)
+    — necesario para que el modal de edición pueda volver un campo a
+    default sin tocar los demás. nombre/rd_id/prompt_maestro/activo
     mantienen el comportamiento previo (solo cambian si vienen informados)."""
     existing = db.fetch_one("SELECT * FROM asistentes WHERE id = %s", (asistente_id,))
     if not existing:
@@ -129,11 +131,14 @@ def update_asistente(
     strategy_values = [
         existing[field] if incoming[field] is _UNSET else incoming[field] for field in _STRATEGY_FIELDS
     ]
+    mensaje_bienvenida_value = (
+        existing["mensaje_bienvenida"] if mensaje_bienvenida is _UNSET else mensaje_bienvenida
+    )
 
     row = db.execute_returning(
         "UPDATE asistentes SET nombre=%s, rd_id=%s, prompt_maestro=%s, activo=%s, "
         "etl_document_strategy=%s, etl_audio_strategy=%s, contextual_strategy=%s, "
-        "rerank_strategy=%s, generation_strategy=%s, "
+        "rerank_strategy=%s, generation_strategy=%s, mensaje_bienvenida=%s, "
         "updated_at=now() WHERE id=%s RETURNING *",
         (
             nombre if nombre is not None else existing["nombre"],
@@ -141,6 +146,7 @@ def update_asistente(
             prompt_maestro if prompt_maestro is not None else existing["prompt_maestro"],
             activo if activo is not None else existing["activo"],
             *strategy_values,
+            mensaje_bienvenida_value,
             asistente_id,
         ),
     )

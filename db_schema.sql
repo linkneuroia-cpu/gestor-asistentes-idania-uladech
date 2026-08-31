@@ -53,6 +53,7 @@ CREATE TABLE asistentes (
     nombre                 VARCHAR(200) NOT NULL,
     rd_id                  INTEGER NOT NULL REFERENCES rds(id) ON DELETE RESTRICT,
     prompt_maestro         TEXT,
+    mensaje_bienvenida     TEXT,  -- NULL = "soy {nombre}. Pregúntame lo que necesites sobre el curso."
     token                  VARCHAR(64) NOT NULL UNIQUE,
     activo                 BOOLEAN NOT NULL DEFAULT TRUE,
     etl_document_strategy  VARCHAR(100),
