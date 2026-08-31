@@ -27,28 +27,39 @@ CREATE TABLE rds (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ── colecciones_rd: qué colección de Qdrant pertenece a qué RD/curso ──────
+-- ── colecciones_rd: lista de courseid de cada RD (plantilla replicada en
+-- varios cursos) y, opcionalmente, qué colección de Qdrant resuelve cada uno.
+-- qdrant_collection_name puede ser NULL: un courseid puede registrarse bajo
+-- una RD antes de tener colección asignada. (rd_id, moodle_courseid) es
+-- único: cada courseid resuelve a una sola colección, sin ambigüedad.
 CREATE TABLE colecciones_rd (
     id                      SERIAL PRIMARY KEY,
-    qdrant_collection_name  VARCHAR(255) NOT NULL UNIQUE,
+    qdrant_collection_name  VARCHAR(255) UNIQUE,
     rd_id                   INTEGER NOT NULL REFERENCES rds(id) ON DELETE RESTRICT,
     moodle_courseid         INTEGER NOT NULL,
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (rd_id, moodle_courseid)
 );
 CREATE INDEX idx_colecciones_rd_rd_id ON colecciones_rd(rd_id);
-CREATE INDEX idx_colecciones_rd_courseid ON colecciones_rd(rd_id, moodle_courseid);
 
 -- ── asistentes: chatbots públicos, uno por RD (o varios por RD) ───────────
+-- dense/sparse/rerank/generation_strategy: config RAG propia de este
+-- asistente para las etapas usadas al RESPONDER (no al vectorizar). NULL en
+-- cualquiera de ellas = usa la configuración global de esa etapa.
 CREATE TABLE asistentes (
-    id              SERIAL PRIMARY KEY,
-    nombre          VARCHAR(200) NOT NULL,
-    rd_id           INTEGER NOT NULL REFERENCES rds(id) ON DELETE RESTRICT,
-    prompt_maestro  TEXT,
-    token           VARCHAR(64) NOT NULL UNIQUE,
-    activo          BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by      INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
+    id                  SERIAL PRIMARY KEY,
+    nombre              VARCHAR(200) NOT NULL,
+    rd_id               INTEGER NOT NULL REFERENCES rds(id) ON DELETE RESTRICT,
+    prompt_maestro      TEXT,
+    token               VARCHAR(64) NOT NULL UNIQUE,
+    activo              BOOLEAN NOT NULL DEFAULT TRUE,
+    dense_strategy      VARCHAR(100),
+    sparse_strategy     VARCHAR(100),
+    rerank_strategy     VARCHAR(100),
+    generation_strategy VARCHAR(100),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_by          INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
 );
 CREATE INDEX idx_asistentes_rd_id ON asistentes(rd_id);
 CREATE INDEX idx_asistentes_token ON asistentes(token);
@@ -111,5 +122,10 @@ INSERT INTO rds (nombre, moodle_courseid, moodle_course_url) VALUES
 ('RD-PRE-FORMACION GENERAL-VI-PENSAMIENTO LÓGICO Y MATEMÁTICO', 1396, 'https://campus.uladech.edu.pe/course/view.php?id=1396'),
 ('RD-PRE-ODONTOLOGIA-PR-INTRODUCCION A LA ODONTOLOGIA', 173, 'https://campus.uladech.edu.pe/course/view.php?id=173'),
 ('RD-PRE-PSICOLOGIA-BL-INTRODUCCION A LA PSICOLOGIA', 948, 'https://campus.uladech.edu.pe/course/view.php?id=948');
+
+-- Registra el courseid original de cada RD en su lista de cursos (sin
+-- colección asignada todavía) — así "Gestión RD" ya lo muestra desde el inicio.
+INSERT INTO colecciones_rd (rd_id, moodle_courseid)
+SELECT id, moodle_courseid FROM rds;
 
 COMMIT;

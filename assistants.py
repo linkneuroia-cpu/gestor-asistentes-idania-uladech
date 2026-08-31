@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional
 import db
 from settings import settings
 
+_UNSET = object()  # distingue "no viene en el request" de "viene como null" (limpiar a config global)
+
 
 def _public_url(token: str) -> str:
     return f"{settings.PUBLIC_BASE_URL}/asistente/{token}"
@@ -51,15 +53,23 @@ def get_asistente_by_token(token: str) -> Optional[Dict[str, Any]]:
 
 
 def create_asistente(
-    nombre: str, rd_id: int, prompt_maestro: Optional[str] = None, created_by: Optional[int] = None
+    nombre: str,
+    rd_id: int,
+    prompt_maestro: Optional[str] = None,
+    created_by: Optional[int] = None,
+    dense_strategy: Optional[str] = None,
+    sparse_strategy: Optional[str] = None,
+    rerank_strategy: Optional[str] = None,
+    generation_strategy: Optional[str] = None,
 ) -> Dict[str, Any]:
     if not db.fetch_one("SELECT id FROM rds WHERE id = %s", (rd_id,)):
         raise ValueError(f"La RD {rd_id} no existe")
     token = secrets.token_urlsafe(24)
     row = db.execute_returning(
-        "INSERT INTO asistentes (nombre, rd_id, prompt_maestro, token, created_by) "
-        "VALUES (%s, %s, %s, %s, %s) RETURNING *",
-        (nombre, rd_id, prompt_maestro, token, created_by),
+        "INSERT INTO asistentes "
+        "(nombre, rd_id, prompt_maestro, token, created_by, dense_strategy, sparse_strategy, rerank_strategy, generation_strategy) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
+        (nombre, rd_id, prompt_maestro, token, created_by, dense_strategy, sparse_strategy, rerank_strategy, generation_strategy),
     )
     return _with_url(row)
 
@@ -70,7 +80,17 @@ def update_asistente(
     rd_id: Optional[int] = None,
     prompt_maestro: Optional[str] = None,
     activo: Optional[bool] = None,
+    dense_strategy: Any = _UNSET,
+    sparse_strategy: Any = _UNSET,
+    rerank_strategy: Any = _UNSET,
+    generation_strategy: Any = _UNSET,
 ) -> Dict[str, Any]:
+    """Los 4 campos de estrategia distinguen "no venía en el request"
+    (`_UNSET`, default — deja el valor actual intacto) de "venía como
+    `null`" (limpia esa etapa a "usar configuración global") — necesario
+    para que el formulario de edición pueda volver una etapa a global sin
+    tocar las demás. nombre/rd_id/prompt_maestro/activo mantienen el
+    comportamiento previo (solo cambian si vienen informados)."""
     existing = db.fetch_one("SELECT * FROM asistentes WHERE id = %s", (asistente_id,))
     if not existing:
         raise ValueError(f"El asistente {asistente_id} no existe")
@@ -78,13 +98,18 @@ def update_asistente(
         raise ValueError(f"La RD {rd_id} no existe")
 
     row = db.execute_returning(
-        "UPDATE asistentes SET nombre=%s, rd_id=%s, prompt_maestro=%s, activo=%s, updated_at=now() "
-        "WHERE id=%s RETURNING *",
+        "UPDATE asistentes SET nombre=%s, rd_id=%s, prompt_maestro=%s, activo=%s, "
+        "dense_strategy=%s, sparse_strategy=%s, rerank_strategy=%s, generation_strategy=%s, "
+        "updated_at=now() WHERE id=%s RETURNING *",
         (
             nombre if nombre is not None else existing["nombre"],
             rd_id if rd_id is not None else existing["rd_id"],
             prompt_maestro if prompt_maestro is not None else existing["prompt_maestro"],
             activo if activo is not None else existing["activo"],
+            existing["dense_strategy"] if dense_strategy is _UNSET else dense_strategy,
+            existing["sparse_strategy"] if sparse_strategy is _UNSET else sparse_strategy,
+            existing["rerank_strategy"] if rerank_strategy is _UNSET else rerank_strategy,
+            existing["generation_strategy"] if generation_strategy is _UNSET else generation_strategy,
             asistente_id,
         ),
     )

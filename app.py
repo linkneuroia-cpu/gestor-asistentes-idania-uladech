@@ -279,7 +279,21 @@ async def list_collections(
     if detail:
         from qdrant_admin import get_qdrant_admin
 
-        return {"collections": get_qdrant_admin().list_collections()}
+        collections = [c.model_dump() for c in get_qdrant_admin().list_collections()]
+        links = await db.run(
+            db.fetch_all,
+            "SELECT c.id AS link_id, c.qdrant_collection_name, c.rd_id, c.moodle_courseid, r.nombre AS rd_nombre "
+            "FROM colecciones_rd c JOIN rds r ON r.id = c.rd_id "
+            "WHERE c.qdrant_collection_name IS NOT NULL",
+        )
+        links_by_name = {l["qdrant_collection_name"]: l for l in links}
+        for c in collections:
+            link = links_by_name.get(c["name"])
+            c["link_id"] = link["link_id"] if link else None
+            c["rd_id"] = link["rd_id"] if link else None
+            c["rd_nombre"] = link["rd_nombre"] if link else None
+            c["moodle_courseid"] = link["moodle_courseid"] if link else None
+        return {"collections": collections}
     service = get_service()
     return {"collections": service.list_collections()}
 
@@ -295,9 +309,11 @@ async def list_collections(
 async def qdrant_create_collection(req: CollectionCreateRequest):
     """Crea una colección en Qdrant. `vector_schema`: "hybrid" (dense+sparse,
     requerido para el pipeline RAG configurable) o "legacy" (vector único,
-    compatible con el flujo anterior). Si se dan `rd_id`+`moodle_courseid`,
-    la colección queda asignada a esa RD/curso en Postgres (colecciones_rd)
-    — necesario para que los asistentes puedan resolverla."""
+    compatible con el flujo anterior). `rd_id`+`moodle_courseid` son
+    obligatorios: la colección queda asignada a esa RD/curso en Postgres
+    (colecciones_rd) — sin eso ningún asistente podría encontrarla. Si el
+    RD/curso no existe o ya tiene otra colección asignada, la colección
+    recién creada en Qdrant se revierte para no dejar huérfanos."""
     try:
         result = get_qdrant_admin().create_collection(
             name=req.name,
@@ -311,11 +327,14 @@ async def qdrant_create_collection(req: CollectionCreateRequest):
     except Exception as e:
         raise HTTPException(500, str(e))
 
-    if req.rd_id is not None and req.moodle_courseid is not None:
+    try:
+        await db.run(rds.link_collection, req.name, req.rd_id, req.moodle_courseid)
+    except ValueError as e:
         try:
-            await db.run(rds.link_collection, req.name, req.rd_id, req.moodle_courseid)
-        except ValueError as e:
-            raise HTTPException(400, f"Colección creada, pero no se pudo asignar a la RD: {e}")
+            get_qdrant_admin().delete_collection(req.name, force=True)
+        except Exception:
+            pass
+        raise HTTPException(400, str(e))
 
     return result
 
@@ -340,6 +359,22 @@ async def qdrant_update_collection(collection_name: str, req: CollectionUpdateRe
         raise HTTPException(404, str(e))
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+class CollectionRdReassignRequest(BaseModel):
+    rd_id: int
+    moodle_courseid: int
+
+
+@app.patch("/api/collections/{collection_name}/rd", tags=["Gestión Qdrant"])
+async def qdrant_reassign_collection_rd(collection_name: str, req: CollectionRdReassignRequest):
+    """Reasigna a qué RD/courseid pertenece una colección ya creada."""
+    if not get_qdrant_admin().collection_exists(collection_name):
+        raise HTTPException(404, f"Colección '{collection_name}' no existe")
+    try:
+        return await db.run(rds.reassign_collection, collection_name, req.rd_id, req.moodle_courseid)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.delete("/api/collections/{collection_name}", tags=["Gestión Qdrant"])
@@ -454,6 +489,29 @@ async def delete_rd_endpoint(rd_id: int):
         raise HTTPException(400, str(e))
 
 
+class RdCourseidRequest(BaseModel):
+    moodle_courseid: int
+
+
+@app.post("/api/rds/{rd_id}/courseids", status_code=201, tags=["RD"])
+async def add_rd_courseid_endpoint(rd_id: int, req: RdCourseidRequest):
+    """Registra un courseid más bajo esta RD (todavía sin colección)."""
+    try:
+        return await db.run(rds.add_courseid, rd_id, req.moodle_courseid)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/rds/courseids/{entry_id}", tags=["RD"])
+async def remove_rd_courseid_endpoint(entry_id: int):
+    """Quita un courseid de la lista de una RD (solo si no tiene colección asignada)."""
+    try:
+        await db.run(rds.remove_courseid_entry, entry_id)
+        return {"success": True}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 # ═══════════════════════════════════════════════════════════════════
 # ASISTENTES (CRUD)  /api/asistentes/*
 # ═══════════════════════════════════════════════════════════════════
@@ -462,6 +520,11 @@ class AsistenteCreateRequest(BaseModel):
     nombre: str
     rd_id: int
     prompt_maestro: Optional[str] = None
+    # Config RAG propia para responder — None/omitido = usa la config global
+    dense_strategy: Optional[str] = None
+    sparse_strategy: Optional[str] = None
+    rerank_strategy: Optional[str] = None
+    generation_strategy: Optional[str] = None
 
 
 class AsistenteUpdateRequest(BaseModel):
@@ -469,6 +532,13 @@ class AsistenteUpdateRequest(BaseModel):
     rd_id: Optional[int] = None
     prompt_maestro: Optional[str] = None
     activo: Optional[bool] = None
+    # Si el campo no viene en el body, la etapa queda intacta; si viene como
+    # null explícito, esa etapa vuelve a usar la config global (ver
+    # assistants.update_asistente — usa model_dump(exclude_unset=True)).
+    dense_strategy: Optional[str] = None
+    sparse_strategy: Optional[str] = None
+    rerank_strategy: Optional[str] = None
+    generation_strategy: Optional[str] = None
 
 
 @app.get("/api/asistentes", tags=["Asistentes"])
@@ -487,16 +557,35 @@ async def get_asistente_endpoint(asistente_id: int):
 @app.post("/api/asistentes", status_code=201, tags=["Asistentes"])
 async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(auth.get_current_user)):
     try:
-        return await db.run(assistants.create_asistente, req.nombre, req.rd_id, req.prompt_maestro, user["id"])
+        return await db.run(
+            assistants.create_asistente,
+            req.nombre,
+            req.rd_id,
+            req.prompt_maestro,
+            user["id"],
+            req.dense_strategy,
+            req.sparse_strategy,
+            req.rerank_strategy,
+            req.generation_strategy,
+        )
     except ValueError as e:
         raise HTTPException(400, str(e))
 
 
 @app.patch("/api/asistentes/{asistente_id}", tags=["Asistentes"])
 async def update_asistente_endpoint(asistente_id: int, req: AsistenteUpdateRequest):
+    fields = req.model_dump(exclude_unset=True)
+    strategy_keys = ("dense_strategy", "sparse_strategy", "rerank_strategy", "generation_strategy")
+    kwargs = {k: fields[k] for k in strategy_keys if k in fields}
     try:
         return await db.run(
-            assistants.update_asistente, asistente_id, req.nombre, req.rd_id, req.prompt_maestro, req.activo
+            assistants.update_asistente,
+            asistente_id,
+            req.nombre,
+            req.rd_id,
+            req.prompt_maestro,
+            req.activo,
+            **kwargs,
         )
     except ValueError as e:
         raise HTTPException(404, str(e))
@@ -583,6 +672,10 @@ async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
         result = await rag_pipeline.answer_query(
             collection_name=sesion["qdrant_collection_name"],
             query=req.pregunta,
+            dense_strategy_name=asistente.get("dense_strategy"),
+            sparse_strategy_name=asistente.get("sparse_strategy"),
+            rerank_strategy_name=asistente.get("rerank_strategy"),
+            generation_strategy_name=asistente.get("generation_strategy"),
             extra_system_prompt=asistente.get("prompt_maestro"),
         )
     except Exception as e:
@@ -1215,6 +1308,10 @@ async def rag_answer(req: RagAnswerRequest):
         )
 
     extra_system_prompt = None
+    dense_strategy = req.dense_strategy
+    sparse_strategy = req.sparse_strategy
+    rerank_strategy = req.rerank_strategy
+    generation_strategy = req.generation_strategy
     if req.asistente_id is not None:
         asistente = await db.run(assistants.get_asistente, req.asistente_id)
         if not asistente:
@@ -1230,15 +1327,22 @@ async def rag_answer(req: RagAnswerRequest):
                 f"La colección '{req.collection_name}' no está vinculada a la RD de este asistente.",
             )
         extra_system_prompt = asistente.get("prompt_maestro")
+        # La config propia del asistente aplica salvo que el request la
+        # override explícitamente (así "Prueba de Asistente" prueba
+        # exactamente lo que respondería en público).
+        dense_strategy = dense_strategy or asistente.get("dense_strategy")
+        sparse_strategy = sparse_strategy or asistente.get("sparse_strategy")
+        rerank_strategy = rerank_strategy or asistente.get("rerank_strategy")
+        generation_strategy = generation_strategy or asistente.get("generation_strategy")
 
     try:
         return await rag_pipeline.answer_query(
             collection_name=req.collection_name,
             query=req.query,
-            dense_strategy_name=req.dense_strategy,
-            sparse_strategy_name=req.sparse_strategy,
-            rerank_strategy_name=req.rerank_strategy,
-            generation_strategy_name=req.generation_strategy,
+            dense_strategy_name=dense_strategy,
+            sparse_strategy_name=sparse_strategy,
+            rerank_strategy_name=rerank_strategy,
+            generation_strategy_name=generation_strategy,
             top_n=req.top_n,
             extra_system_prompt=extra_system_prompt,
         )

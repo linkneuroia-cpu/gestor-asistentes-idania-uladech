@@ -51,10 +51,11 @@ class CollectionCreateRequest(BaseModel):
     dense_size: int = settings.DEFAULT_VECTOR_SIZE
     distance: str = settings.DEFAULT_DISTANCE
     # RD (aula) + curso de Moodle al que queda asignada esta colección —
-    # opcional a nivel de Qdrant (no se guarda en el payload de Qdrant),
-    # se persiste en Postgres (colecciones_rd) desde el endpoint de app.py.
-    rd_id: Optional[int] = None
-    moodle_courseid: Optional[int] = None
+    # obligatorios: toda colección debe poder encontrarse desde un asistente.
+    # No se guardan en el payload de Qdrant, se persisten en Postgres
+    # (colecciones_rd) desde el endpoint de app.py.
+    rd_id: int
+    moodle_courseid: int
 
 
 class CollectionUpdateRequest(BaseModel):
