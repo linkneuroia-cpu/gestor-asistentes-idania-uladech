@@ -107,9 +107,21 @@ def link_collection(qdrant_collection_name: str, rd_id: int, moodle_courseid: in
     """Registra en Postgres que una colección de Qdrant pertenece a una RD
     + curso específico. Llamado desde POST /api/collections (creación).
     Si ese (rd_id, courseid) ya estaba registrado sin colección (vía
-    add_courseid), "llena" esa fila en vez de crear una duplicada."""
+    add_courseid), "llena" esa fila en vez de crear una duplicada. Si ya
+    tenía una colección DISTINTA asignada, bloquea — nunca se la roba
+    silenciosamente (antes lo hacía vía ON CONFLICT ... DO UPDATE)."""
     if not get_rd(rd_id):
         raise ValueError(f"La RD {rd_id} no existe")
+    existing = db.fetch_one(
+        "SELECT qdrant_collection_name FROM colecciones_rd WHERE rd_id = %s AND moodle_courseid = %s",
+        (rd_id, moodle_courseid),
+    )
+    if existing and existing["qdrant_collection_name"] and existing["qdrant_collection_name"] != qdrant_collection_name:
+        raise ValueError(
+            f"El curso {moodle_courseid} de la RD {rd_id} ya tiene asignada la colección "
+            f"'{existing['qdrant_collection_name']}'. Reasígnala o elimínala primero."
+        )
+
     import psycopg2
 
     try:
@@ -122,7 +134,7 @@ def link_collection(qdrant_collection_name: str, rd_id: int, moodle_courseid: in
         )
     except psycopg2.errors.UniqueViolation:
         raise ValueError(
-            f"El curso {moodle_courseid} de la RD {rd_id} ya tiene asignada otra colección."
+            f"La colección '{qdrant_collection_name}' ya está vinculada a otra RD/courseid."
         )
 
 

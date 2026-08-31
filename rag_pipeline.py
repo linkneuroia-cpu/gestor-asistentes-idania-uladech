@@ -129,12 +129,15 @@ async def answer_query(
     generation_strategy_name: Optional[str] = None,
     top_n: Optional[int] = None,
     extra_system_prompt: Optional[str] = None,
+    history: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
     """Pipeline completo: retrieve_rerank_boost() -> build_generation_prompt()
     -> generation_strategy.generate(SYSTEM_PROMPT_TEMPLATE [+ extra_system_prompt
-    del asistente, si lo hay], user_prompt). `extra_system_prompt` se AGREGA
-    al prompt fijo, nunca lo reemplaza — así la regla de prioridad
-    curso_propio/bibliografía siempre se respeta."""
+    del asistente, si lo hay], user_prompt, history). `extra_system_prompt` se
+    AGREGA al prompt fijo, nunca lo reemplaza — así la regla de prioridad
+    curso_propio/bibliografía siempre se respeta. `history`: turnos previos
+    de la conversación (ver assistants.get_recent_history), para que el
+    tutor recuerde lo ya preguntado en la misma sesión."""
     candidates = await retrieve_rerank_boost(
         collection_name=collection_name,
         query=query,
@@ -149,7 +152,7 @@ async def answer_query(
     if extra_system_prompt:
         system_prompt = f"{SYSTEM_PROMPT_TEMPLATE}\n\nContexto adicional de este asistente:\n{extra_system_prompt}"
     generator = strategy_registry.get_generation_strategy(generation_strategy_name)
-    answer = await generator.generate(system_prompt, user_prompt)
+    answer = await generator.generate(system_prompt, user_prompt, history=history)
 
     sources = [
         {

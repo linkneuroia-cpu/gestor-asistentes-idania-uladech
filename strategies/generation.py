@@ -1,5 +1,7 @@
 """Estrategias de generación final (LLM tutor) y el system prompt fijo
 pedido: prioriza [MATERIAL DEL CURSO] sobre [BIBLIOGRAFÍA COMPLEMENTARIA]."""
+from typing import Dict, List, Optional
+
 from strategies.base import GenerationStrategy
 
 SYSTEM_PROMPT_TEMPLATE = (
@@ -35,16 +37,19 @@ class _OpenAICompatibleGenerationStrategy(GenerationStrategy):
             kwargs["base_url"] = self._base_url
         self._client = OpenAI(**kwargs)
 
-    async def generate(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate(
+        self, system_prompt: str, user_prompt: str, history: Optional[List[Dict[str, str]]] = None
+    ) -> str:
         import asyncio
+
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.extend(history or [])
+        messages.append({"role": "user", "content": user_prompt})
 
         def _call():
             response = self._client.chat.completions.create(
                 model=self._model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
+                messages=messages,
                 temperature=0.2,
             )
             return response.choices[0].message.content or ""
@@ -93,14 +98,23 @@ class GeminiGenerationStrategy(GenerationStrategy):
 
         self._client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
-    async def generate(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate(
+        self, system_prompt: str, user_prompt: str, history: Optional[List[Dict[str, str]]] = None
+    ) -> str:
         import asyncio
         from google.genai import types
+
+        # Gemini usa "model" en vez de "assistant" para los turnos propios.
+        contents = [
+            types.Content(role="model" if h["role"] == "assistant" else "user", parts=[types.Part(text=h["content"])])
+            for h in (history or [])
+        ]
+        contents.append(types.Content(role="user", parts=[types.Part(text=user_prompt)]))
 
         def _call():
             response = self._client.models.generate_content(
                 model=self._model,
-                contents=[user_prompt],
+                contents=contents,
                 config=types.GenerateContentConfig(system_instruction=system_prompt),
             )
             return response.text or ""

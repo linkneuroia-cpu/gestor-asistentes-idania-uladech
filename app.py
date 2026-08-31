@@ -516,11 +516,27 @@ async def remove_rd_courseid_endpoint(entry_id: int):
 # ASISTENTES (CRUD)  /api/asistentes/*
 # ═══════════════════════════════════════════════════════════════════
 
+_ASISTENTE_STRATEGY_FIELDS = (
+    "etl_document_strategy",
+    "etl_audio_strategy",
+    "contextual_strategy",
+    "dense_strategy",
+    "sparse_strategy",
+    "rerank_strategy",
+    "generation_strategy",
+)
+
+
 class AsistenteCreateRequest(BaseModel):
     nombre: str
     rd_id: int
     prompt_maestro: Optional[str] = None
-    # Config RAG propia para responder — None/omitido = usa la config global
+    # Config RAG 100% propia del asistente — None/omitido = usa el valor
+    # por defecto del sistema. etl_document/etl_audio/contextual también
+    # se consultan automáticamente al vectorizar (ver core._build_pipeline_config).
+    etl_document_strategy: Optional[str] = None
+    etl_audio_strategy: Optional[str] = None
+    contextual_strategy: Optional[str] = None
     dense_strategy: Optional[str] = None
     sparse_strategy: Optional[str] = None
     rerank_strategy: Optional[str] = None
@@ -533,8 +549,11 @@ class AsistenteUpdateRequest(BaseModel):
     prompt_maestro: Optional[str] = None
     activo: Optional[bool] = None
     # Si el campo no viene en el body, la etapa queda intacta; si viene como
-    # null explícito, esa etapa vuelve a usar la config global (ver
+    # null explícito, esa etapa vuelve a usar el valor por defecto (ver
     # assistants.update_asistente — usa model_dump(exclude_unset=True)).
+    etl_document_strategy: Optional[str] = None
+    etl_audio_strategy: Optional[str] = None
+    contextual_strategy: Optional[str] = None
     dense_strategy: Optional[str] = None
     sparse_strategy: Optional[str] = None
     rerank_strategy: Optional[str] = None
@@ -556,6 +575,7 @@ async def get_asistente_endpoint(asistente_id: int):
 
 @app.post("/api/asistentes", status_code=201, tags=["Asistentes"])
 async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(auth.get_current_user)):
+    strategy_kwargs = {field: getattr(req, field) for field in _ASISTENTE_STRATEGY_FIELDS}
     try:
         return await db.run(
             assistants.create_asistente,
@@ -563,10 +583,7 @@ async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(au
             req.rd_id,
             req.prompt_maestro,
             user["id"],
-            req.dense_strategy,
-            req.sparse_strategy,
-            req.rerank_strategy,
-            req.generation_strategy,
+            **strategy_kwargs,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -575,8 +592,7 @@ async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(au
 @app.patch("/api/asistentes/{asistente_id}", tags=["Asistentes"])
 async def update_asistente_endpoint(asistente_id: int, req: AsistenteUpdateRequest):
     fields = req.model_dump(exclude_unset=True)
-    strategy_keys = ("dense_strategy", "sparse_strategy", "rerank_strategy", "generation_strategy")
-    kwargs = {k: fields[k] for k in strategy_keys if k in fields}
+    kwargs = {k: fields[k] for k in _ASISTENTE_STRATEGY_FIELDS if k in fields}
     try:
         return await db.run(
             assistants.update_asistente,
@@ -644,6 +660,8 @@ async def asistente_chat_page(token: str, request: Request, courseid: int = Quer
             "sesion_id": sesion["id"],
             "saludo_nombre": fullname or "",
             "historial": historial,
+            "courseid": courseid,
+            "userid": userid,
         },
     )
 
@@ -666,6 +684,9 @@ async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
     if not req.pregunta or not req.pregunta.strip():
         raise HTTPException(400, "La pregunta no puede estar vacía.")
 
+    # Se obtiene el historial ANTES de guardar la pregunta actual, para no
+    # duplicarla (memoria de hasta 30 pares pregunta/respuesta).
+    history = await db.run(assistants.get_recent_history, req.sesion_id)
     await db.run(assistants.save_mensaje, req.sesion_id, "user", req.pregunta)
 
     try:
@@ -677,6 +698,7 @@ async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
             rerank_strategy_name=asistente.get("rerank_strategy"),
             generation_strategy_name=asistente.get("generation_strategy"),
             extra_system_prompt=asistente.get("prompt_maestro"),
+            history=history,
         )
     except Exception as e:
         raise HTTPException(502, f"Error generando la respuesta: {e}")
@@ -687,6 +709,34 @@ async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
     )
 
     return result
+
+
+class AsistenteNuevaConversacionRequest(BaseModel):
+    courseid: int
+    userid: int
+
+
+@app.post("/asistente/{token}/nueva-conversacion", tags=["Asistente público"])
+async def asistente_nueva_conversacion(token: str, req: AsistenteNuevaConversacionRequest):
+    """Crea una sesión nueva (sin arrastrar la memoria de la anterior) para
+    el mismo asistente/curso/usuario — botón "Nueva conversación"."""
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+
+    collection_name = await db.run(rds.resolve_collection, asistente["rd_id"], req.courseid)
+    if not collection_name:
+        raise HTTPException(404, f"No hay ninguna colección asignada al curso {req.courseid} en esta RD.")
+
+    loop = asyncio.get_event_loop()
+    fullname = await loop.run_in_executor(None, get_moodle_user_fullname, req.userid)
+
+    sesion = await db.run(
+        assistants.get_or_create_sesion,
+        asistente["id"], req.courseid, req.userid, None, fullname, collection_name,
+        True,
+    )
+    return {"sesion_id": sesion["id"], "saludo_nombre": fullname or ""}
 
 
 @app.get("/api/jobs/{job_id}", tags=["Compartido"])

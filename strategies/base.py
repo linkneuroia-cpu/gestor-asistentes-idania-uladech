@@ -1,6 +1,6 @@
 """Interfaces (ABC) para cada etapa configurable del pipeline RAG."""
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class DocumentExtractionStrategy(ABC):
@@ -68,5 +68,15 @@ class GenerationStrategy(ABC):
     y el prompt de usuario (contexto recuperado + pregunta)."""
 
     @abstractmethod
-    async def generate(self, system_prompt: str, user_prompt: str) -> str:
+    async def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        history: Optional[List[Dict[str, str]]] = None,
+    ) -> str:
+        """`history`: turnos previos de la conversación (hasta 30 pares
+        pregunta/respuesta), cada uno {"role": "user"|"assistant",
+        "content": str}, en orden cronológico — se insertan entre el
+        system prompt y la pregunta actual como turnos reales, no como
+        texto aplanado."""
         ...

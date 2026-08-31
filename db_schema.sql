@@ -43,23 +43,28 @@ CREATE TABLE colecciones_rd (
 CREATE INDEX idx_colecciones_rd_rd_id ON colecciones_rd(rd_id);
 
 -- ── asistentes: chatbots públicos, uno por RD (o varios por RD) ───────────
--- dense/sparse/rerank/generation_strategy: config RAG propia de este
--- asistente para las etapas usadas al RESPONDER (no al vectorizar). NULL en
--- cualquiera de ellas = usa la configuración global de esa etapa.
+-- Config RAG 100% propia de este asistente, tanto para VECTORIZAR (etl_*,
+-- contextual — consultadas automáticamente por Semiautomático/Automático/
+-- Actualización vía core._build_pipeline_config) como para RESPONDER
+-- (dense/sparse/rerank/generation). NULL en cualquiera = usa el valor por
+-- defecto del sistema (config congelada en Postgres o default de .env).
 CREATE TABLE asistentes (
-    id                  SERIAL PRIMARY KEY,
-    nombre              VARCHAR(200) NOT NULL,
-    rd_id               INTEGER NOT NULL REFERENCES rds(id) ON DELETE RESTRICT,
-    prompt_maestro      TEXT,
-    token               VARCHAR(64) NOT NULL UNIQUE,
-    activo              BOOLEAN NOT NULL DEFAULT TRUE,
-    dense_strategy      VARCHAR(100),
-    sparse_strategy     VARCHAR(100),
-    rerank_strategy     VARCHAR(100),
-    generation_strategy VARCHAR(100),
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by          INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
+    id                     SERIAL PRIMARY KEY,
+    nombre                 VARCHAR(200) NOT NULL,
+    rd_id                  INTEGER NOT NULL REFERENCES rds(id) ON DELETE RESTRICT,
+    prompt_maestro         TEXT,
+    token                  VARCHAR(64) NOT NULL UNIQUE,
+    activo                 BOOLEAN NOT NULL DEFAULT TRUE,
+    etl_document_strategy  VARCHAR(100),
+    etl_audio_strategy     VARCHAR(100),
+    contextual_strategy    VARCHAR(100),
+    dense_strategy         VARCHAR(100),
+    sparse_strategy        VARCHAR(100),
+    rerank_strategy        VARCHAR(100),
+    generation_strategy    VARCHAR(100),
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_by             INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
 );
 CREATE INDEX idx_asistentes_rd_id ON asistentes(rd_id);
 CREATE INDEX idx_asistentes_token ON asistentes(token);

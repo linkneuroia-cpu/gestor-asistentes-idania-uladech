@@ -240,7 +240,8 @@ tr:hover td{background:var(--neutral-100)}
 .ov.open{display:flex}
 .modal{background:#fff;border-radius:var(--radius-lg);padding:26px;
   max-width:500px;width:92%;box-shadow:var(--shadow-md);position:relative;
-  animation:min .2s ease}
+  animation:min .2s ease;max-height:88vh;overflow-y:auto}
+.modal.modal-wide{max-width:820px}
 @keyframes min{from{transform:scale(.95);opacity:0}}
 .modal-ttl{font-size:15px;font-weight:600;margin-bottom:10px;color:var(--gray-800)}
 .modal-body{font-size:13px;color:var(--neutral-600);line-height:1.6}
@@ -311,8 +312,17 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center}
 .src:hover{border-color:var(--neutral-400)}
 .src.selected{border-color:var(--purple-700);background:var(--purple-200)}
-.src.readonly{cursor:default;opacity:.72}
-.src.readonly:hover{border-color:var(--neutral-300)}
+.wiz-steps{display:flex;gap:4px;margin-bottom:18px;flex-wrap:wrap}
+.wiz-step{flex:1;min-width:110px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-bottom:3px solid var(--neutral-300);font-size:11px;text-align:center;color:var(--gray-500)}
+.wiz-step.current{border-color:var(--purple-700);color:var(--gray-700);font-weight:600}
+.wiz-step.done{border-color:var(--green-700);color:var(--gray-700);cursor:pointer}
+.wiz-step-n{width:22px;height:22px;border-radius:50%;background:var(--neutral-200);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.wiz-step.current .wiz-step-n{background:var(--purple-700);color:#fff}
+.wiz-step.done .wiz-step-n{background:var(--green-700);color:#fff}
+.wiz-content{min-height:120px}
+.wiz-tabs{display:flex;gap:4px;border-bottom:1px solid var(--neutral-300);margin-bottom:16px;flex-wrap:wrap}
+.wiz-tab{padding:8px 14px;font-size:12.5px;font-weight:500;color:var(--gray-500);cursor:pointer;border-bottom:2px solid transparent}
+.wiz-tab.active{color:var(--purple-700);border-color:var(--purple-700)}
 .src-icon{font-size:22px}
 .src-name{font-size:13px;font-weight:600;color:var(--gray-700)}
 .src-desc{font-size:11px;color:var(--gray-500)}
@@ -397,39 +407,17 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5-10-5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/></svg>
     <span class="nav-lbl">Gestión RD</span>
   </div>
-  <div class="nav" onclick="showMod('asis');asisLoad()" id="nav-asis">
+  <div class="nav" onclick="showMod('asis-list');asisLoad()" id="nav-asis-list">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    <span class="nav-lbl">Asistentes</span>
+  </div>
+  <div class="nav" onclick="showMod('asis-list');asisLoad();asisWizardOpen()" id="nav-asis">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M9 13v2M15 13v2"/></svg>
     <span class="nav-lbl">Crear Asistente</span>
   </div>
   <div class="nav" onclick="showMod('llmtest');llmtestLoad()" id="nav-llmtest">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
     <span class="nav-lbl">Prueba de Asistente</span>
-  </div>
-  <div class="sb-div"></div>
-  <div class="sb-lbl">Configuración RAG</div>
-  <div class="nav" onclick="showMod('cfg-keys');credLoad()" id="nav-cfg-keys">
-    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-    <span class="nav-lbl">Claves de API</span>
-  </div>
-  <div class="nav" onclick="showMod('cfg-etl');cfgLoadView('cfg-etl')" id="nav-cfg-etl">
-    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
-    <span class="nav-lbl">Extracción (ETL) y Multimodalidad</span>
-  </div>
-  <div class="nav" onclick="showMod('cfg-ctx');cfgLoadView('cfg-ctx')" id="nav-cfg-ctx">
-    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8M8 13h5"/></svg>
-    <span class="nav-lbl">Contextual Retrieval</span>
-  </div>
-  <div class="nav" onclick="showMod('cfg-hybrid');cfgLoadView('cfg-hybrid')" id="nav-cfg-hybrid">
-    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5M3 12a9 3 0 0018 0"/></svg>
-    <span class="nav-lbl">Indexación y Búsqueda Híbrida</span>
-  </div>
-  <div class="nav" onclick="showMod('cfg-rerank');cfgLoadView('cfg-rerank')" id="nav-cfg-rerank">
-    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
-    <span class="nav-lbl">Reranking y Priorización</span>
-  </div>
-  <div class="nav" onclick="showMod('cfg-gen');cfgLoadView('cfg-gen')" id="nav-cfg-gen">
-    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a5 5 0 015 5v3a5 5 0 01-10 0V7a5 5 0 015-5z"/><path d="M19 11a7 7 0 01-14 0M12 18v4M8 22h8"/></svg>
-    <span class="nav-lbl">Generador Final (LLM)</span>
   </div>
   <div class="sb-div"></div>
   <div class="sb-lbl">Gestión Qdrant</div>
@@ -459,6 +447,10 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   <div class="nav" onclick="showMod('usuarios');usrLoad()" id="nav-usuarios">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
     <span class="nav-lbl">Usuarios</span>
+  </div>
+  <div class="nav" onclick="showMod('cfg-keys');credLoad()" id="nav-cfg-keys">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+    <span class="nav-lbl">Claves de API</span>
   </div>
   {% endif %}
   <div class="sb-foot">
@@ -924,36 +916,20 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   </div>
 </section>
 
-<!-- ═══ CREAR ASISTENTE ═══ -->
-<section class="mod" id="mod-asis">
+<!-- ═══ ASISTENTES (listado) ═══ -->
+<section class="mod" id="mod-asis-list">
   <div class="mod-hdr">
-    <h1><div class="accent" style="background:var(--purple-700)"></div>Crear Asistente</h1>
-    <p>Un asistente es un chatbot público ligado a una RD: responde usando las colecciones de esa RD, saluda al usuario por su nombre (vía Moodle) y guarda todo su historial.</p>
+    <h1><div class="accent" style="background:var(--purple-700)"></div>Asistentes</h1>
+    <p>Un asistente es un chatbot público ligado a una RD: responde usando las colecciones de esa RD, saluda al usuario por su nombre (vía Moodle), recuerda hasta 30 preguntas de la conversación, y guarda todo su historial.</p>
   </div>
   <div class="card">
-    <div class="card-ttl">Nuevo asistente</div>
-    <div class="fg"><label class="fl">Nombre del asistente</label><input class="fc" id="asis-new-nombre" placeholder="Ej: Tutor de Introducción al Derecho"></div>
-    <div class="fg">
-      <label class="fl">RD (aula)</label>
-      <select class="fc" id="asis-new-rd" onchange="asisOnRdChange()"><option value="">— Selecciona —</option></select>
+    <div class="fb card-ttl">
+      <span>Listado</span>
+      <span>
+        <button class="btn btn-ghost btn-sm" onclick="asisLoad()">Actualizar</button>
+        <button class="btn btn-prim btn-sm" onclick="asisWizardOpen()">+ Crear asistente</button>
+      </span>
     </div>
-    <div class="fg">
-      <label class="fl">Curso de esta RD <span class="muted">— para verificar que ya haya una colección lista</span></label>
-      <select class="fc" id="asis-new-courseid" disabled><option value="">Elige una RD primero</option></select>
-      <div id="asis-new-col-status" class="fh"></div>
-    </div>
-    <div class="fg">
-      <label class="fl">Prompt maestro (contexto adicional para el asistente)</label>
-      <textarea class="fc" id="asis-new-prompt" rows="4" placeholder="Ej: Eres el asistente del curso de Introducción a las Ciencias Jurídicas. Responde con tono formal y académico…"></textarea>
-      <div class="fh">Se agrega al prompt del sistema fijo (prioridad al material del curso) — no lo reemplaza.</div>
-    </div>
-    <button class="btn btn-prim" onclick="asisCreate()">Crear asistente</button>
-  </div>
-  <div class="card-ttl mt16">Configuración RAG de este asistente</div>
-  <p class="muted" style="margin:-6px 0 10px">Deja "Usar configuración global" en cualquier etapa para que este asistente siga los cambios globales futuros en esa etapa.</p>
-  <div id="asis-new-cfg"></div>
-  <div class="card">
-    <div class="fb card-ttl"><span>Listado</span><button class="btn btn-ghost btn-sm" onclick="asisLoad()">Actualizar</button></div>
     <div class="tw"><table><thead><tr><th>Nombre</th><th>RD</th><th>Estado</th><th>URL pública</th><th>Acciones</th></tr></thead><tbody id="asis-tbl"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody></table></div>
   </div>
 </section>
@@ -990,56 +966,9 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
 <section class="mod" id="mod-cfg-keys">
   <div class="mod-hdr">
     <h1><div class="accent" style="background:var(--gray-700)"></div>Claves de API</h1>
-    <p>Configura y prueba la conexión de cada proveedor externo. Una vez guardada y verificada una clave, las estrategias que la requieren (ETL, Contextual Retrieval, Reranking, Generador, embeddings) quedan disponibles automáticamente en sus respectivas secciones.</p>
+    <p>Configura y prueba la conexión de cada proveedor externo. Una vez guardada y verificada una clave, las estrategias que la requieren (ETL, Contextual Retrieval, Reranking, Generador, embeddings) quedan disponibles automáticamente al configurar la RAG de cada asistente.</p>
   </div>
   <div id="cred-box"><p class="muted">Cargando…</p></div>
-</section>
-
-<!-- ═══ CONFIGURACIÓN: ETL Y MULTIMODALIDAD ═══ -->
-<section class="mod" id="mod-cfg-etl">
-  <div class="mod-hdr">
-    <h1><div class="accent" style="background:var(--blue-650)"></div>Capa de Extracción (ETL) y Multimodalidad</h1>
-    <p>Motor usado para convertir documentos (PDF/PPT/Word) e imágenes a Markdown, y para transcribir audio/video, antes de vectorizar. Se aplica automáticamente en los 3 mecanismos de vectorización cuando la colección destino es híbrida.</p>
-  </div>
-  <div class="card"><div id="cfg-box-etl_document"><p class="muted">Cargando…</p></div></div>
-  <div class="card"><div id="cfg-box-etl_audio"><p class="muted">Cargando…</p></div></div>
-</section>
-
-<!-- ═══ CONFIGURACIÓN: CONTEXTUAL RETRIEVAL ═══ -->
-<section class="mod" id="mod-cfg-ctx">
-  <div class="mod-hdr">
-    <h1><div class="accent" style="background:var(--indigo-700)"></div>Contextual Retrieval</h1>
-    <p>Genera una cabecera contextual de 50-100 palabras por chunk antes de vectorizar, situándolo dentro de su documento completo para mejorar la recuperación. "Sin enriquecimiento" (por defecto) no agrega costo de LLM.</p>
-  </div>
-  <div class="card"><div id="cfg-box-contextual"><p class="muted">Cargando…</p></div></div>
-</section>
-
-<!-- ═══ CONFIGURACIÓN: INDEXACIÓN Y BÚSQUEDA HÍBRIDA ═══ -->
-<section class="mod" id="mod-cfg-hybrid">
-  <div class="mod-hdr">
-    <h1><div class="accent" style="background:var(--purple-700)"></div>Indexación y Búsqueda Híbrida</h1>
-    <p>Motores de embedding denso y disperso (BM25/BGE-M3) usados para indexar y para la búsqueda híbrida con fusión (RRF) en una sola llamada a Qdrant. Solo aplica a colecciones con esquema híbrido (vectores nombrados dense+sparse) — créalas desde Gestión Qdrant.</p>
-  </div>
-  <div class="card"><div id="cfg-box-dense"><p class="muted">Cargando…</p></div></div>
-  <div class="card"><div id="cfg-box-sparse"><p class="muted">Cargando…</p></div></div>
-</section>
-
-<!-- ═══ CONFIGURACIÓN: RERANKING ═══ -->
-<section class="mod" id="mod-cfg-rerank">
-  <div class="mod-hdr">
-    <h1><div class="accent" style="background:var(--orange-700)"></div>Reranking y Priorización</h1>
-    <p>Reordena el Top-K recuperado por Qdrant a un Top-N hiperrelevante, aplicando un multiplicador de prioridad a los fragmentos etiquetados como "Material del curso" frente a la bibliografía complementaria.</p>
-  </div>
-  <div class="card"><div id="cfg-box-rerank"><p class="muted">Cargando…</p></div></div>
-</section>
-
-<!-- ═══ CONFIGURACIÓN: GENERADOR FINAL ═══ -->
-<section class="mod" id="mod-cfg-gen">
-  <div class="mod-hdr">
-    <h1><div class="accent" style="background:var(--green-700)"></div>Generador Final (LLM)</h1>
-    <p>Modelo usado por el tutor para generar la respuesta final en "Pruebas del LLM", priorizando siempre el material del curso sobre la bibliografía complementaria.</p>
-  </div>
-  <div class="card"><div id="cfg-box-generation"><p class="muted">Cargando…</p></div></div>
 </section>
 
 <!-- ═══ GESTIÓN QDRANT: DASHBOARD ═══ -->
@@ -1194,7 +1123,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
 </main>
 </div>
 <div class="ov" id="ov">
-  <div class="modal">
+  <div class="modal" id="modal-box">
     <button class="modal-x" onclick="closeModal()">✕</button>
     <div class="modal-ttl" id="m-ttl"></div>
     <div class="modal-body" id="m-body"></div>
@@ -1226,7 +1155,8 @@ const show=id=>$(id).classList.remove('hidden');
 const hide=id=>$(id).classList.add('hidden');
 const en=(id,v)=>$(id).disabled=!v;
 function showModal(t,b){$('m-ttl').innerHTML=t;$('m-body').innerHTML=b;$('ov').classList.add('open')}
-function closeModal(){$('ov').classList.remove('open')}
+function closeModal(){$('ov').classList.remove('open');$('modal-box').classList.remove('modal-wide')}
+function showModalWide(t,b){showModal(t,b);$('modal-box').classList.add('modal-wide')}
 
 async function api(path,opts={}){
   const r=await fetch(API+path,opts);
@@ -1328,8 +1258,8 @@ function poll(id,onOk,onErr,ms=2500){
 }
 
 // ── Nav ──
-const ALL_MODS=['semi','auto','upd','search','rd','asis','llmtest',
-  'cfg-keys','cfg-etl','cfg-ctx','cfg-hybrid','cfg-rerank','cfg-gen',
+const ALL_MODS=['semi','auto','upd','search','rd','asis-list','llmtest',
+  'cfg-keys',
   'qdrant-dash','qdrant-cols','qdrant-crear','qdrant-verificar','qdrant-endpoints','usuarios'];
 
 function showMod(name){
@@ -1525,7 +1455,6 @@ async function rdCourseCreateColConfirm(rdId,courseid){
       rd_id:rdId, moodle_courseid:courseid,
     })});
     closeModal();rdLoad();loadCols();
-    if($('asis-new-courseid')&&$('asis-new-rd').value===String(rdId))asisOnCourseChange(rdId);
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
@@ -1555,48 +1484,28 @@ async function rdDeleteConfirmed(id){
 }
 
 // ═══ CREAR ASISTENTE ═══
-async function asisLoadRdOptions(){
-  const sel=$('asis-new-rd');
-  try{
-    const d=await api('/api/rds');
-    sel.innerHTML='<option value="">— Selecciona —</option>'+(d.rds||[]).map(r=>`<option value="${r.id}">${esc(r.nombre)}</option>`).join('');
-  }catch(e){}
-}
-
-async function asisOnRdChange(){
-  const rdId=$('asis-new-rd').value;
-  const colSel=$('asis-new-courseid');
-  const status=$('asis-new-col-status');
-  if(!rdId){colSel.innerHTML='<option value="">Elige una RD primero</option>';colSel.disabled=true;status.innerHTML='';return;}
-  colSel.innerHTML='<option value="">Cargando…</option>';colSel.disabled=true;status.innerHTML='';
-  try{
-    const rd=await api('/api/rds/'+rdId);
-    const cursos=rd.colecciones||[];
-    colSel.innerHTML=cursos.map(c=>`<option value="${c.moodle_courseid}">Curso ${c.moodle_courseid}${c.qdrant_collection_name?` (${esc(c.qdrant_collection_name)})`:' (sin colección)'}</option>`).join('')||'<option value="">Sin cursos registrados</option>';
-    colSel.disabled=false;
-    asisOnCourseChange(rdId);
-    colSel.onchange=()=>asisOnCourseChange(rdId);
-  }catch(e){colSel.innerHTML='<option value="">Error al cargar</option>'}
-}
-
-async function asisOnCourseChange(rdId){
-  const courseId=$('asis-new-courseid').value;
-  const status=$('asis-new-col-status');
-  if(!courseId){status.innerHTML='';return;}
-  try{
-    const rd=await api('/api/rds/'+rdId);
-    const curso=(rd.colecciones||[]).find(c=>String(c.moodle_courseid)===String(courseId));
-    if(curso&&curso.qdrant_collection_name){
-      status.innerHTML=`<span style="color:var(--green-700)">✓ Colección lista: ${esc(curso.qdrant_collection_name)}</span>`;
-    }else{
-      status.innerHTML=`<span style="color:var(--red-700)">Este curso todavía no tiene colección.</span> <button class="btn btn-prim btn-sm" style="margin-left:6px" onclick='rdCourseCreateCol(${rdId},${courseId})'>Crear colección</button>`;
-    }
-  }catch(e){}
-}
+// ═══ ASISTENTES: listado + wizard de creación (por fases) + edición
+// (por pestañas). Ambos reutilizan /api/config/{stage} (catálogo con
+// descripciones) para las 7 etapas RAG, pero guardan la selección en el
+// asistente (POST/PATCH /api/asistentes) — nunca en la config global. ──
+const ASIS_STAGE_DEFS=[
+  {stage:'etl_document',label:'Extracción de documentos (PDF/PPT/Word)'},
+  {stage:'etl_audio',label:'Transcripción de audio/video'},
+  {stage:'contextual',label:'Enriquecimiento contextual'},
+  {stage:'dense',label:'Embedding denso'},
+  {stage:'sparse',label:'Embedding disperso'},
+  {stage:'rerank',label:'Motor de reranking'},
+  {stage:'generation',label:'Modelo generador'},
+];
+const ASIS_CFG_GROUPS=[
+  {name:'Capa de Extracción (ETL) y Multimodalidad',stages:['etl_document','etl_audio']},
+  {name:'Contextual Retrieval',stages:['contextual']},
+  {name:'Indexación y Búsqueda Híbrida',stages:['dense','sparse']},
+  {name:'Reranking y Priorización',stages:['rerank']},
+  {name:'Generador Final (LLM)',stages:['generation']},
+];
 
 async function asisLoad(){
-  asisLoadRdOptions();
-  asisCfgLoad('asis-new',{});
   const tbl=$('asis-tbl');
   if(!tbl)return;
   tbl.innerHTML='<tr><td colspan="5" class="muted">Cargando…</td></tr>';
@@ -1610,142 +1519,367 @@ async function asisLoad(){
         <td>${a.activo?'<span class="tag t-new">Activo</span>':'<span class="tag t-warn">Inactivo</span>'}</td>
         <td><a href="${esc(a.public_url)}" target="_blank" style="font-family:monospace;font-size:11px">${esc(a.public_url)}</a></td>
         <td>
-          <button class="btn btn-ghost btn-sm" onclick="asisEdit(${a.id})">Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="asisEditOpen(${a.id})">Editar</button>
           <button class="btn btn-danger btn-sm" onclick='asisDelete(${a.id},${JSON.stringify(a.nombre)})'>Eliminar</button>
         </td>
       </tr>`).join('')||'<tr><td colspan="5" class="muted">Sin asistentes creados</td></tr>';
   }catch(e){tbl.innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`}
 }
 
-async function asisCreate(){
-  const nombre=$('asis-new-nombre').value.trim();
-  const rdId=$('asis-new-rd').value;
-  if(!nombre||!rdId){showModal('Campos requeridos','<p>Ingresa un nombre y selecciona una RD.</p>');return;}
-  const cfg=ASIS_CFG_STATE['asis-new']||{};
-  try{
-    const d=await api('/api/asistentes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      nombre, rd_id:parseInt(rdId), prompt_maestro:$('asis-new-prompt').value.trim()||null,
-      dense_strategy:cfg.dense||null, sparse_strategy:cfg.sparse||null,
-      rerank_strategy:cfg.rerank||null, generation_strategy:cfg.generation||null,
-    })});
-    showModal('Asistente creado',`<p><strong>${esc(nombre)}</strong> fue creado.</p><p class="mt8">URL pública:<br><a href="${esc(d.public_url)}" target="_blank">${esc(d.public_url)}</a></p>`);
-    $('asis-new-nombre').value='';$('asis-new-prompt').value='';
-    asisLoad();
-  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+// ── Wizard de creación (5 fases, marcadas conforme se completan) ──
+const ASIS_WIZ_STEPS=['Datos básicos','Curso y colección','Configuración RAG','Prompt maestro','Revisar y crear'];
+let ASIS_WIZ=null;
+
+async function asisWizardOpen(){
+  ASIS_WIZ={step:1,maxStep:1,nombre:'',rd_id:null,rds:[],courseid:null,collectionName:null,cursos:[],promptMaestro:'',cfg:{}};
+  showModalWide('Crear asistente','<div id="wiz-body"><p class="muted">Cargando…</p></div>');
+  try{ const d=await api('/api/rds'); ASIS_WIZ.rds=d.rds||[]; }catch(e){}
+  asisWizardRender();
 }
 
-async function asisEdit(id){
-  try{
-    const a=await api('/api/asistentes/'+id);
-    const rdOpts=await api('/api/rds');
-    showModal(`Editar asistente #${id}`,`
-      <div class="fg"><label class="fl">Nombre</label><input class="fc" id="asis-edit-nombre" value="${esc(a.nombre)}"></div>
-      <div class="fg"><label class="fl">RD</label><select class="fc" id="asis-edit-rd">${(rdOpts.rds||[]).map(r=>`<option value="${r.id}" ${r.id===a.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}</select></div>
-      <div class="fg"><label class="fl">Prompt maestro</label><textarea class="fc" id="asis-edit-prompt" rows="4">${esc(a.prompt_maestro||'')}</textarea></div>
-      <div class="fg"><label class="fl">Estado</label><select class="fc" id="asis-edit-activo"><option value="true" ${a.activo?'selected':''}>Activo</option><option value="false" ${!a.activo?'selected':''}>Inactivo</option></select></div>
-      <p class="muted">URL pública: <a href="${esc(a.public_url)}" target="_blank">${esc(a.public_url)}</a></p>
-      <div class="card-ttl mt16">Configuración RAG de este asistente</div>
-      <div id="asis-edit-cfg"></div>
-      <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick="asisEditSave(${id})">Guardar</button></div>
-    `);
-    $('asis-edit-cfg').innerHTML=asisCfgBlockHTML('asis-edit');
-    asisCfgLoad('asis-edit',{
-      dense:a.dense_strategy,sparse:a.sparse_strategy,rerank:a.rerank_strategy,generation:a.generation_strategy,
-    });
-  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+function asisWizardReopen(){
+  showModalWide('Crear asistente','<div id="wiz-body"></div>');
+  asisWizardRender();
 }
 
-async function asisEditSave(id){
-  const cfg=ASIS_CFG_STATE['asis-edit']||{};
-  try{
-    await api('/api/asistentes/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      nombre:$('asis-edit-nombre').value.trim(),
-      rd_id:parseInt($('asis-edit-rd').value),
-      prompt_maestro:$('asis-edit-prompt').value.trim()||null,
-      activo:$('asis-edit-activo').value==='true',
-      dense_strategy:cfg.dense||null, sparse_strategy:cfg.sparse||null,
-      rerank_strategy:cfg.rerank||null, generation_strategy:cfg.generation||null,
-    })});
-    closeModal();
-    asisLoad();
-  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
-}
-
-// ── Configuración RAG por asistente: 3 bloques editables (dense/sparse
-// agrupados en "Búsqueda Híbrida", rerank, generation) + 2 de solo lectura
-// (ETL, contextual) — reutiliza /api/config/{stage} (mismo que la sección
-// global) pero guarda la selección en ASIS_CFG_STATE en vez de llamar a
-// POST /api/config/{stage} (eso cambiaría la config global). ──
-const ASIS_CFG_STAGES=[
-  {stage:'dense',label:'Embedding denso',group:'Indexación y Búsqueda Híbrida'},
-  {stage:'sparse',label:'Embedding disperso',group:'Indexación y Búsqueda Híbrida'},
-  {stage:'rerank',label:'Motor de reranking',group:'Reranking y Priorización'},
-  {stage:'generation',label:'Modelo generador',group:'Generador Final (LLM)'},
-];
-const ASIS_CFG_READONLY=[
-  {stage:'etl_document',label:'Extracción de documentos (PDF/PPT/Word)'},
-  {stage:'etl_audio',label:'Transcripción de audio/video'},
-  {stage:'contextual',label:'Enriquecimiento contextual'},
-];
-const ASIS_CFG_STATE={};
-
-function asisCfgBlockHTML(prefix){
-  const groups=[];
-  ASIS_CFG_STAGES.forEach(s=>{
-    let g=groups.find(x=>x.name===s.group);
-    if(!g){g={name:s.group,stages:[]};groups.push(g)}
-    g.stages.push(s);
-  });
-  const editable=groups.map(g=>`
-    <div class="card">
-      <div class="card-ttl">${esc(g.name)}</div>
-      ${g.stages.map(s=>`<div id="${prefix}-cfgbox-${s.stage}" class="mt8"></div>`).join('')}
-    </div>`).join('');
-  const readonly=`
-    <div class="card">
-      <div class="fb card-ttl"><span>Capa de Extracción (ETL) y Contextual Retrieval <span class="muted" style="font-weight:400">— configuración global</span></span>
-        <button class="btn btn-ghost btn-sm" onclick="showMod('cfg-etl');cfgLoadView('cfg-etl')">Ir a Configuración RAG →</button>
-      </div>
-      <div class="fh">Solo se usan al vectorizar contenido nuevo, no al responder — no se eligen por asistente, se cambian desde ahí antes de vectorizar.</div>
-      ${ASIS_CFG_READONLY.map(s=>`<div id="${prefix}-cfgbox-${s.stage}" class="mt8"></div>`).join('')}
+function asisWizStepperHTML(){
+  return `<div class="wiz-steps">${ASIS_WIZ_STEPS.map((label,i)=>{
+    const n=i+1;
+    const cls=n<ASIS_WIZ.step?'done':n===ASIS_WIZ.step?'current':'todo';
+    const clickable=n<=ASIS_WIZ.maxStep&&n!==ASIS_WIZ.step;
+    return `<div class="wiz-step ${cls}" ${clickable?`onclick='asisWizardGoto(${n})'`:''}>
+      <span class="wiz-step-n">${n<ASIS_WIZ.step?'✓':n}</span><span class="wiz-step-lbl">${esc(label)}</span>
     </div>`;
-  return editable+readonly;
+  }).join('')}</div>`;
 }
 
-async function asisCfgLoad(prefix,currentValues){
-  if(!$(prefix+'-cfg'))return;
-  $(prefix+'-cfg').innerHTML=asisCfgBlockHTML(prefix);
-  ASIS_CFG_STATE[prefix]=Object.assign({},currentValues);
-  for(const s of ASIS_CFG_STAGES)asisCfgRenderStage(prefix,s.stage,s.label,true);
-  for(const s of ASIS_CFG_READONLY)asisCfgRenderStage(prefix,s.stage,s.label,false);
+function asisWizardRender(){
+  const body=$('wiz-body');
+  if(!body)return;
+  const content=ASIS_WIZ.step===1?asisWizStep1HTML()
+    :ASIS_WIZ.step===2?asisWizStep2HTML()
+    :ASIS_WIZ.step===3?asisWizStep3HTML()
+    :ASIS_WIZ.step===4?asisWizStep4HTML()
+    :asisWizStep5HTML();
+
+  body.innerHTML=`${asisWizStepperHTML()}<div class="wiz-content">${content}</div>
+    <div id="wiz-err"></div>
+    <div class="modal-foot" style="margin-top:16px;display:flex;justify-content:space-between">
+      ${ASIS_WIZ.step>1?`<button class="btn btn-ghost btn-sm" onclick="asisWizardBack()">← Atrás</button>`:'<span></span>'}
+      ${ASIS_WIZ.step<5?`<button class="btn btn-prim btn-sm" onclick="asisWizardNext()">Siguiente →</button>`:`<button class="btn btn-prim btn-sm" onclick="asisWizardSubmit()">Crear asistente</button>`}
+    </div>`;
+
+  if(ASIS_WIZ.step===2)asisWizInitStep2();
+  if(ASIS_WIZ.step===3)ASIS_STAGE_DEFS.forEach(s=>asisWizRenderStage(s));
 }
 
-async function asisCfgRenderStage(prefix,stage,label,interactive){
-  const box=$(`${prefix}-cfgbox-${stage}`);
+function asisWizError(msg){
+  const el=$('wiz-err');
+  if(el)el.innerHTML=`<div class="alert a-err mt8">${esc(msg)}</div>`;
+}
+
+function asisWizStep1HTML(){
+  return `
+    <div class="fg"><label class="fl">Nombre del asistente</label><input class="fc" id="wiz-nombre" value="${esc(ASIS_WIZ.nombre)}" placeholder="Ej: Tutor de Introducción al Derecho"></div>
+    <div class="fg"><label class="fl">RD (aula)</label>
+      <select class="fc" id="wiz-rd">
+        <option value="">— Selecciona —</option>
+        ${ASIS_WIZ.rds.map(r=>`<option value="${r.id}" ${r.id===ASIS_WIZ.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}
+      </select>
+    </div>`;
+}
+
+function asisWizStep2HTML(){
+  return `
+    <div class="fg"><label class="fl">Curso de esta RD</label>
+      <select class="fc" id="wiz-courseid" onchange="asisWizOnCourseChange()"><option value="">Cargando…</option></select>
+      <div class="fh">¿No está el curso que buscas? Agrégalo desde "Gestión RD" → Cursos.</div>
+    </div>
+    <div id="wiz-course-status" class="fh"></div>`;
+}
+
+async function asisWizInitStep2(){
+  const sel=$('wiz-courseid');
+  if(!sel)return;
+  sel.innerHTML='<option value="">Cargando…</option>';
+  try{
+    const rd=await api('/api/rds/'+ASIS_WIZ.rd_id);
+    ASIS_WIZ.cursos=rd.colecciones||[];
+    sel.innerHTML=ASIS_WIZ.cursos.map(c=>`<option value="${c.moodle_courseid}" ${String(c.moodle_courseid)===String(ASIS_WIZ.courseid)?'selected':''}>Curso ${c.moodle_courseid}${c.qdrant_collection_name?` (${esc(c.qdrant_collection_name)})`:' (sin colección)'}</option>`).join('')||'<option value="">Sin cursos registrados</option>';
+    asisWizOnCourseChange();
+  }catch(e){sel.innerHTML='<option value="">Error al cargar</option>'}
+}
+
+function asisWizOnCourseChange(){
+  const sel=$('wiz-courseid');
+  const status=$('wiz-course-status');
+  const courseId=sel.value;
+  ASIS_WIZ.courseid=courseId?parseInt(courseId):null;
+  if(!courseId){status.innerHTML='';ASIS_WIZ.collectionName=null;return;}
+  const curso=ASIS_WIZ.cursos.find(c=>String(c.moodle_courseid)===String(courseId));
+  if(curso&&curso.qdrant_collection_name){
+    ASIS_WIZ.collectionName=curso.qdrant_collection_name;
+    status.innerHTML=`<span style="color:var(--green-700)">✓ Colección lista: ${esc(curso.qdrant_collection_name)}</span>`;
+  }else{
+    ASIS_WIZ.collectionName=null;
+    status.innerHTML=`<span style="color:var(--red-700)">Este curso todavía no tiene colección.</span> <button class="btn btn-prim btn-sm" style="margin-left:6px" onclick='asisWizCreateCol()'>Crear colección</button>`;
+  }
+}
+
+function asisWizCreateCol(){
+  showModal('Crear colección',`
+    <div class="fg"><label class="fl">Nombre <span class="req">*</span></label><input class="fc" id="wizcc-name" placeholder="Ej: Curso_${ASIS_WIZ.courseid}"></div>
+    <div class="fg"><label class="fl">Tamaño de vector denso</label><input class="fc" type="number" id="wizcc-size" value="1536" style="max-width:160px"></div>
+    <div class="fg"><label class="fl">Métrica de distancia</label>
+      <select class="fc" id="wizcc-distance" style="max-width:200px"><option value="Cosine">Cosine</option><option value="Euclid">Euclid</option><option value="Dot">Dot</option></select>
+    </div>
+    <div class="modal-foot" style="margin-top:14px">
+      <button class="btn btn-ghost btn-sm" onclick="asisWizardReopen()">Cancelar</button>
+      <button class="btn btn-prim btn-sm" onclick="asisWizCreateColConfirm()">Crear</button>
+    </div>
+  `);
+}
+
+async function asisWizCreateColConfirm(){
+  const name=$('wizcc-name').value.trim();
+  if(!name){showModal('Campo requerido','<p>Ingresa un nombre para la colección.</p>');return;}
+  try{
+    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name, vector_schema:'hybrid',
+      dense_size:parseInt($('wizcc-size').value)||1536,
+      distance:$('wizcc-distance').value,
+      rd_id:ASIS_WIZ.rd_id, moodle_courseid:ASIS_WIZ.courseid,
+    })});
+    asisWizardReopen();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+function asisWizStep3HTML(){
+  return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
+    ASIS_CFG_GROUPS.map(g=>`<div class="card"><div class="card-ttl">${esc(g.name)}</div>${g.stages.map(s=>`<div id="wiz-cfgbox-${s}" class="mt8"></div>`).join('')}</div>`).join('');
+}
+
+async function asisWizRenderStage(stageDef){
+  const box=$('wiz-cfgbox-'+stageDef.stage);
   if(!box)return;
   try{
-    const d=await api('/api/config/'+stage);
-    const selected=interactive?ASIS_CFG_STATE[prefix][stage]:null;
-    let cards='';
-    if(interactive){
-      cards+=`<div class="src ${!selected?'selected':''}" style="flex:1 1 200px" onclick='asisCfgSelect(${JSON.stringify(prefix)},${JSON.stringify(stage)},null)'>
-        <span class="src-name">Usar configuración global</span><span class="src-desc">Actualmente: ${esc(d.current)}</span>
-      </div>`;
-    }
+    const d=await api('/api/config/'+stageDef.stage);
+    const selected=ASIS_WIZ.cfg[stageDef.stage];
+    let cards=`<div class="src ${!selected?'selected':''}" style="flex:1 1 200px" onclick='asisWizCfgSelect(${JSON.stringify(stageDef.stage)},null)'>
+      <span class="src-name">Usar valor por defecto del sistema</span><span class="src-desc">Actualmente: ${esc(d.current)}</span>
+    </div>`;
     cards+=(d.options||[]).map(o=>`
-      <div class="src ${interactive?'':'readonly'} ${(interactive?selected===o.name:o.name===d.current)?'selected':''}" style="flex:1 1 200px" ${interactive?`onclick='asisCfgSelect(${JSON.stringify(prefix)},${JSON.stringify(stage)},${JSON.stringify(o.name)})'`:''}>
-        <span class="src-name">${esc(o.name)}</span>
-        <span class="src-desc">${esc(o.description||'')}</span>
+      <div class="src ${selected===o.name?'selected':''}" style="flex:1 1 200px" onclick='asisWizCfgSelect(${JSON.stringify(stageDef.stage)},${JSON.stringify(o.name)})'>
+        <span class="src-name">${esc(o.name)}</span><span class="src-desc">${esc(o.description||'')}</span>
         ${(!o.usable&&o.requires_key)?`<span class="tag t-warn" style="margin-top:4px">Requiere ${esc(o.requires_key)}</span>`:''}
       </div>`).join('');
-    const roNote=interactive?'':' <span class="muted" style="font-weight:400">(solo lectura — cambia en "Configuración RAG")</span>';
-    box.innerHTML=`<div class="fl mt8">${esc(label)}${roNote}</div><div class="srcs" style="flex-wrap:wrap">${cards}</div>`;
+    box.innerHTML=`<div class="fl mt8">${esc(stageDef.label)}</div><div class="srcs" style="flex-wrap:wrap">${cards}</div>`;
   }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
 }
 
-function asisCfgSelect(prefix,stage,name){
-  ASIS_CFG_STATE[prefix][stage]=name;
-  asisCfgRenderStage(prefix,stage,ASIS_CFG_STAGES.find(s=>s.stage===stage).label,true);
+function asisWizCfgSelect(stage,name){
+  ASIS_WIZ.cfg[stage]=name;
+  asisWizRenderStage(ASIS_STAGE_DEFS.find(s=>s.stage===stage));
+}
+
+function asisWizStep4HTML(){
+  return `<div class="fg"><label class="fl">Prompt maestro (contexto adicional para el asistente)</label>
+    <textarea class="fc" id="wiz-prompt" rows="5" placeholder="Ej: Eres el asistente del curso de Introducción a las Ciencias Jurídicas. Responde con tono formal y académico…">${esc(ASIS_WIZ.promptMaestro)}</textarea>
+    <div class="fh">Se agrega al prompt del sistema fijo (prioridad al material del curso) — no lo reemplaza.</div>
+  </div>`;
+}
+
+function asisWizStep5HTML(){
+  const rd=ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id);
+  const cfgLines=ASIS_STAGE_DEFS.map(s=>`<div class="di"><div class="di-info"><div class="di-name">${esc(s.label)}</div><div class="di-meta">${ASIS_WIZ.cfg[s.stage]?esc(ASIS_WIZ.cfg[s.stage]):'Valor por defecto del sistema'}</div></div></div>`).join('');
+  return `
+    <div class="card">
+      <div class="card-ttl">Resumen</div>
+      <p><b>Nombre:</b> ${esc(ASIS_WIZ.nombre)}</p>
+      <p class="mt8"><b>RD:</b> ${esc(rd?rd.nombre:'')}</p>
+      <p class="mt8"><b>Curso:</b> ${ASIS_WIZ.courseid} ${ASIS_WIZ.collectionName?`— colección ${esc(ASIS_WIZ.collectionName)}`:'<span style="color:var(--red-700)">— sin colección</span>'}</p>
+      <p class="mt8"><b>Prompt maestro:</b> ${ASIS_WIZ.promptMaestro?esc(ASIS_WIZ.promptMaestro):'<span class="muted">Ninguno</span>'}</p>
+    </div>
+    <div class="card"><div class="card-ttl">Configuración RAG</div><div class="dl">${cfgLines}</div></div>`;
+}
+
+function asisWizardNext(){
+  if(ASIS_WIZ.step===1){
+    const nombre=$('wiz-nombre').value.trim();
+    const rdId=$('wiz-rd').value;
+    if(!nombre||!rdId){asisWizError('Ingresa un nombre y selecciona una RD.');return;}
+    ASIS_WIZ.nombre=nombre;ASIS_WIZ.rd_id=parseInt(rdId);
+  }
+  if(ASIS_WIZ.step===2){
+    if(!ASIS_WIZ.courseid){asisWizError('Elige un curso de la RD.');return;}
+    if(!ASIS_WIZ.collectionName){asisWizError('Este curso todavía no tiene colección — créala antes de continuar.');return;}
+  }
+  if(ASIS_WIZ.step===4){
+    ASIS_WIZ.promptMaestro=$('wiz-prompt').value.trim();
+  }
+  ASIS_WIZ.step++;
+  if(ASIS_WIZ.step>ASIS_WIZ.maxStep)ASIS_WIZ.maxStep=ASIS_WIZ.step;
+  asisWizardRender();
+}
+
+function asisWizardBack(){
+  if(ASIS_WIZ.step===4){const el=$('wiz-prompt');if(el)ASIS_WIZ.promptMaestro=el.value.trim();}
+  ASIS_WIZ.step--;
+  asisWizardRender();
+}
+
+function asisWizardGoto(n){
+  if(n>ASIS_WIZ.maxStep||n===ASIS_WIZ.step)return;
+  if(ASIS_WIZ.step===1){const el=$('wiz-nombre');if(el)ASIS_WIZ.nombre=el.value.trim();}
+  if(ASIS_WIZ.step===4){const el=$('wiz-prompt');if(el)ASIS_WIZ.promptMaestro=el.value.trim();}
+  ASIS_WIZ.step=n;
+  asisWizardRender();
+}
+
+async function asisWizardSubmit(){
+  try{
+    const d=await api('/api/asistentes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nombre:ASIS_WIZ.nombre, rd_id:ASIS_WIZ.rd_id, prompt_maestro:ASIS_WIZ.promptMaestro||null,
+      etl_document_strategy:ASIS_WIZ.cfg.etl_document||null,
+      etl_audio_strategy:ASIS_WIZ.cfg.etl_audio||null,
+      contextual_strategy:ASIS_WIZ.cfg.contextual||null,
+      dense_strategy:ASIS_WIZ.cfg.dense||null,
+      sparse_strategy:ASIS_WIZ.cfg.sparse||null,
+      rerank_strategy:ASIS_WIZ.cfg.rerank||null,
+      generation_strategy:ASIS_WIZ.cfg.generation||null,
+    })});
+    const nombre=ASIS_WIZ.nombre;
+    ASIS_WIZ=null;
+    showModal('Asistente creado',`<p><strong>${esc(nombre)}</strong> fue creado.</p><p class="mt8">URL pública:<br><a href="${esc(d.public_url)}" target="_blank">${esc(d.public_url)}</a></p>`);
+    asisLoad();
+  }catch(e){asisWizError(e.message);}
+}
+
+// ── Edición (modal seccionado por pestañas, no un solo scroll) ──
+const ASIS_EDIT_TABS=[{id:'general',label:'General'},{id:'curso',label:'Curso y colección'},{id:'prompt',label:'Prompt maestro'},{id:'cfg',label:'Configuración RAG'}];
+let ASIS_EDIT=null;
+
+async function asisEditOpen(id){
+  try{
+    const a=await api('/api/asistentes/'+id);
+    const rdOpts=await api('/api/rds');
+    ASIS_EDIT={
+      id, tab:'general', data:a, rds:rdOpts.rds||[],
+      cfg:{
+        etl_document:a.etl_document_strategy, etl_audio:a.etl_audio_strategy, contextual:a.contextual_strategy,
+        dense:a.dense_strategy, sparse:a.sparse_strategy, rerank:a.rerank_strategy, generation:a.generation_strategy,
+      },
+    };
+    showModalWide(`Editar asistente — ${esc(a.nombre)}`,'<div id="edit-body"></div>');
+    asisEditRender();
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+}
+
+function asisEditTabsHTML(){
+  return `<div class="wiz-tabs">${ASIS_EDIT_TABS.map(t=>`<div class="wiz-tab ${ASIS_EDIT.tab===t.id?'active':''}" onclick="asisEditGoto('${t.id}')">${esc(t.label)}</div>`).join('')}</div>`;
+}
+
+function asisEditCapture(){
+  if(ASIS_EDIT.tab==='general'){
+    const n=$('edit-nombre'); if(n)ASIS_EDIT.data.nombre=n.value.trim();
+    const r=$('edit-rd'); if(r)ASIS_EDIT.data.rd_id=parseInt(r.value);
+    const act=$('edit-activo'); if(act)ASIS_EDIT.data.activo=act.value==='true';
+  }
+  if(ASIS_EDIT.tab==='prompt'){
+    const p=$('edit-prompt'); if(p)ASIS_EDIT.data.prompt_maestro=p.value.trim();
+  }
+}
+
+function asisEditGoto(tabId){
+  asisEditCapture();
+  ASIS_EDIT.tab=tabId;
+  asisEditRender();
+}
+
+function asisEditRender(){
+  const body=$('edit-body');
+  if(!body)return;
+  const content=ASIS_EDIT.tab==='general'?asisEditGeneralHTML()
+    :ASIS_EDIT.tab==='curso'?asisEditCursoHTML()
+    :ASIS_EDIT.tab==='prompt'?asisEditPromptHTML()
+    :asisEditCfgHTML();
+
+  body.innerHTML=`${asisEditTabsHTML()}<div class="wiz-content">${content}</div>
+    <div id="edit-err"></div>
+    <div class="modal-foot" style="margin-top:16px"><button class="btn btn-prim btn-sm" onclick="asisEditSubmit()">Guardar</button></div>`;
+
+  if(ASIS_EDIT.tab==='cfg')ASIS_STAGE_DEFS.forEach(s=>asisEditRenderStage(s));
+}
+
+function asisEditGeneralHTML(){
+  const a=ASIS_EDIT.data;
+  return `
+    <div class="fg"><label class="fl">Nombre</label><input class="fc" id="edit-nombre" value="${esc(a.nombre)}"></div>
+    <div class="fg"><label class="fl">RD</label><select class="fc" id="edit-rd">${ASIS_EDIT.rds.map(r=>`<option value="${r.id}" ${r.id===a.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Estado</label><select class="fc" id="edit-activo"><option value="true" ${a.activo?'selected':''}>Activo</option><option value="false" ${!a.activo?'selected':''}>Inactivo</option></select></div>
+    <p class="muted">URL pública: <a href="${esc(a.public_url)}" target="_blank">${esc(a.public_url)}</a></p>`;
+}
+
+function asisEditCursoHTML(){
+  const rd=ASIS_EDIT.rds.find(r=>r.id===ASIS_EDIT.data.rd_id);
+  return `<p class="muted">Los cursos y colecciones de esta RD (agregar, crear colección, reasignar) se gestionan desde "Gestión RD".</p>
+    <button class="btn btn-out btn-sm" onclick='closeModal();showMod("rd");rdLoad();rdCourses(${ASIS_EDIT.data.rd_id})'>Abrir cursos de "${esc(rd?rd.nombre:'')}" →</button>`;
+}
+
+function asisEditPromptHTML(){
+  return `<div class="fg"><label class="fl">Prompt maestro</label><textarea class="fc" id="edit-prompt" rows="5">${esc(ASIS_EDIT.data.prompt_maestro||'')}</textarea>
+    <div class="fh">Se agrega al prompt del sistema fijo — no lo reemplaza.</div></div>`;
+}
+
+function asisEditCfgHTML(){
+  return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
+    ASIS_CFG_GROUPS.map(g=>`<div class="card"><div class="card-ttl">${esc(g.name)}</div>${g.stages.map(s=>`<div id="edit-cfgbox-${s}" class="mt8"></div>`).join('')}</div>`).join('');
+}
+
+async function asisEditRenderStage(stageDef){
+  const box=$('edit-cfgbox-'+stageDef.stage);
+  if(!box)return;
+  try{
+    const d=await api('/api/config/'+stageDef.stage);
+    const selected=ASIS_EDIT.cfg[stageDef.stage];
+    let cards=`<div class="src ${!selected?'selected':''}" style="flex:1 1 200px" onclick='asisEditCfgSelect(${JSON.stringify(stageDef.stage)},null)'>
+      <span class="src-name">Usar valor por defecto del sistema</span><span class="src-desc">Actualmente: ${esc(d.current)}</span>
+    </div>`;
+    cards+=(d.options||[]).map(o=>`
+      <div class="src ${selected===o.name?'selected':''}" style="flex:1 1 200px" onclick='asisEditCfgSelect(${JSON.stringify(stageDef.stage)},${JSON.stringify(o.name)})'>
+        <span class="src-name">${esc(o.name)}</span><span class="src-desc">${esc(o.description||'')}</span>
+        ${(!o.usable&&o.requires_key)?`<span class="tag t-warn" style="margin-top:4px">Requiere ${esc(o.requires_key)}</span>`:''}
+      </div>`).join('');
+    box.innerHTML=`<div class="fl mt8">${esc(stageDef.label)}</div><div class="srcs" style="flex-wrap:wrap">${cards}</div>`;
+  }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
+}
+
+function asisEditCfgSelect(stage,name){
+  ASIS_EDIT.cfg[stage]=name;
+  asisEditRenderStage(ASIS_STAGE_DEFS.find(s=>s.stage===stage));
+}
+
+async function asisEditSubmit(){
+  asisEditCapture();
+  const a=ASIS_EDIT.data;
+  try{
+    await api('/api/asistentes/'+ASIS_EDIT.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nombre:a.nombre, rd_id:a.rd_id, prompt_maestro:a.prompt_maestro||null, activo:a.activo,
+      etl_document_strategy:ASIS_EDIT.cfg.etl_document||null,
+      etl_audio_strategy:ASIS_EDIT.cfg.etl_audio||null,
+      contextual_strategy:ASIS_EDIT.cfg.contextual||null,
+      dense_strategy:ASIS_EDIT.cfg.dense||null,
+      sparse_strategy:ASIS_EDIT.cfg.sparse||null,
+      rerank_strategy:ASIS_EDIT.cfg.rerank||null,
+      generation_strategy:ASIS_EDIT.cfg.generation||null,
+    })});
+    ASIS_EDIT=null;
+    closeModal();
+    asisLoad();
+  }catch(e){
+    const el=$('edit-err');
+    if(el)el.innerHTML=`<div class="alert a-err mt8">${esc(e.message)}</div>`;
+  }
 }
 
 function asisDelete(id,nombre){
@@ -2281,53 +2415,6 @@ async function doSearch(){
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
-// ═══ CONFIGURACIÓN RAG (Strategy Pattern) ═══
-const CFG_STAGES=[
-  {stage:'etl_document',view:'cfg-etl',label:'Extracción de documentos (PDF/PPT/Word)'},
-  {stage:'etl_audio',view:'cfg-etl',label:'Transcripción de audio/video'},
-  {stage:'contextual',view:'cfg-ctx',label:'Enriquecimiento contextual'},
-  {stage:'dense',view:'cfg-hybrid',label:'Embedding denso'},
-  {stage:'sparse',view:'cfg-hybrid',label:'Embedding disperso'},
-  {stage:'rerank',view:'cfg-rerank',label:'Motor de reranking'},
-  {stage:'generation',view:'cfg-gen',label:'Modelo generador'},
-];
-
-function cfgLoadView(viewName){
-  CFG_STAGES.filter(s=>s.view===viewName).forEach(s=>cfgRenderStage(s.stage,s.label));
-}
-
-async function cfgRenderStage(stage,label){
-  const box=$('cfg-box-'+stage);
-  if(!box)return;
-  try{
-    const d=await api('/api/config/'+stage);
-    box.innerHTML=`<div class="card-ttl">${esc(label)}</div>
-      <div class="srcs" style="flex-wrap:wrap">${(d.options||[]).map(o=>`
-        <div class="src ${o.name===d.current?'selected':''}" style="flex:1 1 200px" onclick='cfgSelect(${JSON.stringify(stage)},${JSON.stringify(o.name)},${o.usable})'>
-          <span class="src-name">${esc(o.name)}</span>
-          <span class="src-desc">${esc(o.description||'')}</span>
-          ${(!o.usable&&o.requires_key)?`
-            <span class="tag t-warn" style="margin-top:4px">Requiere ${esc(o.requires_key)}</span>
-            <button class="btn btn-ghost btn-sm mt8" onclick='event.stopPropagation();goToCredential(${JSON.stringify(o.requires_key)})'>Configurar clave →</button>
-          `:''}
-        </div>`).join('')}</div>`;
-  }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
-}
-
-async function cfgSelect(stage,name,usable){
-  try{
-    await api('/api/config/'+stage,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({strategy_name:name})});
-    const view=CFG_STAGES.find(s=>s.stage===stage).view;
-    cfgLoadView(view);
-    if(!usable)showModal('Estrategia sin API key configurada',`<p>"${esc(name)}" quedó seleccionada, pero requiere una API key que aún no está configurada. Ve a <strong>Claves de API</strong> en la barra lateral para ingresarla y probar la conexión.</p>`);
-  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
-}
-
-function goToCredential(field){
-  showMod('cfg-keys');
-  credLoad(field);
-}
-
 // ═══ CLAVES DE API ═══
 async function credLoad(highlightField){
   const box=$('cred-box');
@@ -2503,19 +2590,12 @@ async function qLoadCols(){
         <td>${c.link_id??'—'}</td>
         <td><strong>${esc(c.name)}</strong></td>
         <td>${esc(c.description||'—')}</td>
-        <td>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <select class="fc" id="q-rd-${esc(c.name)}" style="max-width:180px;padding:4px 6px">
-              ${Q_COLS_RDS.map(r=>`<option value="${r.id}" ${r.id===c.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}
-            </select>
-            <input class="fc" type="number" id="q-cid-${esc(c.name)}" value="${c.moodle_courseid??''}" style="max-width:90px;padding:4px 6px">
-            <button class="btn btn-ghost btn-sm" onclick="qReassignRd('${esc(c.name)}')">Guardar</button>
-          </div>
-        </td>
+        <td>${c.rd_nombre?`${esc(c.rd_nombre)} · curso ${c.moodle_courseid}`:'<span class="muted">— Sin asignar —</span>'}</td>
         <td>${qSchemaTag(c.vector_schema)}</td>
         <td>${c.points_count}</td>
         <td>${esc(c.status)}</td>
         <td>
+          <button class="btn btn-ghost btn-sm" onclick='qEditRd(${JSON.stringify(c.name)},${c.rd_id??'null'},${c.moodle_courseid??'null'})'>Editar</button>
           <button class="btn btn-ghost btn-sm" onclick="qViewDocs('${esc(c.name)}')">Documentos</button>
           <button class="btn btn-danger btn-sm" onclick="qDeleteCol('${esc(c.name)}',${c.points_count})">Eliminar</button>
         </td>
@@ -2523,12 +2603,23 @@ async function qLoadCols(){
   }catch(e){tbl.innerHTML=`<tr><td colspan="8" class="muted">${esc(e.message)}</td></tr>`}
 }
 
-async function qReassignRd(name){
-  const rdId=parseInt($('q-rd-'+name).value);
-  const courseId=parseInt($('q-cid-'+name).value);
+function qEditRd(name,rdId,courseId){
+  showModal(`Editar RD / Course ID — ${esc(name)}`,`
+    <div class="fg"><label class="fl">RD (aula)</label>
+      <select class="fc" id="q-edit-rd">${Q_COLS_RDS.map(r=>`<option value="${r.id}" ${r.id===rdId?'selected':''}>${esc(r.nombre)}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label class="fl">Course ID (Moodle)</label><input class="fc" type="number" id="q-edit-courseid" value="${courseId??''}"></div>
+    <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick='qEditRdSave(${JSON.stringify(name)})'>Guardar</button></div>
+  `);
+}
+
+async function qEditRdSave(name){
+  const rdId=parseInt($('q-edit-rd').value);
+  const courseId=parseInt($('q-edit-courseid').value);
   if(!courseId){showModal('Campo requerido','<p>Ingresa un Course ID válido.</p>');return;}
   try{
     await api(`/api/collections/${encodeURIComponent(name)}/rd`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({rd_id:rdId,moodle_courseid:courseId})});
+    closeModal();
     qLoadCols();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }

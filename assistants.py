@@ -52,11 +52,25 @@ def get_asistente_by_token(token: str) -> Optional[Dict[str, Any]]:
     )
 
 
+_STRATEGY_FIELDS = (
+    "etl_document_strategy",
+    "etl_audio_strategy",
+    "contextual_strategy",
+    "dense_strategy",
+    "sparse_strategy",
+    "rerank_strategy",
+    "generation_strategy",
+)
+
+
 def create_asistente(
     nombre: str,
     rd_id: int,
     prompt_maestro: Optional[str] = None,
     created_by: Optional[int] = None,
+    etl_document_strategy: Optional[str] = None,
+    etl_audio_strategy: Optional[str] = None,
+    contextual_strategy: Optional[str] = None,
     dense_strategy: Optional[str] = None,
     sparse_strategy: Optional[str] = None,
     rerank_strategy: Optional[str] = None,
@@ -67,9 +81,15 @@ def create_asistente(
     token = secrets.token_urlsafe(24)
     row = db.execute_returning(
         "INSERT INTO asistentes "
-        "(nombre, rd_id, prompt_maestro, token, created_by, dense_strategy, sparse_strategy, rerank_strategy, generation_strategy) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
-        (nombre, rd_id, prompt_maestro, token, created_by, dense_strategy, sparse_strategy, rerank_strategy, generation_strategy),
+        "(nombre, rd_id, prompt_maestro, token, created_by, "
+        "etl_document_strategy, etl_audio_strategy, contextual_strategy, "
+        "dense_strategy, sparse_strategy, rerank_strategy, generation_strategy) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
+        (
+            nombre, rd_id, prompt_maestro, token, created_by,
+            etl_document_strategy, etl_audio_strategy, contextual_strategy,
+            dense_strategy, sparse_strategy, rerank_strategy, generation_strategy,
+        ),
     )
     return _with_url(row)
 
@@ -80,25 +100,42 @@ def update_asistente(
     rd_id: Optional[int] = None,
     prompt_maestro: Optional[str] = None,
     activo: Optional[bool] = None,
+    etl_document_strategy: Any = _UNSET,
+    etl_audio_strategy: Any = _UNSET,
+    contextual_strategy: Any = _UNSET,
     dense_strategy: Any = _UNSET,
     sparse_strategy: Any = _UNSET,
     rerank_strategy: Any = _UNSET,
     generation_strategy: Any = _UNSET,
 ) -> Dict[str, Any]:
-    """Los 4 campos de estrategia distinguen "no venía en el request"
+    """Los 7 campos de estrategia distinguen "no venía en el request"
     (`_UNSET`, default — deja el valor actual intacto) de "venía como
-    `null`" (limpia esa etapa a "usar configuración global") — necesario
-    para que el formulario de edición pueda volver una etapa a global sin
-    tocar las demás. nombre/rd_id/prompt_maestro/activo mantienen el
-    comportamiento previo (solo cambian si vienen informados)."""
+    `null`" (limpia esa etapa a "usar el valor por defecto del sistema") —
+    necesario para que el modal de edición pueda volver una etapa a
+    default sin tocar las demás. nombre/rd_id/prompt_maestro/activo
+    mantienen el comportamiento previo (solo cambian si vienen informados)."""
     existing = db.fetch_one("SELECT * FROM asistentes WHERE id = %s", (asistente_id,))
     if not existing:
         raise ValueError(f"El asistente {asistente_id} no existe")
     if rd_id is not None and not db.fetch_one("SELECT id FROM rds WHERE id = %s", (rd_id,)):
         raise ValueError(f"La RD {rd_id} no existe")
 
+    incoming = {
+        "etl_document_strategy": etl_document_strategy,
+        "etl_audio_strategy": etl_audio_strategy,
+        "contextual_strategy": contextual_strategy,
+        "dense_strategy": dense_strategy,
+        "sparse_strategy": sparse_strategy,
+        "rerank_strategy": rerank_strategy,
+        "generation_strategy": generation_strategy,
+    }
+    strategy_values = [
+        existing[field] if incoming[field] is _UNSET else incoming[field] for field in _STRATEGY_FIELDS
+    ]
+
     row = db.execute_returning(
         "UPDATE asistentes SET nombre=%s, rd_id=%s, prompt_maestro=%s, activo=%s, "
+        "etl_document_strategy=%s, etl_audio_strategy=%s, contextual_strategy=%s, "
         "dense_strategy=%s, sparse_strategy=%s, rerank_strategy=%s, generation_strategy=%s, "
         "updated_at=now() WHERE id=%s RETURNING *",
         (
@@ -106,14 +143,27 @@ def update_asistente(
             rd_id if rd_id is not None else existing["rd_id"],
             prompt_maestro if prompt_maestro is not None else existing["prompt_maestro"],
             activo if activo is not None else existing["activo"],
-            existing["dense_strategy"] if dense_strategy is _UNSET else dense_strategy,
-            existing["sparse_strategy"] if sparse_strategy is _UNSET else sparse_strategy,
-            existing["rerank_strategy"] if rerank_strategy is _UNSET else rerank_strategy,
-            existing["generation_strategy"] if generation_strategy is _UNSET else generation_strategy,
+            *strategy_values,
             asistente_id,
         ),
     )
     return _with_url(row)
+
+
+def get_asistente_config_for_collection(qdrant_collection_name: str) -> Optional[Dict[str, Any]]:
+    """Resuelve colección -> RD -> asistente activo más reciente de esa RD,
+    y retorna sus 7 campos de estrategia. `None` si la colección no está
+    vinculada a ninguna RD, o si esa RD no tiene ningún asistente activo.
+    Usado por core._build_pipeline_config() para que Semiautomático/
+    Automático/Actualización consulten automáticamente la config del
+    asistente dueño de la colección destino, sin UI nueva en esos wizards."""
+    return db.fetch_one(
+        "SELECT a.* FROM colecciones_rd c "
+        "JOIN asistentes a ON a.rd_id = c.rd_id AND a.activo = TRUE "
+        "WHERE c.qdrant_collection_name = %s "
+        "ORDER BY a.updated_at DESC LIMIT 1",
+        (qdrant_collection_name,),
+    )
 
 
 def delete_asistente(asistente_id: int) -> None:
@@ -131,17 +181,21 @@ def get_or_create_sesion(
     moodle_username: Optional[str],
     moodle_fullname: Optional[str],
     qdrant_collection_name: str,
+    force_new: bool = False,
 ) -> Dict[str, Any]:
     """Reusa la sesión existente para (asistente, curso, usuario) si hay una,
-    si no crea una nueva. Así el historial se acumula por usuario/curso."""
-    existing = db.fetch_one(
-        "SELECT * FROM asistente_sesiones WHERE asistente_id=%s AND moodle_courseid=%s AND moodle_userid=%s "
-        "ORDER BY started_at DESC LIMIT 1",
-        (asistente_id, moodle_courseid, moodle_userid),
-    )
-    if existing:
-        db.execute("UPDATE asistente_sesiones SET last_activity_at = now() WHERE id = %s", (existing["id"],))
-        return existing
+    si no crea una nueva. Así el historial se acumula por usuario/curso.
+    `force_new=True` (botón "Nueva conversación") salta la reutilización y
+    siempre inserta una sesión nueva, sin arrastrar la memoria anterior."""
+    if not force_new:
+        existing = db.fetch_one(
+            "SELECT * FROM asistente_sesiones WHERE asistente_id=%s AND moodle_courseid=%s AND moodle_userid=%s "
+            "ORDER BY started_at DESC LIMIT 1",
+            (asistente_id, moodle_courseid, moodle_userid),
+        )
+        if existing:
+            db.execute("UPDATE asistente_sesiones SET last_activity_at = now() WHERE id = %s", (existing["id"],))
+            return existing
 
     return db.execute_returning(
         "INSERT INTO asistente_sesiones "
@@ -159,6 +213,22 @@ def get_mensajes(sesion_id: int) -> List[Dict[str, Any]]:
     return db.fetch_all(
         "SELECT * FROM asistente_mensajes WHERE sesion_id = %s ORDER BY created_at", (sesion_id,)
     )
+
+
+def get_recent_history(sesion_id: int, max_pairs: int = 30) -> List[Dict[str, str]]:
+    """Últimos `max_pairs` turnos (pregunta+respuesta, hasta `2*max_pairs`
+    filas crudas) de la sesión, en orden cronológico, listos para pasar
+    como historial real de conversación al LLM (no como texto aplanado).
+    Usado por /asistente/{token}/mensaje ANTES de guardar la pregunta
+    actual, para no duplicarla en el historial."""
+    rows = db.fetch_all(
+        "SELECT rol, contenido FROM ("
+        "  SELECT rol, contenido, created_at FROM asistente_mensajes "
+        "  WHERE sesion_id = %s ORDER BY created_at DESC LIMIT %s"
+        ") sub ORDER BY created_at",
+        (sesion_id, max_pairs * 2),
+    )
+    return [{"role": r["rol"], "content": r["contenido"]} for r in rows]
 
 
 def save_mensaje(

@@ -43,11 +43,15 @@ DEFAULT_SOURCE_TYPE = "curso_propio"
 def _build_pipeline_config(collection_name: str, source_type: Optional[str]) -> Optional[PipelineConfig]:
     """
     Si la colección destino es híbrida (vectores nombrados dense+sparse),
-    arma automáticamente el PipelineConfig a partir de la configuración RAG
-    activa (strategies.registry.get_all_active() — lo que esté seleccionado
-    en "Configuración RAG", o los defaults de .env si no hay override). El
-    usuario no arma nada manualmente: cambiar la configuración activa
-    afecta automáticamente la próxima vectorización de los 3 mecanismos.
+    arma automáticamente el PipelineConfig. Para cada etapa, usa primero la
+    config propia del asistente dueño de la colección (el activo más
+    recientemente actualizado de la RD a la que está vinculada, vía
+    assistants.get_asistente_config_for_collection) y, si ese campo es
+    NULL o no hay ningún asistente vinculado todavía, cae al valor por
+    defecto del sistema (strategy_registry.get_all_active() — config
+    congelada en Postgres o default de .env). El usuario no arma nada
+    manualmente: los 3 mecanismos de vectorización no cambian su UI, solo
+    consultan automáticamente al asistente antes de vectorizar.
 
     Si la colección es legacy (vector único sin nombre) o no se puede
     determinar su esquema (aún no existe, error de conexión), retorna None
@@ -68,13 +72,24 @@ def _build_pipeline_config(collection_name: str, source_type: Optional[str]) -> 
     if schema != "hybrid":
         return None
 
+    import assistants as assistants_module
+
     active = strategy_registry.get_all_active()
+    try:
+        asis_cfg = assistants_module.get_asistente_config_for_collection(collection_name) or {}
+    except Exception as e:
+        print(f"⚠️ No se pudo consultar la config del asistente para '{collection_name}': {e}")
+        asis_cfg = {}
+
+    def pick(active_key: str, asis_field: str) -> str:
+        return asis_cfg.get(asis_field) or active[active_key]
+
     return PipelineConfig(
-        etl_document_strategy=active["etl_document"],
-        etl_audio_strategy=active["etl_audio"],
-        contextual_strategy=active["contextual"],
-        dense_strategy=active["dense"],
-        sparse_strategy=active["sparse"],
+        etl_document_strategy=pick("etl_document", "etl_document_strategy"),
+        etl_audio_strategy=pick("etl_audio", "etl_audio_strategy"),
+        contextual_strategy=pick("contextual", "contextual_strategy"),
+        dense_strategy=pick("dense", "dense_strategy"),
+        sparse_strategy=pick("sparse", "sparse_strategy"),
         source_type=source_type or DEFAULT_SOURCE_TYPE,
     )
 
