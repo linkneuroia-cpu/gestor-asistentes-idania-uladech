@@ -317,6 +317,18 @@ class Settings(BaseSettings):
     RERANK_BOOST_MULTIPLIER: float = 1.15
     GENERATION_STRATEGY: str = "gpt4o_mini"
 
+    # ================= Postgres (configuración del gestor, asistentes) =================
+    PG_HOST: str = "10.0.0.92"
+    PG_PORT: int = 5432
+    PG_USER: str = "postgres"
+    PG_PASSWORD: str = ""
+    PG_DATABASE: str = "U_F1_Profundizacion"
+
+    # ================= Autenticación del gestor =================
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "changeme123"
+    SESSION_SECRET_KEY: str = "change-this-session-secret-in-env"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

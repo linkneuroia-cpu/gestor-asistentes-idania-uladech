@@ -30,3 +30,7 @@ cohere==7.1.0
 deepgram-sdk==7.8.0
 fastembed==0.8.0
 av==12.3.0
+
+# ── postgres + login del gestor ──
+psycopg2-binary==2.9.12
+itsdangerous==2.2.0
