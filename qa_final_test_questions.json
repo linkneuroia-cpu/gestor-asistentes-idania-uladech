@@ -1,0 +1,22 @@
+[
+  {"id": 1, "categoria": "Tabla (regresión)", "pregunta": "dame un ejemplo de tabla de frecuencia"},
+  {"id": 2, "categoria": "Fórmula", "pregunta": "¿Cuál es la fórmula general para resolver una ecuación cuadrática? Dame un ejemplo aplicado."},
+  {"id": 3, "categoria": "Fórmula (bibliografía)", "pregunta": "Según el libro de precálculo, ¿cómo se calcula el interés compuesto? Dame la fórmula."},
+  {"id": 4, "categoria": "Fórmula", "pregunta": "¿Cuáles son las identidades trigonométricas de seno y coseno de una suma de ángulos?"},
+  {"id": 5, "categoria": "Tabla (DOCX real)", "pregunta": "¿Cómo es la escala de valoración que usan las guías de práctica para calificar? Preséntala en una tabla."},
+  {"id": 6, "categoria": "Tabla forzada", "pregunta": "Compara el razonamiento deductivo y el inductivo en una tabla."},
+  {"id": 7, "categoria": "Lista numerada anidada (bug de hoy)", "pregunta": "Para la Actividad Formativa Evaluable 1 - AF1-U1, ¿qué debo presentar como producto? Dame los puntos exactos."},
+  {"id": 8, "categoria": "Lista numerada", "pregunta": "Explícame paso a paso cómo se resuelve una ecuación lineal simple."},
+  {"id": 9, "categoria": "Fórmula bloque LaTeX (bug de hoy)", "pregunta": "dame un ejemplo para definir un conjunto universal"},
+  {"id": 10, "categoria": "Navegación", "pregunta": "¿En qué semana encuentro la guía de práctica 5?"},
+  {"id": 11, "categoria": "Navegación multi-semana", "pregunta": "El archivo Precalculo_2ed-WEB_R2h7jtX.pdf, ¿en qué semana lo encuentro?"},
+  {"id": 12, "categoria": "Control (sin fórmulas)", "pregunta": "¿Qué es un silogismo? Dame un ejemplo."},
+  {"id": 13, "categoria": "Control", "pregunta": "¿Qué contenidos se ven en la sesión 9?"},
+  {"id": 14, "categoria": "Conversacional", "pregunta": "Gracias, eso me ayudó mucho."},
+  {"id": 15, "categoria": "Fórmula", "pregunta": "¿Cómo se calcula una proporción y qué es la regla de tres simple? Dame un ejemplo con números."},
+  {"id": 16, "categoria": "Fórmula", "pregunta": "¿Cómo se calcula la probabilidad clásica de un evento? Dame la fórmula y un ejemplo."},
+  {"id": 17, "categoria": "Estrés (lista+fórmula+tabla)", "pregunta": "Explícame paso a paso cómo se calcula el área y el perímetro de varias figuras geométricas, con la fórmula de cada una y un resumen final en tabla."},
+  {"id": 18, "categoria": "Tabla (DOCX real, sesión)", "pregunta": "¿Cómo se estructura el desarrollo de la sesión 5? Preséntalo en tabla si el material lo trae así."},
+  {"id": 19, "categoria": "Lista numerada (guía)", "pregunta": "¿Qué debo presentar en la guía de práctica 4? Dame los puntos exactos."},
+  {"id": 20, "categoria": "Multi-turno (2/2)", "pregunta": "¿Me puedes dar otro ejemplo del mismo tema que acabas de explicar?"}
+]

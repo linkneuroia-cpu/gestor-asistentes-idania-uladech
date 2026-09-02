@@ -70,34 +70,40 @@ def update_rd(
     moodle_course_url: Optional[str] = None,
     dense_strategy: Any = _UNSET,
     sparse_strategy: Any = _UNSET,
+    distance: Any = _UNSET,
 ) -> Dict[str, Any]:
-    """dense_strategy/sparse_strategy son el embedding "maestro" de la RD:
-    todas sus colecciones deben compartirlo para ser intercambiables entre
-    sí (mismo asistente, distinto courseid). Solo se pueden fijar/cambiar
-    mientras la RD no tenga ninguna colección real todavía — una vez que
-    existe una, cambiar el embedding dejaría vectores incomparables entre
-    colecciones de la misma RD."""
+    """dense_strategy/sparse_strategy/distance son el embedding "maestro" de
+    la RD: todas sus colecciones deben compartirlo para ser intercambiables
+    entre sí (mismo asistente, distinto courseid). Una vez que la RD YA
+    tiene un dense_strategy fijado, no se puede cambiar si tiene colecciones
+    reales (dejaría vectores incomparables entre colecciones de la misma
+    RD). Excepción: si `existing["dense_strategy"]` todavía es NULL
+    (colecciones creadas antes de que existiera este concepto de "colección
+    madre"), sí se puede FIJARLO por primera vez aunque ya haya colecciones
+    reales — no es un cambio de embedding, es solo declarar cuál ya se usó."""
     existing = get_rd(rd_id)
     if not existing:
         raise ValueError(f"La RD {rd_id} no existe")
     embedding_changed = (
         (dense_strategy is not _UNSET and dense_strategy != existing["dense_strategy"])
         or (sparse_strategy is not _UNSET and sparse_strategy != existing["sparse_strategy"])
+        or (distance is not _UNSET and distance != existing["distance"])
     )
-    if embedding_changed and has_real_collections(rd_id):
+    if embedding_changed and existing["dense_strategy"] and has_real_collections(rd_id):
         raise ValueError(
             "No se puede cambiar el embedding de esta RD: ya tiene colecciones reales creadas "
             "y deben ser intercambiables entre sí. Elimínalas primero si de verdad necesitas cambiarlo."
         )
     return db.execute_returning(
         "UPDATE rds SET nombre=%s, moodle_courseid=%s, moodle_course_url=%s, "
-        "dense_strategy=%s, sparse_strategy=%s, updated_at=now() WHERE id=%s RETURNING *",
+        "dense_strategy=%s, sparse_strategy=%s, distance=%s, updated_at=now() WHERE id=%s RETURNING *",
         (
             nombre if nombre is not None else existing["nombre"],
             moodle_courseid if moodle_courseid is not None else existing["moodle_courseid"],
             moodle_course_url if moodle_course_url is not None else existing["moodle_course_url"],
             existing["dense_strategy"] if dense_strategy is _UNSET else dense_strategy,
             existing["sparse_strategy"] if sparse_strategy is _UNSET else sparse_strategy,
+            existing["distance"] if distance is _UNSET else distance,
             rd_id,
         ),
     )
@@ -111,15 +117,18 @@ def has_real_collections(rd_id: int) -> bool:
     return row is not None
 
 
-def set_embedding(rd_id: int, dense_strategy: Optional[str], sparse_strategy: Optional[str]) -> Dict[str, Any]:
+def set_embedding(
+    rd_id: int, dense_strategy: Optional[str], sparse_strategy: Optional[str], distance: Optional[str] = None
+) -> Dict[str, Any]:
     """Fija el embedding maestro de la RD sin pasar por las validaciones de
-    update_rd — usado internamente al crear la primera colección real de
-    una RD que todavía no tenía nada fijado (ver app.py qdrant_create_collection)."""
+    update_rd — usado internamente al crear la primera colección real (la
+    "padre") de una RD que todavía no tenía nada fijado (ver app.py
+    qdrant_create_collection)."""
     if not get_rd(rd_id):
         raise ValueError(f"La RD {rd_id} no existe")
     return db.execute_returning(
-        "UPDATE rds SET dense_strategy=%s, sparse_strategy=%s, updated_at=now() WHERE id=%s RETURNING *",
-        (dense_strategy, sparse_strategy, rd_id),
+        "UPDATE rds SET dense_strategy=%s, sparse_strategy=%s, distance=%s, updated_at=now() WHERE id=%s RETURNING *",
+        (dense_strategy, sparse_strategy, distance, rd_id),
     )
 
 
@@ -144,24 +153,27 @@ def delete_rd(rd_id: int) -> None:
         )
 
 
-def link_collection(qdrant_collection_name: str, rd_id: int, moodle_courseid: int) -> Dict[str, Any]:
+def link_collection(qdrant_collection_name: str, rd_id: Optional[int], moodle_courseid: int) -> Dict[str, Any]:
     """Registra en Postgres que una colección de Qdrant pertenece a una RD
     + curso específico. Llamado desde POST /api/collections (creación).
     Si ese (rd_id, courseid) ya estaba registrado sin colección (vía
     add_courseid), "llena" esa fila en vez de crear una duplicada. Si ya
     tenía una colección DISTINTA asignada, bloquea — nunca se la roba
-    silenciosamente (antes lo hacía vía ON CONFLICT ... DO UPDATE)."""
-    if not get_rd(rd_id):
-        raise ValueError(f"La RD {rd_id} no existe")
-    existing = db.fetch_one(
-        "SELECT qdrant_collection_name FROM colecciones_rd WHERE rd_id = %s AND moodle_courseid = %s",
-        (rd_id, moodle_courseid),
-    )
-    if existing and existing["qdrant_collection_name"] and existing["qdrant_collection_name"] != qdrant_collection_name:
-        raise ValueError(
-            f"El curso {moodle_courseid} de la RD {rd_id} ya tiene asignada la colección "
-            f"'{existing['qdrant_collection_name']}'. Reasígnala o elimínala primero."
+    silenciosamente (antes lo hacía vía ON CONFLICT ... DO UPDATE).
+    `rd_id=None`: colección "normal" — no hay RD que validar/vincular
+    formalmente, se registra solo el courseid como referencia."""
+    if rd_id is not None:
+        if not get_rd(rd_id):
+            raise ValueError(f"La RD {rd_id} no existe")
+        existing = db.fetch_one(
+            "SELECT qdrant_collection_name FROM colecciones_rd WHERE rd_id = %s AND moodle_courseid = %s",
+            (rd_id, moodle_courseid),
         )
+        if existing and existing["qdrant_collection_name"] and existing["qdrant_collection_name"] != qdrant_collection_name:
+            raise ValueError(
+                f"El curso {moodle_courseid} de la RD {rd_id} ya tiene asignada la colección "
+                f"'{existing['qdrant_collection_name']}'. Reasígnala o elimínala primero."
+            )
 
     import psycopg2
 
@@ -179,10 +191,11 @@ def link_collection(qdrant_collection_name: str, rd_id: int, moodle_courseid: in
         )
 
 
-def reassign_collection(qdrant_collection_name: str, rd_id: int, moodle_courseid: int) -> Dict[str, Any]:
+def reassign_collection(qdrant_collection_name: str, rd_id: Optional[int], moodle_courseid: int) -> Dict[str, Any]:
     """Cambia el RD/courseid de una colección ya vinculada. Usado por el
-    listado de Colecciones para reasignar."""
-    if not get_rd(rd_id):
+    listado de Colecciones para reasignar. `rd_id=None` la convierte en
+    colección "normal" (independiente, sin RD)."""
+    if rd_id is not None and not get_rd(rd_id):
         raise ValueError(f"La RD {rd_id} no existe")
     if not db.fetch_one(
         "SELECT 1 FROM colecciones_rd WHERE qdrant_collection_name = %s", (qdrant_collection_name,)
@@ -258,5 +271,16 @@ def resolve_collection(rd_id: int, moodle_courseid: int) -> Optional[str]:
     row = db.fetch_one(
         "SELECT qdrant_collection_name FROM colecciones_rd WHERE rd_id = %s AND moodle_courseid = %s",
         (rd_id, moodle_courseid),
+    )
+    return row["qdrant_collection_name"] if row else None
+
+
+def resolve_collection_normal(moodle_courseid: int) -> Optional[str]:
+    """Igual que resolve_collection pero para una colección "normal" (sin
+    RD) — usado por asistentes "normal", que resuelven directamente por su
+    propio courseid en vez de RD+courseid."""
+    row = db.fetch_one(
+        "SELECT qdrant_collection_name FROM colecciones_rd WHERE rd_id IS NULL AND moodle_courseid = %s",
+        (moodle_courseid,),
     )
     return row["qdrant_collection_name"] if row else None

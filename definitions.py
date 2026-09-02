@@ -12,6 +12,7 @@ import io
 import hashlib
 import unicodedata
 import asyncio
+import uuid
 import requests
 from pathlib import Path
 from datetime import datetime
@@ -210,8 +211,207 @@ def _validate_file_signature(file_type: str, header: bytes) -> bool:
     return any(header.startswith(sig) for sig in signatures)
 
 
+def _table_to_markdown(rows: List[List[Optional[str]]]) -> str:
+    """Convierte filas de tabla (lista de listas, como las devuelve
+    pdfplumber `.extract()` o una tabla de python-docx) a sintaxis Markdown
+    GFM — la misma que ya sabe renderizar el chat (ver mdToHtml() en
+    frontend/asistente_chat.html)."""
+    clean_rows = [
+        [(c or "").strip().replace("\n", " ") for c in row]
+        for row in rows
+    ]
+    clean_rows = [r for r in clean_rows if any(c for c in r)]
+    if not clean_rows:
+        return ""
+    header, *body = clean_rows
+    width = len(header)
+    lines = ["| " + " | ".join(header) + " |", "|" + "|".join(["---"] * width) + "|"]
+    for row in body:
+        row = (row + [""] * width)[:width]
+        lines.append("| " + " | ".join(row) + " |")
+    return "\n".join(lines)
+
+
+def _group_words_into_blocks(words: List[Dict[str, Any]]) -> List[Tuple[float, str]]:
+    """Agrupa palabras (ya excluidas de tablas/encabezado/pie) en bloques de
+    texto por proximidad vertical, conservando la posición ("top") de cada
+    bloque — necesaria para poder intercalarlos con tablas y fórmulas en el
+    orden real de lectura de la página (antes se unían todas las palabras
+    de la página en un solo string, perdiendo esa posición)."""
+    if not words:
+        return []
+    ordered = sorted(words, key=lambda w: (w["top"], w["x0"]))
+    blocks: List[Tuple[float, List[str]]] = []
+    block_top = ordered[0]["top"]
+    block_words = [ordered[0]["text"]]
+    prev_bottom = ordered[0]["bottom"]
+    for w in ordered[1:]:
+        gap = w["top"] - prev_bottom
+        if gap > 8:  # salto vertical grande -> nuevo párrafo/bloque
+            blocks.append((block_top, block_words))
+            block_top = w["top"]
+            block_words = []
+        block_words.append(w["text"])
+        prev_bottom = max(prev_bottom, w["bottom"])
+    blocks.append((block_top, block_words))
+    return [(top, " ".join(ws)) for top, ws in blocks]
+
+
+def _merge_nearby_rects(
+    rects: List[Tuple[float, float, float, float]], gap: float = 10
+) -> List[Tuple[float, float, float, float]]:
+    """Une rectángulos que están a menos de `gap` de distancia entre sí en
+    uno solo (unión de bounding boxes) — usado para agrupar trazos
+    vectoriales sueltos (glifos de una fórmula, líneas de un diagrama) en
+    una sola región candidata a recortar y pasar por OCR."""
+    boxes = [list(r) for r in rects]
+    changed = True
+    while changed:
+        changed = False
+        out: List[List[float]] = []
+        used = [False] * len(boxes)
+        for i in range(len(boxes)):
+            if used[i]:
+                continue
+            cur = boxes[i]
+            used[i] = True
+            for j in range(i + 1, len(boxes)):
+                if used[j]:
+                    continue
+                other = boxes[j]
+                if not (cur[2] + gap < other[0] or other[2] + gap < cur[0] or
+                        cur[3] + gap < other[1] or other[3] + gap < cur[1]):
+                    cur = [min(cur[0], other[0]), min(cur[1], other[1]),
+                           max(cur[2], other[2]), max(cur[3], other[3])]
+                    used[j] = True
+                    changed = True
+            out.append(cur)
+        boxes = out
+    return [tuple(b) for b in boxes]
+
+
+def _find_formula_regions(
+    fitz_page,
+    table_bboxes: List[Tuple[float, float, float, float]],
+    header_bottom: float,
+    footer_top: float,
+    min_area: float = 2500,
+) -> List[Tuple[float, float, float, float]]:
+    """Identifica regiones de la página que probablemente contienen una
+    fórmula o gráfico dibujado como trazos vectoriales (no como texto
+    seleccionable — confirmado que esto ocurre en material real del curso:
+    ni pdfplumber ni PyMuPDF recuperan esas fórmulas como texto bajo
+    ninguna configuración). Se ignoran los trazos dentro de tablas ya
+    detectadas, encabezado y pie de página, y las regiones muy chicas
+    (líneas decorativas, viñetas).
+
+    El OCR es un último recurso, no el camino principal — para que dispare
+    lo menos posible (medido en Precálculo: 68% de las páginas, hasta 10
+    llamadas en una sola), acá se fusionan trazos cercanos con más margen
+    (gap=30 en vez de 10) para que fragmentos de UNA misma fórmula
+    (subíndices, símbolos sueltos) formen una sola región en vez de varias
+    llamadas de OCR separadas, y se subió el área mínima (2500) para
+    descartar marcas chicas que no son fórmulas reales."""
+    rects = []
+    for d in fitz_page.get_drawings():
+        r = d.get("rect")
+        if r is None:
+            continue
+        if r.y0 < header_bottom or r.y1 > footer_top:
+            continue
+        in_table = any(
+            not (r.x1 < tb[0] or r.x0 > tb[2] or r.y1 < tb[1] or r.y0 > tb[3])
+            for tb in table_bboxes
+        )
+        if in_table:
+            continue
+        rects.append((r.x0, r.y0, r.x1, r.y1))
+    if not rects:
+        return []
+    merged = _merge_nearby_rects(rects, gap=30)
+    return [m for m in merged if (m[2] - m[0]) * (m[3] - m[1]) >= min_area]
+
+
+_latex_ocr_model = None
+
+
+def _get_latex_ocr():
+    """LaTeX-OCR (pix2tex): modelo especializado en imagen-de-fórmula ->
+    LaTeX real, 100% local (descarga los pesos una sola vez, después corre
+    sin red). Verificado contra EasyOCR en material real del curso: sobre
+    la misma fórmula de interés compuesto, EasyOCR aplanaba la fracción
+    ("P(1+ 5)\" 4.10") mientras pix2tex la reconstruye correctamente
+    ("P(1+\\frac{r}{n})^{nt}")."""
+    global _latex_ocr_model
+    if _latex_ocr_model is None:
+        import torch
+        from munch import Munch
+        from pix2tex.cli import LatexOCR
+        # OJO: LatexOCR() sin argumentos usa 'no_cuda': True COMO DEFAULT
+        # (ver pix2tex/cli.py LatexOCR.__init__) — corre en CPU aunque haya
+        # GPU disponible, aunque no lo diga en ningún lado. Hay que pasar
+        # explícitamente los mismos defaults con no_cuda en False (mismos
+        # paths relativos que usa pix2tex internamente — los resuelve el
+        # decorador @in_model_path() del propio __init__).
+        use_gpu = torch.cuda.is_available()
+        print(f"🔄 Cargando modelo LaTeX-OCR (pix2tex, gpu={use_gpu})...")
+        arguments = Munch({
+            "config": "settings/config.yaml",
+            "checkpoint": "checkpoints/weights.pth",
+            "no_cuda": not use_gpu,
+            "no_resize": False,
+        })
+        _latex_ocr_model = LatexOCR(arguments)
+    return _latex_ocr_model
+
+
+async def _ocr_page_region(fitz_page, bbox: Tuple[float, float, float, float]) -> str:
+    """Renderiza una región de la página a imagen y la transcribe en
+    cascada: 1) pix2tex (LaTeX-OCR, especializado en fórmulas — preferido),
+    2) EasyOCR como respaldo si pix2tex falla (p.ej. no se pudieron
+    descargar/cargar sus pesos). Devuelve el bloque ya listo para insertar
+    en el texto (fórmula LaTeX entre \\( \\) si fue pix2tex, o un marcador
+    explícito de menor confianza si fue EasyOCR) — string vacío si ninguno
+    de los dos reconoció nada."""
+    loop = asyncio.get_event_loop()
+
+    def _render() -> Path:
+        clip = fitz.Rect(*bbox)
+        pix = fitz_page.get_pixmap(clip=clip, dpi=200)
+        tmp_path = settings.TEMP_DIR / f"_ocr_crop_{uuid.uuid4().hex}.png"
+        pix.save(str(tmp_path))
+        return tmp_path
+
+    tmp_path = await loop.run_in_executor(None, _render)
+    try:
+        try:
+            from PIL import Image
+            latex_model = await loop.run_in_executor(None, _get_latex_ocr)
+            img = Image.open(tmp_path)
+            latex = await loop.run_in_executor(None, lambda: latex_model(img))
+            if latex and latex.strip():
+                return f"\\( {latex.strip()} \\)"
+        except Exception as e:
+            print(f"⚠️ pix2tex falló, cae a EasyOCR: {e}")
+
+        reader = await loop.run_in_executor(None, _get_ocr_reader)
+        results = await loop.run_in_executor(
+            None, lambda: reader.readtext(str(tmp_path), detail=0, paragraph=True)
+        )
+        text = " ".join(results).strip()
+        return (
+            f"[contenido gráfico detectado — posible fórmula, transcripción OCR]: {text}"
+            if text else ""
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 async def _extract_from_pdf(file_path: str) -> str:
-    """Extrae texto de PDF excluyendo tablas, encabezados y pies de página."""
+    """Extrae texto de PDF: párrafos + tablas (convertidas a Markdown, ya
+    no descartadas) + fórmulas/gráficos vectoriales (recorte + OCR local),
+    intercalados en el orden vertical real de cada página. Excluye
+    encabezados y pies de página."""
     doc = fitz.open(file_path)
     full_text = []
 
@@ -221,6 +421,7 @@ async def _extract_from_pdf(file_path: str) -> str:
                 page_height = page.height
                 header_bottom = page_height * 0.10
                 footer_top = page_height * 0.90
+                fitz_page = doc[page_num - 1]
 
                 tables = page.find_tables(table_settings={
                     "vertical_strategy": "lines",
@@ -228,9 +429,18 @@ async def _extract_from_pdf(file_path: str) -> str:
                     "intersection_tolerance": 4,
                 })
                 table_bboxes = [t.bbox for t in tables]
-                words = page.extract_words(x_tolerance=1, y_tolerance=1)
 
-                page_words = []
+                # bloques con su posición vertical, para reconstruir el
+                # orden real de lectura de la página al final.
+                blocks: List[Tuple[float, str]] = []
+
+                for t in tables:
+                    md = _table_to_markdown(t.extract())
+                    if md:
+                        blocks.append((t.bbox[1], md))
+
+                words = page.extract_words(x_tolerance=1, y_tolerance=1)
+                text_words = []
                 for word in words:
                     wb = (word["x0"], word["top"], word["x1"], word["bottom"])
                     if word["top"] < header_bottom or word["bottom"] > footer_top:
@@ -241,10 +451,25 @@ async def _extract_from_pdf(file_path: str) -> str:
                         for tb in table_bboxes
                     )
                     if not in_table:
-                        page_words.append(word["text"])
+                        text_words.append(word)
+                blocks.extend(_group_words_into_blocks(text_words))
 
-                if page_words:
-                    full_text.append(" ".join(page_words))
+                formula_regions = _find_formula_regions(
+                    fitz_page, table_bboxes, header_bottom, footer_top
+                )
+                for region in formula_regions:
+                    # _ocr_page_region ya devuelve el bloque formateado
+                    # (LaTeX real si fue pix2tex, marcador de menor
+                    # confianza si cayó a EasyOCR) — acá solo se cubre el
+                    # caso de que ninguno de los dos reconociera nada.
+                    content = await _ocr_page_region(fitz_page, region)
+                    marker = content or "[hay contenido gráfico en esta sección que el sistema no pudo transcribir]"
+                    blocks.append((region[1], marker))
+
+                blocks.sort(key=lambda b: b[0])
+                page_text = "\n".join(b[1] for b in blocks)
+                if page_text.strip():
+                    full_text.append(page_text)
 
     except Exception as e:
         raise ValueError(f"Error extrayendo PDF: {e}")
@@ -254,10 +479,39 @@ async def _extract_from_pdf(file_path: str) -> str:
     return "\n".join(full_text)
 
 
+def _iter_docx_block_items(doc):
+    """Recorre párrafos y tablas del cuerpo del documento en su orden real
+    de aparición — python-docx no expone esto directo (`doc.paragraphs` y
+    `doc.tables` son dos colecciones separadas, sin orden combinado), así
+    que se lee el XML del body en orden y se envuelve cada hijo según su
+    tipo (técnica estándar conocida como "iter_block_items")."""
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+    from docx.oxml.ns import qn
+
+    for child in doc.element.body.iterchildren():
+        if child.tag == qn("w:p"):
+            yield Paragraph(child, doc)
+        elif child.tag == qn("w:tbl"):
+            yield Table(child, doc)
+
+
 async def _extract_from_docx(file_path: str) -> str:
+    from docx.table import Table as DocxTable
+
     doc = DocxDocument(file_path)
-    paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-    return "\n\n".join(paragraphs)
+    parts = []
+    for item in _iter_docx_block_items(doc):
+        if isinstance(item, DocxTable):
+            rows = [[cell.text for cell in row.cells] for row in item.rows]
+            md = _table_to_markdown(rows)
+            if md:
+                parts.append(md)
+        else:
+            text = item.text.strip()
+            if text:
+                parts.append(text)
+    return "\n\n".join(parts)
 
 
 async def _extract_from_pptx(file_path: str) -> str:
@@ -366,8 +620,10 @@ _ocr_reader: Optional["easyocr.Reader"] = None
 def _get_ocr_reader() -> "easyocr.Reader":
     global _ocr_reader
     if _ocr_reader is None:
-        print(f"🔄 Cargando modelo OCR (idiomas: {settings.OCR_LANGUAGES})...")
-        _ocr_reader = easyocr.Reader(get_ocr_languages(), gpu=False)
+        import torch
+        use_gpu = torch.cuda.is_available()
+        print(f"🔄 Cargando modelo OCR (idiomas: {settings.OCR_LANGUAGES}, gpu={use_gpu})...")
+        _ocr_reader = easyocr.Reader(get_ocr_languages(), gpu=use_gpu)
     return _ocr_reader
 
 
@@ -489,7 +745,15 @@ async def _extract_text(file_path: str) -> str:
 
 
 async def _normalize_text(text: str) -> str:
-    text = re.sub(r"[^\w\s.,;:()/\-%¿?!áéíóúñÁÉÍÓÚÑ]", "", text)
+    # Whitelist ampliada con operadores/símbolos matemáticos comunes
+    # (=+^{}[]<>√±≈∞×÷·, superíndices/subíndices Unicode) — antes se
+    # borraban aunque la fórmula sí hubiera sobrevivido a la extracción
+    # como texto real, desfigurándola igual.
+    text = re.sub(
+        r"[^\w\s.,;:()/\-%¿?!áéíóúñÁÉÍÓÚÑ=+^{}\[\]<>√±≈∞×÷·²³¹⁰-ₜ]",
+        "",
+        text,
+    )
     text = re.sub(r"\x00", "", text)
     text = re.sub(r"[\x01-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]", "", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
@@ -1176,6 +1440,7 @@ def get_course_resources(curid: int) -> List[Dict[str, Any]]:
 
     resources = []
     for section in data:
+        section_name = section.get("name") or ""
         for module in section.get("modules", []):
             modname = module.get("modname")
             if modname not in ("resource", "folder", "url"):
@@ -1201,6 +1466,15 @@ def get_course_resources(curid: int) -> List[Dict[str, Any]]:
                         "filesize": f.get("filesize"),
                         "fileurl":  _add_moodle_token(f.get("fileurl") or ""),
                         "mimetype": f.get("mimetype"),
+                        # contenthash: SHA1 nativo de Moodle sobre los bytes del
+                        # archivo — cambia solo si el archivo en sí cambió (a
+                        # diferencia de timemodified, que Moodle puede tocar por
+                        # cambios de visibilidad/permisos sin tocar el contenido).
+                        # Usado por curso_archivos (ver rds.py) como filtro barato
+                        # de "vale la pena re-extraer para confirmar" antes de
+                        # gastar cómputo en re-extraer y re-embeder.
+                        "contenthash": f.get("contenthash"),
+                        "timemodified": f.get("timemodified"),
                     }
                     for f in module.get("contents", [])
                     if f.get("type") == "file"
@@ -1212,6 +1486,7 @@ def get_course_resources(curid: int) -> List[Dict[str, Any]]:
             resources.append({
                 "id":            module.get("id"),
                 "name":          module.get("name"),
+                "section_name":  section_name,
                 "contentfiles":  contentfiles,
             })
 
@@ -1310,6 +1585,7 @@ class HybridVectorizationService:
         course_name: str,
         total_pages: int,
         original_filename: str = "",
+        section_name: str = "",
     ) -> Dict[str, Any]:
         from strategies import registry as strategy_registry
         from qdrant_admin import get_qdrant_admin
@@ -1379,6 +1655,7 @@ class HybridVectorizationService:
                     "total_pages": total_pages,
                     "total_chunks": len(chunks),
                     "course_name": course_name,
+                    "section_name": section_name,
                     "date": now,
                     "chunk": chunk["chunk"],
                     "urls": chunk.get("urls"),
@@ -1454,6 +1731,7 @@ async def vectorize_file_with_pages(
     service: VectorizationService,
     original_filename: str = "",
     pipeline_config: Optional["PipelineConfig"] = None,
+    section_name: str = "",
 ) -> Dict[str, Any]:
     """
     Pipeline completo: extract → normalize → hash → chunk → embed → store.
@@ -1465,6 +1743,11 @@ async def vectorize_file_with_pages(
     ETL/contextual/embedding denso+disperso según lo configurado. Si es
     None (colección legacy), el resto de esta función queda intacto: mismo
     comportamiento que antes de introducir el pipeline configurable.
+
+    `section_name`: nombre de la sección/semana de Moodle que contiene el
+    módulo (distinto de `course_name`, que es el nombre del módulo/recurso
+    en sí) — permite responder preguntas de navegación como "¿en qué semana
+    está este archivo?" sin depender del contenido del PDF.
     """
     if pipeline_config is not None:
         hybrid_service = HybridVectorizationService(pipeline_config)
@@ -1474,6 +1757,7 @@ async def vectorize_file_with_pages(
             course_name=course_name,
             total_pages=total_pages,
             original_filename=original_filename,
+            section_name=section_name,
         )
 
     stored_filename = original_filename if original_filename else file_path.name
@@ -1501,6 +1785,7 @@ async def vectorize_file_with_pages(
         "total_pages":   total_pages,
         "total_chunks":  len(chunks),
         "course_name":   course_name,
+        "section_name":  section_name,
     }
 
     return await service.store_vectors(

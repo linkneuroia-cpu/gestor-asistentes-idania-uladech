@@ -13,9 +13,20 @@ _cross_encoder_cache: Dict[str, Any] = {}
 
 def _get_cross_encoder(model_name: str):
     if model_name not in _cross_encoder_cache:
+        import torch
         from sentence_transformers import CrossEncoder
 
-        _cross_encoder_cache[model_name] = CrossEncoder(model_name)
+        model = CrossEncoder(model_name)
+        # El parámetro device=... del constructor NO mueve el modelo en esta
+        # combinación de versiones (sentence-transformers 3.1.1 +
+        # transformers 4.57.6): queda en CPU aunque se pida "cuda" y haya
+        # GPU disponible. Se fuerza moviendo el modelo interno con .to() —
+        # medido en vivo: 27.8s -> 0.7s para 30 candidatos (~40x). Este es
+        # el modelo más pesado del pipeline (568M params, hasta 50
+        # candidatos por consulta) — el que más se beneficia de GPU.
+        if torch.cuda.is_available():
+            model.model.to("cuda")
+        _cross_encoder_cache[model_name] = model
     return _cross_encoder_cache[model_name]
 
 

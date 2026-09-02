@@ -50,7 +50,7 @@ body{
 <body>
 <form class="card" id="login-form" autocomplete="on">
   <div class="logo-wrap">
-    <div class="logo-circle"><img src="/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo ULADECH Católica"></div>
+    <div class="logo-circle"><img src="{{ URL_PREFIX }}/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo ULADECH Católica"></div>
     <span class="ent">ULADECH Católica</span>
     <span class="sys">Sistema de Vectorización Documental</span>
   </div>
@@ -75,7 +75,7 @@ form.addEventListener('submit', async (e) => {
   err.classList.remove('show');
   btn.disabled = true; btn.textContent = 'Ingresando…';
   try {
-    const r = await fetch('/login', {
+    const r = await fetch('{{ URL_PREFIX }}/login', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -85,7 +85,7 @@ form.addEventListener('submit', async (e) => {
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || 'Error al iniciar sesión');
-    window.location.href = '/gestor';
+    window.location.href = '{{ URL_PREFIX }}/gestor';
   } catch (e) {
     err.textContent = e.message;
     err.classList.add('show');

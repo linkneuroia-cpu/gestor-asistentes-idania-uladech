@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <style>
 :root{
   --blue-800:#3D2352;--blue-700:#553171;--blue-650:#6D4A96;
@@ -30,6 +31,9 @@ body{
 .hdr-txt .sys{font-size:14px;font-weight:700}
 .hist-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:99px;border:1px solid var(--neutral-300);background:#fff;color:var(--blue-700);font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;flex-shrink:0}
 .hist-btn:hover{background:var(--neutral-100)}
+.act-counter{font-size:11px;color:var(--gray-500);font-weight:600;flex-shrink:0;padding:4px 9px;border-radius:99px;background:var(--neutral-100)}
+.act-counter.limit{color:var(--red-700);background:var(--red-200)}
+.msg.assistant.reencuentro{background:var(--neutral-100);border-style:dashed}
 .wrap{flex:1;display:flex;flex-direction:column;max-width:680px;width:100%;margin:0 auto;padding:16px;min-height:0}
 
 /* ── Sidebar de historial: overlay off-canvas en cualquier ancho,
@@ -48,22 +52,63 @@ body{
   background:var(--blue-700);color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0}
 .sidebar-newconv:hover{background:var(--blue-800)}
 .sidebar-newconv:disabled{opacity:.6;cursor:not-allowed}
+.sidebar-newcarpeta{width:calc(100% - 28px);margin:0 14px 12px;padding:8px;border-radius:10px;border:1px solid var(--neutral-300);
+  background:#fff;color:var(--blue-700);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
+.sidebar-newcarpeta:hover{background:var(--neutral-100)}
 .loading-note{align-self:center;font-size:12.5px;color:var(--gray-500);padding:14px;display:flex;align-items:center;gap:8px}
 .sidebar-list{flex:1;overflow-y:auto;padding:0 8px 14px}
 .conv-item{padding:10px;border-radius:8px;cursor:pointer;margin-bottom:3px}
 .conv-item:hover{background:var(--neutral-100)}
 .conv-item.active{background:var(--blue-200);border:1px solid var(--blue-700)}
+.conv-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .conv-date{font-size:10px;color:var(--gray-500);text-transform:uppercase;letter-spacing:.3px}
 .conv-preview{font-size:12.5px;color:var(--gray-700);margin-top:2px;overflow:hidden;text-overflow:ellipsis;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.conv-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.conv-act{background:none;border:none;color:var(--gray-500);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1}
+.conv-act:hover{color:var(--blue-700)}
+.conv-move{font-size:10px;font-family:inherit;color:var(--gray-600);background:var(--neutral-100);border:1px solid var(--neutral-300);
+  border-radius:6px;padding:1px 3px;max-width:78px}
+.carpeta-group summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  padding:8px 6px;font-size:11.5px;font-weight:700;color:var(--blue-700);text-transform:uppercase;letter-spacing:.3px}
+.carpeta-group summary::-webkit-details-marker{display:none}
+.carpeta-del{background:none;border:none;color:var(--gray-500);cursor:pointer;font-size:13px;padding:0 4px}
+.carpeta-del:hover{color:var(--red-700)}
+.conv-group-label{padding:8px 6px 4px;font-size:11.5px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.3px}
 .chat{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:6px 2px 16px}
 .msg{max-width:82%;padding:11px 14px;border-radius:var(--radius-lg);font-size:14px;line-height:1.55;white-space:pre-wrap}
 .msg.user{align-self:flex-end;background:var(--blue-700);color:#fff;border-bottom-right-radius:4px}
-.msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--neutral-300);border-bottom-left-radius:4px;box-shadow:var(--shadow-md)}
+.msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--neutral-300);border-bottom-left-radius:4px;box-shadow:var(--shadow-md);white-space:normal}
+.msg.assistant p{margin:0 0 8px}
+.msg.assistant p:last-child{margin-bottom:0}
+.msg.assistant ul,.msg.assistant ol{margin:0 0 8px;padding-left:20px}
+.msg.assistant ul:last-child,.msg.assistant ol:last-child{margin-bottom:0}
+.msg.assistant li{margin-bottom:2px}
+.msg.assistant strong{font-weight:700}
+.msg.assistant code{background:var(--neutral-100);padding:1px 5px;border-radius:4px;font-size:12.5px}
+.msg.assistant pre.md-code{background:var(--neutral-100);border-radius:6px;padding:10px;overflow-x:auto;font-size:12.5px;margin:0 0 8px}
+.msg.assistant pre.md-code:last-child{margin-bottom:0}
+.msg.assistant .table-wrap{overflow-x:auto;margin:0 0 8px}
+.msg.assistant .table-wrap:last-child{margin-bottom:0}
+.msg.assistant table{border-collapse:collapse;width:100%;font-size:13px}
+.msg.assistant th,.msg.assistant td{border:1px solid var(--neutral-300);padding:6px 10px;text-align:left}
+.msg.assistant th{background:var(--neutral-100);color:var(--blue-700);font-weight:600}
+.msg.assistant tr:nth-child(even) td{background:var(--neutral-100)}
 .sources{align-self:flex-start;max-width:82%;display:flex;flex-direction:column;gap:6px;margin-top:-4px}
 .src-card{background:var(--neutral-100);border:1px solid var(--neutral-300);border-radius:var(--radius);padding:8px 11px;font-size:12px;color:var(--gray-600)}
 .src-tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--green-400);color:var(--green-700);margin-bottom:3px}
 .src-tag.biblio{background:var(--blue-400);color:var(--blue-700)}
+.rating{align-self:flex-start;display:flex;align-items:center;gap:6px;margin-top:-4px;font-size:11.5px;color:var(--gray-500)}
+.rating-btn{background:none;border:1px solid var(--neutral-300);border-radius:99px;padding:3px 10px;font-size:12px;
+  cursor:pointer;color:var(--gray-500);font-family:inherit}
+.rating-btn:hover{background:var(--neutral-100)}
+.rating-btn.up.active{background:var(--green-400);border-color:var(--green-700);color:var(--green-700)}
+.rating-btn.down.active{background:var(--red-200);border-color:var(--red-700);color:var(--red-700)}
+.rating-comment{align-self:flex-start;max-width:82%;display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.rating-comment textarea{font-family:inherit;font-size:12.5px;border:1px solid var(--neutral-300);border-radius:8px;
+  padding:8px;resize:vertical;min-height:50px}
+.rating-comment button{align-self:flex-start;font-size:11.5px;padding:5px 12px;border-radius:8px;border:1px solid var(--blue-700);
+  background:var(--blue-700);color:#fff;cursor:pointer;font-family:inherit}
 .typing{align-self:flex-start;display:flex;gap:4px;padding:12px 16px}
 .typing span{width:6px;height:6px;border-radius:50%;background:var(--gray-500);animation:blink 1.2s infinite ease-in-out}
 .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
@@ -76,13 +121,16 @@ body{
 .errbox{max-width:420px;margin:auto;text-align:center;padding:32px;background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-md)}
 .errbox h2{font-size:17px;margin-bottom:8px}
 .errbox p{color:var(--gray-600);font-size:14px}
+.msg .katex-display{overflow-x:auto;overflow-y:hidden;padding:4px 0}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 </head>
 <body>
 {% if error %}
 <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:20px">
   <div class="errbox">
-    <div class="logo-circle" style="width:56px;height:56px;margin:0 auto 14px"><img src="/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo"></div>
+    <div class="logo-circle" style="width:56px;height:56px;margin:0 auto 14px"><img src="{{ URL_PREFIX }}/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo"></div>
     <h2>No se pudo abrir el asistente</h2>
     <p>{{ error }}</p>
   </div>
@@ -95,6 +143,7 @@ body{
     <button class="sidebar-close" onclick="toggleSidebar(false)" aria-label="Cerrar">✕</button>
   </div>
   <button class="sidebar-newconv" id="btn-newconv" onclick="nuevaConversacion()">+ Nueva conversación</button>
+  <button class="sidebar-newcarpeta" onclick="nuevaCarpeta()">+ Nueva carpeta</button>
   <div class="sidebar-list" id="conv-list"><p class="muted" style="padding:10px;font-size:12px;color:var(--gray-500)">Cargando…</p></div>
 </aside>
 <header class="hdr">
@@ -102,20 +151,21 @@ body{
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
     Historial
   </button>
-  <div class="logo-circle"><img src="/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo ULADECH Católica"></div>
+  <div class="logo-circle"><img src="{{ URL_PREFIX }}/img/uladechcatolica-logo-purple-300x213.webp" alt="Logo ULADECH Católica"></div>
   <div class="hdr-txt" style="flex:1">
     <div class="ent">ULADECH Católica</div>
     <div class="sys">{{ asistente_nombre }}</div>
   </div>
+  <div class="act-counter" id="act-counter" title="Preguntas usadas en esta conversación">{{ preguntas_usadas }}/{{ max_actividades_sesion }}</div>
 </header>
 <div class="wrap">
   <div class="chat" id="chat">
     {% if not historial %}
     <div class="msg assistant">{% if saludo_nombre %}Hola {{ saludo_nombre }}, {% else %}Hola, {% endif %}{% if mensaje_bienvenida %}{{ mensaje_bienvenida }}{% else %}soy <strong>{{ asistente_nombre }}</strong>. Pregúntame lo que necesites sobre el curso.{% endif %}</div>
     {% endif %}
-    {% for m in historial %}
-      <div class="msg {{ m.rol }}">{{ m.contenido }}</div>
-    {% endfor %}
+    {% if reencuentro %}
+    <div class="msg assistant reencuentro">{{ reencuentro }}</div>
+    {% endif %}
   </div>
   <div class="inputbar">
     <textarea id="q" rows="1" placeholder="Escribe tu pregunta…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviar();}"></textarea>
@@ -129,7 +179,9 @@ const TOKEN = {{ token|tojson }};
 let SESION_ID = {{ sesion_id|tojson }};
 const COURSEID = {{ courseid|tojson }};
 const USERID = {{ userid|tojson }};
-const MENSAJE_BIENVENIDA = {{ mensaje_bienvenida|tojson }};
+const HISTORIAL = {{ historial|tojson }};
+const MAX_ACTIVIDADES_SESION = {{ max_actividades_sesion|tojson }};
+const PREGUNTAS_USADAS = {{ preguntas_usadas|tojson }};
 const chat = document.getElementById('chat');
 const q = document.getElementById('q');
 const btn = document.getElementById('sendbtn');
@@ -138,14 +190,182 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function scrollBottom(){chat.scrollTop = chat.scrollHeight}
 scrollBottom();
 
+if(PREGUNTAS_USADAS >= MAX_ACTIVIDADES_SESION){
+  q.disabled = true;
+  btn.disabled = true;
+}
+
+// Markdown ligero (negrita, cursiva, código, listas, párrafos) para las
+// respuestas del tutor — el texto se escapa primero, así que nunca se
+// interpreta HTML real que venga en la respuesta del LLM.
+function mdToHtml(text){
+  let s = esc(text);
+  s = s.replace(/```([\s\S]*?)```/g, (_, code) => `<pre class="md-code">${code.trim()}</pre>`);
+  s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>');
+
+  const lines = s.split('\n');
+  let html = '', inUl = false, inOl = false, inTable = false;
+  // Un ítem numerado puede traer una sub-viñeta indentada debajo (patrón
+  // real del modelo: "1. Título:\n   - Detalle"). olLiOpen/subUl soportan
+  // UN nivel de anidamiento: el <li> del ítem numerado no se cierra al
+  // toque, se deja "abierto" hasta que se sepa si sigue una sub-lista.
+  let olLiOpen = false, subUl = false;
+  const closeSubUl = () => { if(subUl){ html += '</ul>'; subUl = false; } };
+  const closeOlLi = () => { closeSubUl(); if(olLiOpen){ html += '</li>'; olLiOpen = false; } };
+  const closeLists = () => {
+    closeOlLi();
+    if(inUl){ html += '</ul>'; inUl = false; }
+    if(inOl){ html += '</ol>'; inOl = false; }
+  };
+  // Tabla GFM: "| celda | celda |" seguida de una fila separadora
+  // "|---|---|". El LLM a veces deja líneas en blanco entre filas del
+  // cuerpo — se toleran (no cierran la tabla) en vez de exigir
+  // cumplimiento estricto del formato.
+  const isTableRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+  const isTableSep = (l) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(l);
+  const splitRow = (l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+  const closeTable = () => { if(inTable){ html += '</tbody></table></div>'; inTable = false; } };
+
+  // Bloque de fórmula "\[ ... \]" con los delimitadores solos en su propia
+  // línea (el formato más común que usa el modelo para LaTeX en bloque).
+  // Como el resto de esta función arma un <p> por línea, \[ y \] terminaban
+  // en nodos de texto distintos y KaTeX (que solo busca delimitadores
+  // DENTRO de un mismo nodo) nunca los veía juntos — se mostraba el LaTeX
+  // crudo. Acá se junta todo el bloque en un solo <p> antes de que eso
+  // pase.
+  const isMathOpen = (l) => l.trim() === '\\[';
+  const isMathClose = (l) => l.trim() === '\\]';
+
+  const processLine = (line) => {
+    // Una línea en blanco NUNCA cierra una lista activa (ol/ul) por sí
+    // sola — el modelo suele dejar líneas en blanco entre ítems de una
+    // misma lista numerada, y antes eso partía la lista en varios <ol>
+    // separados (cada uno renumerando desde 1 — la causa exacta del bug
+    // "la numeración se queda en 1" reportado).
+    if(line.trim() === '') return;
+    // Viñeta CON indentación (2+ espacios) mientras hay un ítem numerado
+    // abierto: es una sub-viñeta de ESE ítem, no una lista nueva.
+    const ulNested = inOl && olLiOpen ? /^\s{2,}[-*]\s+(.*)$/.exec(line) : null;
+    const ul = /^\s*[-*]\s+(.*)$/.exec(line);
+    const ol = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+    if(line.includes('<pre class="md-code">') || line.includes('</pre>')){
+      closeLists();
+      html += line;
+    }else if(ulNested){
+      if(!subUl){ html += '<ul>'; subUl = true; }
+      html += `<li>${ulNested[1]}</li>`;
+    }else if(ul){
+      closeOlLi();
+      if(inOl){ html += '</ol>'; inOl = false; }
+      if(!inUl){ html += '<ul>'; inUl = true; }
+      html += `<li>${ul[1]}</li>`;
+    }else if(ol){
+      closeOlLi();
+      if(inUl){ html += '</ul>'; inUl = false; }
+      if(!inOl){ html += '<ol>'; inOl = true; }
+      html += `<li>${ol[1]}`; // se cierra al llegar el próximo ítem (closeOlLi) — permite anidar una sub-lista adentro
+      olLiOpen = true;
+    }else{
+      closeLists();
+      if(line.trim() !== '') html += `<p>${line}</p>`;
+    }
+  };
+
+  for(let i = 0; i < lines.length; i++){
+    const line = lines[i];
+    if(!inTable && isMathOpen(line)){
+      let j = i + 1;
+      while(j < lines.length && !isMathClose(lines[j])) j++;
+      if(j < lines.length){
+        const mathLines = lines.slice(i + 1, j);
+        const mathBlock = `\\[${mathLines.join('\n')}\\]`;
+        if(inOl && olLiOpen){
+          // La fórmula "cuelga" de un ítem numerado (patrón real visto:
+          // "1. Grupo A:\n   \[...\]") — se agrega dentro del <li> actual
+          // en vez de cerrar la lista completa, mismo problema que ya se
+          // resolvió para sub-viñetas indentadas (si no, cada ítem
+          // siguiente reabría un <ol> nuevo y la numeración volvía a
+          // pegarse en 1).
+          html += `<br>${mathBlock}`;
+        }else{
+          closeLists();
+          html += `<p>${mathBlock}</p>`;
+        }
+        i = j; // saltar hasta la línea de cierre "\]"
+        continue;
+      }
+    }
+    if(!inTable && isTableRow(line)){
+      // El LLM a veces deja una línea en blanco entre el header y la fila
+      // separadora también — se salta al buscarla, no solo entre filas.
+      let j = i + 1;
+      while(j < lines.length && lines[j].trim() === '') j++;
+      if(j < lines.length && isTableSep(lines[j])){
+        closeLists();
+        const header = splitRow(line);
+        html += '<div class="table-wrap"><table><thead><tr>' + header.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+        inTable = true;
+        i = j; // saltar hasta la fila separadora (incluye blancos intermedios)
+        continue;
+      }
+    }
+    if(inTable){
+      if(line.trim() === '') continue; // línea en blanco entre filas: se tolera
+      if(isTableRow(line)){
+        const cells = splitRow(line);
+        html += '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+        continue;
+      }
+      closeTable(); // línea sin pipes: la tabla terminó, se reprocesa esta línea abajo
+    }
+    processLine(line);
+  }
+  closeTable();
+  closeLists();
+  return html || esc(text);
+}
+
+// Fórmulas de la bibliografía llegan del LLM como LaTeX crudo
+// (p.ej. "\[ x = \frac{-b \pm \sqrt{b^2-4ac}}{2a} \]") — sin esto se
+// mostraban ilegibles tal cual. Si el CDN de KaTeX no cargó (sin
+// internet), simplemente queda el texto plano, sin romper el chat.
+function renderMath(el){
+  if(window.renderMathInElement){
+    renderMathInElement(el, {
+      delimiters: [
+        {left: '\\[', right: '\\]', display: true},
+        {left: '\\(', right: '\\)', display: false},
+      ],
+      throwOnError: false,
+    });
+  }
+}
+
 function addMsg(role, text){
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  div.textContent = text;
+  if(role === 'assistant'){
+    div.innerHTML = mdToHtml(text);
+    renderMath(div);
+  }else{
+    div.textContent = text;
+  }
   chat.appendChild(div);
   scrollBottom();
   return div;
 }
+
+// Se renderiza acá (no en el HTML servido por Jinja) para que el
+// historial cargado al abrir la página pase por el mismo mdToHtml() que
+// los mensajes nuevos y una conversación anterior abierta desde la
+// sidebar — así el formato (negrita, listas) es consistente en los tres
+// casos, no solo en las respuestas recién generadas.
+(HISTORIAL || []).forEach(m => {
+  addMsg(m.rol, m.contenido);
+  if(m.rol === 'assistant') addRating(m.id, m.calificacion);
+});
 
 function addSources(sources){
   if(!sources || !sources.length) return;
@@ -160,6 +380,73 @@ function addSources(sources){
   scrollBottom();
 }
 
+// El alumno indica si la RESPUESTA le fue útil — no califica al mentor/RD.
+// Widget siempre hermano de la burbuja (nunca dentro del texto), y solo
+// para mensajes 'assistant' (nunca 'user', nunca el saludo server-side).
+function addRating(msgId, calificacionActual){
+  if(!msgId) return; // mensajes sin id (p.ej. saludo/reencuentro) no se pueden calificar
+  const wrap = document.createElement('div');
+  wrap.className = 'rating';
+  wrap.innerHTML = `
+    <span>¿Te ayudó esta respuesta?</span>
+    <button class="rating-btn up" onclick="calificar(${msgId}, 1, this)">👍 Me ayudó</button>
+    <button class="rating-btn down" onclick="calificar(${msgId}, -1, this)">👎 No me ayudó</button>
+  `;
+  aplicarEstadoRating(wrap, calificacionActual);
+  chat.appendChild(wrap);
+  scrollBottom();
+}
+
+function aplicarEstadoRating(wrap, calificacion){
+  wrap.querySelector('.up').classList.toggle('active', calificacion === 1);
+  wrap.querySelector('.down').classList.toggle('active', calificacion === -1);
+}
+
+async function calificar(msgId, valor, btnEl){
+  const wrap = btnEl.closest('.rating');
+  if(btnEl.classList.contains('active')) return; // ya calificado igual, no reenvía
+  aplicarEstadoRating(wrap, valor);
+  quitarComentarioRating(wrap);
+  const ok = await enviarCalificacion(msgId, valor, null);
+  if(!ok){ aplicarEstadoRating(wrap, null); return; }
+  if(valor === -1) mostrarComentarioRating(wrap, msgId);
+}
+
+function mostrarComentarioRating(wrap, msgId){
+  const box = document.createElement('div');
+  box.className = 'rating-comment';
+  box.innerHTML = `
+    <textarea placeholder="Opcional: ¿qué problema tuvo la respuesta?"></textarea>
+    <button type="button">Enviar comentario</button>
+  `;
+  box.querySelector('button').onclick = async () => {
+    await enviarCalificacion(msgId, -1, box.querySelector('textarea').value.trim() || null);
+    box.remove();
+  };
+  wrap.insertAdjacentElement('afterend', box);
+  scrollBottom();
+}
+
+function quitarComentarioRating(wrap){
+  const next = wrap.nextElementSibling;
+  if(next && next.classList.contains('rating-comment')) next.remove();
+}
+
+async function enviarCalificacion(msgId, valor, comentario){
+  try{
+    const r = await fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/mensajes/${msgId}/calificar`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({courseid: COURSEID, userid: USERID, calificacion: valor, comentario}),
+    });
+    if(!r.ok) throw new Error((await r.json()).detail || 'No se pudo enviar la calificación');
+    return true;
+  }catch(e){
+    alert(e.message);
+    return false;
+  }
+}
+
 async function enviar(){
   const pregunta = q.value.trim();
   if(!pregunta) return;
@@ -172,23 +459,39 @@ async function enviar(){
   chat.appendChild(typing);
   scrollBottom();
   try{
-    const r = await fetch(`/asistente/${TOKEN}/mensaje`, {
+    const r = await fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/mensaje`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({sesion_id: SESION_ID, pregunta}),
     });
     const j = await r.json();
     typing.remove();
+    if(r.status === 429){
+      addMsg('assistant', '🚫 ' + (j.detail || 'Llegaste al máximo de preguntas para esta conversación.'));
+      q.disabled = true;
+      btn.disabled = true;
+      updateActCounter(j.max_actividades_sesion || null, j.max_actividades_sesion || null);
+      return;
+    }
     if(!r.ok) throw new Error(j.detail || 'Error al responder');
     addMsg('assistant', j.answer);
     addSources(j.sources);
+    addRating(j.mensaje_id, null);
+    updateActCounter(j.preguntas_usadas, j.max_actividades_sesion);
   }catch(e){
     typing.remove();
     addMsg('assistant', '⚠️ ' + e.message);
   }finally{
-    btn.disabled = false;
+    if(!q.disabled) btn.disabled = false;
     q.focus();
   }
+}
+
+function updateActCounter(usadas, max){
+  const el = document.getElementById('act-counter');
+  if(!el || usadas==null || max==null) return;
+  el.textContent = `${usadas}/${max}`;
+  el.classList.toggle('limit', usadas >= max);
 }
 
 async function nuevaConversacion(){
@@ -198,7 +501,7 @@ async function nuevaConversacion(){
   btnEl.disabled = true;
   btnEl.textContent = 'Cargando…';
   try{
-    const r = await fetch(`/asistente/${TOKEN}/nueva-conversacion`, {
+    const r = await fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/nueva-conversacion`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({courseid: COURSEID, userid: USERID}),
@@ -207,10 +510,10 @@ async function nuevaConversacion(){
     if(!r.ok) throw new Error(j.detail || 'No se pudo crear la conversación');
     SESION_ID = j.sesion_id;
     chat.innerHTML = '';
-    const saludo = j.saludo_nombre ? `Hola ${j.saludo_nombre}, ` : 'Hola, ';
-    const resto = j.mensaje_bienvenida || `soy ${document.querySelector('.sys').textContent}. Pregúntame lo que necesites sobre el curso.`;
-    addMsg('assistant', saludo + resto);
+    addMsg('assistant', j.saludo);
     toggleSidebar(false);
+    q.disabled = false;
+    updateActCounter(0, MAX_ACTIVIDADES_SESION);
   }catch(e){
     addMsg('assistant', '⚠️ ' + e.message);
   }finally{
@@ -232,22 +535,110 @@ function fmtConvDate(iso){
   }catch(e){ return ''; }
 }
 
+function convItemHtml(c, carpetas){
+  const opciones = ['<option value="">Sin carpeta</option>']
+    .concat(carpetas.map(f => `<option value="${f.id}" ${f.id === c.carpeta_id ? 'selected' : ''}>${esc(f.nombre)}</option>`));
+  return `
+    <div class="conv-item ${c.id===SESION_ID?'active':''}" onclick="abrirConversacion(${c.id})">
+      <div class="conv-row">
+        <div class="conv-date">${fmtConvDate(c.last_activity_at)}</div>
+        <div class="conv-actions">
+          <button class="conv-act" title="Renombrar" onclick="event.stopPropagation(); renombrarConversacion(${c.id})">✎</button>
+          <select class="conv-move" title="Mover a carpeta" onclick="event.stopPropagation()" onchange="moverConversacion(${c.id}, this.value)">
+            ${opciones.join('')}
+          </select>
+        </div>
+      </div>
+      <div class="conv-preview">${esc(c.nombre || c.preview || '(sin mensajes)')}</div>
+    </div>`;
+}
+
 async function loadConversaciones(){
   const list = document.getElementById('conv-list');
   list.innerHTML = '<p class="muted" style="padding:10px;font-size:12px;color:var(--gray-500)">Cargando…</p>';
   try{
-    const r = await fetch(`/asistente/${TOKEN}/conversaciones?courseid=${COURSEID}&userid=${USERID}`);
-    const j = await r.json();
-    if(!r.ok) throw new Error(j.detail || 'No se pudo cargar el historial');
-    const convs = j.conversaciones || [];
-    list.innerHTML = convs.map(c => `
-      <div class="conv-item ${c.id===SESION_ID?'active':''}" onclick="abrirConversacion(${c.id})">
-        <div class="conv-date">${fmtConvDate(c.last_activity_at)}</div>
-        <div class="conv-preview">${esc(c.preview || '(sin mensajes)')}</div>
-      </div>`).join('') || '<p class="muted" style="padding:10px;font-size:12px;color:var(--gray-500)">Todavía no tienes conversaciones anteriores.</p>';
+    const [rConv, rCarp] = await Promise.all([
+      fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/conversaciones?courseid=${COURSEID}&userid=${USERID}`),
+      fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/carpetas?courseid=${COURSEID}&userid=${USERID}`),
+    ]);
+    const jConv = await rConv.json();
+    const jCarp = await rCarp.json();
+    if(!rConv.ok) throw new Error(jConv.detail || 'No se pudo cargar el historial');
+    const convs = jConv.conversaciones || [];
+    const carpetas = rCarp.ok ? (jCarp.carpetas || []) : [];
+
+    if(!convs.length){
+      list.innerHTML = '<p class="muted" style="padding:10px;font-size:12px;color:var(--gray-500)">Todavía no tienes conversaciones anteriores.</p>';
+      return;
+    }
+
+    const sinCarpeta = convs.filter(c => !c.carpeta_id);
+    let html = '';
+    for(const f of carpetas){
+      const items = convs.filter(c => c.carpeta_id === f.id);
+      html += `<details class="carpeta-group" open>
+        <summary>📁 ${esc(f.nombre)} (${items.length}) <button class="carpeta-del" title="Eliminar carpeta" onclick="event.preventDefault(); event.stopPropagation(); borrarCarpeta(${f.id})">✕</button></summary>
+        ${items.map(c => convItemHtml(c, carpetas)).join('') || '<p class="muted" style="padding:4px 10px;font-size:11.5px;color:var(--gray-500)">Vacía</p>'}
+      </details>`;
+    }
+    if(sinCarpeta.length){
+      if(carpetas.length) html += '<div class="conv-group-label">Sin carpeta</div>';
+      html += sinCarpeta.map(c => convItemHtml(c, carpetas)).join('');
+    }
+    list.innerHTML = html;
   }catch(e){
     list.innerHTML = `<p style="padding:10px;font-size:12px;color:var(--red-700)">${esc(e.message)}</p>`;
   }
+}
+
+async function renombrarConversacion(sesionId){
+  const nuevo = prompt('Nuevo nombre para esta conversación (vacío = volver al nombre por defecto):');
+  if(nuevo === null) return;
+  try{
+    const r = await fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/conversaciones/${sesionId}/nombre`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({courseid: COURSEID, userid: USERID, nombre: nuevo}),
+    });
+    if(!r.ok) throw new Error((await r.json()).detail || 'No se pudo renombrar');
+    loadConversaciones();
+  }catch(e){ alert(e.message); }
+}
+
+async function moverConversacion(sesionId, carpetaIdStr){
+  const carpeta_id = carpetaIdStr ? parseInt(carpetaIdStr, 10) : null;
+  try{
+    const r = await fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/conversaciones/${sesionId}/carpeta`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({courseid: COURSEID, userid: USERID, carpeta_id}),
+    });
+    if(!r.ok) throw new Error((await r.json()).detail || 'No se pudo mover la conversación');
+    loadConversaciones();
+  }catch(e){ alert(e.message); }
+}
+
+async function nuevaCarpeta(){
+  const nombre = prompt('Nombre de la nueva carpeta:');
+  if(!nombre || !nombre.trim()) return;
+  try{
+    const r = await fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/carpetas`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({courseid: COURSEID, userid: USERID, nombre: nombre.trim()}),
+    });
+    if(!r.ok) throw new Error((await r.json()).detail || 'No se pudo crear la carpeta');
+    loadConversaciones();
+  }catch(e){ alert(e.message); }
+}
+
+async function borrarCarpeta(carpetaId){
+  if(!confirm('¿Eliminar esta carpeta? Las conversaciones dentro no se borran, solo quedan sin carpeta.')) return;
+  try{
+    const r = await fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/carpetas/${carpetaId}?courseid=${COURSEID}&userid=${USERID}`, {method: 'DELETE'});
+    if(!r.ok) throw new Error((await r.json()).detail || 'No se pudo eliminar la carpeta');
+    loadConversaciones();
+  }catch(e){ alert(e.message); }
 }
 
 async function abrirConversacion(sesionId){
@@ -255,12 +646,15 @@ async function abrirConversacion(sesionId){
   toggleSidebar(false);
   chat.innerHTML = '<div class="loading-note"><span class="typing" style="padding:0"><span></span><span></span><span></span></span> Cargando conversación…</div>';
   try{
-    const r = await fetch(`/asistente/${TOKEN}/conversaciones/${sesionId}?courseid=${COURSEID}&userid=${USERID}`);
+    const r = await fetch(`{{ URL_PREFIX }}/asistente/${TOKEN}/conversaciones/${sesionId}?courseid=${COURSEID}&userid=${USERID}`);
     const j = await r.json();
     if(!r.ok) throw new Error(j.detail || 'No se pudo abrir esa conversación');
     SESION_ID = sesionId;
     chat.innerHTML = '';
-    (j.historial || []).forEach(m => addMsg(m.rol, m.contenido));
+    (j.historial || []).forEach(m => {
+      addMsg(m.rol, m.contenido);
+      if(m.rol === 'assistant') addRating(m.id, m.calificacion);
+    });
   }catch(e){
     chat.innerHTML = '';
     addMsg('assistant', '⚠️ ' + e.message);

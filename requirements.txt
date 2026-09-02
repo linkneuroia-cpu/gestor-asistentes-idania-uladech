@@ -9,7 +9,13 @@ openai==1.109.1
 qdrant-client==1.16.2
 httpx==0.28.1
 sentence-transformers==3.1.1
-torch==2.4.1
+# torch con CUDA (no el build +cpu de PyPI): el reranker BGE (568M params,
+# el más pesado del pipeline) y el embedding denso local corren ~4-40x más
+# rápido en GPU. Si esta máquina no tiene GPU NVIDIA, usar en cambio
+# `pip install torch==2.13.0` (build +cpu normal de PyPI) sin --index-url.
+# Instalar con:
+#   pip install --index-url https://download.pytorch.org/whl/cu126 torch==2.13.0
+torch==2.13.0
 einops==0.8.0
 pymupdf==1.24.10
 pdfplumber==0.11.4
@@ -21,6 +27,10 @@ python-pptx==1.0.2
 openpyxl==3.1.5
 faster-whisper==1.0.3
 easyocr==1.7.2
+# LaTeX-OCR: modelo especializado imagen-de-fórmula -> LaTeX real, usado
+# como fallback primario (antes que EasyOCR) para regiones vectoriales
+# detectadas como probable fórmula (ver definitions.py::_ocr_page_region).
+pix2tex==0.1.4
 olefile==0.47
 yt-dlp==2026.8.19
 

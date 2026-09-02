@@ -1,9 +1,10 @@
 """Estrategias de extracción de documentos (PDF/PPT/Word) -> Markdown limpio.
 
 `local` reutiliza el pipeline de extracción ya existente en definitions.py
-(PyMuPDF/pdfplumber/python-docx/pptx/EasyOCR) sin modificarlo. Las demás
-usan un LLM con visión para producir Markdown con tablas completas y
-descripciones detalladas de imágenes/gráficos, según lo configurado.
+sin modificarlo — ver `LocalExtractionStrategy` abajo para el detalle de en
+qué consiste. Las demás usan un LLM con visión para producir Markdown con
+tablas completas y descripciones detalladas de imágenes/gráficos, según lo
+configurado.
 """
 import base64
 from pathlib import Path
@@ -23,8 +24,47 @@ VISION_PROMPT = (
 
 
 class LocalExtractionStrategy(DocumentExtractionStrategy):
-    """Extracción local existente (PyMuPDF/pdfplumber/python-docx/pptx/
-    EasyOCR vía definitions._extract_text). Gratis, rápida, sin API."""
+    """Extracción 100% local, sin llamadas a API pagas (vía
+    `definitions._extract_text`). En qué consiste, por tipo de archivo:
+
+    1. Detección de tipo: por extensión del archivo (`classify_file_type`),
+       que decide cuál extractor especializado usar — no hay un paso
+       separado de "detección de contenido", el tipo lo define el formato
+       del archivo en sí.
+    2. Extractor especializado por formato:
+       - PDF (`pdfplumber` + `PyMuPDF`): texto por página, EXCLUYENDO
+         encabezado/pie de página. Las tablas (detectadas por
+         `pdfplumber.find_tables`) se convierten a Markdown en vez de
+         descartarse. Las regiones con contenido dibujado como trazos
+         vectoriales (fórmulas matemáticas típicamente NO son texto
+         seleccionable en PDFs compuestos con LaTeX/MathType — confirmado
+         en material real del curso) se recortan y pasan por OCR (ver
+         punto 4). Todo se intercala en el orden vertical real de lectura
+         de la página.
+       - DOCX (`python-docx`): párrafos y tablas en su orden real de
+         aparición en el documento (no solo párrafos sueltos) — las tablas
+         también se convierten a Markdown.
+       - PPTX (`python-pptx`): texto de cada shape, tablas de cada slide, y
+         notas del orador, por diapositiva.
+       - XLSX (`openpyxl`): cada hoja como filas `celda | celda | celda`.
+       - Imagen suelta: EasyOCR sobre el archivo completo.
+    3. Normalización de texto (`_normalize_text`): limpia caracteres de
+       control y colapsa espacios/saltos de línea repetidos, preservando
+       una whitelist de caracteres que incluye operadores y símbolos
+       matemáticos comunes (`=+^{}[]<>√±≈∞×÷·` y superíndices/subíndices)
+       para no desfigurar fórmulas que sí llegaron como texto real.
+    4. Fórmulas/gráficos no-textuales (solo PDF, por ahora): cascada de OCR
+       local sobre el recorte de la región — primero pix2tex (LaTeX-OCR,
+       modelo especializado en imagen-de-fórmula -> LaTeX, preserva
+       fracciones/exponentes), con EasyOCR como respaldo genérico si
+       pix2tex falla. Si ninguno reconoce nada, se deja un marcador
+       explícito en el texto en vez de omitir el contenido en silencio.
+
+    No hay (todavía) un paso de "Quality Gate" formal separado que evalúe
+    la extracción completa y decida escalar a otro método — la detección
+    de regiones no-textuales del punto 4 cumple ese rol de forma acotada
+    (solo para fórmulas/gráficos en PDF), no para la extracción en
+    general."""
 
     async def extract(self, file_path: str) -> str:
         import definitions

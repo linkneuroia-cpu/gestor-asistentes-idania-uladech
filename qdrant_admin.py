@@ -59,11 +59,12 @@ class CollectionCreateRequest(BaseModel):
     # adelante para toda la RD. Se ignora si la RD ya tiene uno.
     dense_strategy: Optional[str] = None
     sparse_strategy: Optional[str] = None
-    # RD (aula) + curso de Moodle al que queda asignada esta colección —
-    # obligatorios: toda colección debe poder encontrarse desde un asistente.
-    # No se guardan en el payload de Qdrant, se persisten en Postgres
+    # RD (aula) + curso de Moodle al que queda asignada esta colección. Course
+    # ID siempre es obligatorio; RD es opcional — sin RD la colección queda
+    # "normal" (independiente, ningún asistente puede encontrarla). No se
+    # guardan en el payload de Qdrant, se persisten en Postgres
     # (colecciones_rd) desde el endpoint de app.py.
-    rd_id: int
+    rd_id: Optional[int] = None
     moodle_courseid: int
 
 

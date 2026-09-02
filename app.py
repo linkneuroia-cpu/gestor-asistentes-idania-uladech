@@ -9,11 +9,12 @@ FastAPI — un solo puerto (8100), tres asistentes:
 """
 
 import asyncio
+import concurrent.futures
 import mimetypes
 import uuid
 from pathlib import Path
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 # En algunos Windows/Python el registro de mimetypes no conoce .webp
 # (StaticFiles lo serviría como text/plain) — se registra explícito.
@@ -49,6 +50,7 @@ import credentials
 import db
 import auth
 import rds
+import ledger
 import assistants
 from strategies import registry as strategy_registry
 from strategies.runtime_config import get_runtime_config
@@ -62,6 +64,16 @@ from qdrant_admin import CollectionCreateRequest, CollectionUpdateRequest, get_q
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Iniciando Sistema de Vectorización v2...")
+    # Pool de threads más grande para el executor por defecto de asyncio
+    # (usado por db.run, las llamadas a Moodle, y todo el pipeline RAG vía
+    # run_in_executor): el default de Python (min(32, cpu_count+4)) puede
+    # quedarse corto si varios alumnos consultan asistentes al mismo tiempo
+    # — cada mensaje encadena varias llamadas bloqueantes (Postgres, Qdrant,
+    # el LLM de generación). Son esperas de I/O, no de CPU, así que un pool
+    # más grande es seguro y evita que las consultas se encolen entre sí.
+    asyncio.get_event_loop().set_default_executor(
+        concurrent.futures.ThreadPoolExecutor(max_workers=64)
+    )
     validate_settings()
     if db.check_connection():
         print("✅ Postgres conectado")
@@ -96,13 +108,20 @@ _PUBLIC_PATH_PREFIXES = ("/login", "/logout", "/img", "/asistente", "/docs", "/r
 
 @app.middleware("http")
 async def auth_gate(request: Request, call_next):
+    # request.url.path incluye el root_path completo cuando la app corre
+    # montada bajo un prefijo (ver asgi_app al final del archivo) — hay que
+    # sacárselo para comparar contra _PUBLIC_PATH_PREFIXES, que están
+    # definidas en términos de las rutas internas (sin prefijo).
     path = request.url.path
+    root_path = request.scope.get("root_path", "")
+    if root_path and path.startswith(root_path):
+        path = path[len(root_path):] or "/"
     if path == "/" or path.startswith(_PUBLIC_PATH_PREFIXES):
         return await call_next(request)
     if not request.session.get("user"):
         if path.startswith("/api/"):
             return JSONResponse({"detail": "No autenticado. Inicia sesión en /login."}, status_code=401)
-        return RedirectResponse("/login")
+        return RedirectResponse(f"{settings.resolved_url_prefix}/login")
     return await call_next(request)
 
 
@@ -117,6 +136,7 @@ app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY, sa
 
 Path("frontend").mkdir(exist_ok=True)
 templates = Jinja2Templates(directory="frontend")
+templates.env.globals["URL_PREFIX"] = settings.resolved_url_prefix
 
 Path("img").mkdir(exist_ok=True)
 app.mount("/img", StaticFiles(directory="img"), name="img")
@@ -160,7 +180,9 @@ def _resolve_model(model_name: Optional[str]) -> str:
 
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
-    return RedirectResponse("/gestor" if request.session.get("user") else "/login")
+    return RedirectResponse(
+        f"{settings.resolved_url_prefix}/gestor" if request.session.get("user") else f"{settings.resolved_url_prefix}/login"
+    )
 
 
 @app.get("/gestor", response_class=HTMLResponse, tags=["Interfaz"])
@@ -171,7 +193,7 @@ async def home(request: Request):
 @app.get("/login", response_class=HTMLResponse, tags=["Interfaz"])
 async def login_page(request: Request):
     if request.session.get("user"):
-        return RedirectResponse("/gestor")
+        return RedirectResponse(f"{settings.resolved_url_prefix}/gestor")
     return templates.TemplateResponse("login.html", {"request": request, "error": None})
 
 
@@ -280,10 +302,12 @@ async def list_collections(
         from qdrant_admin import get_qdrant_admin
 
         collections = [c.model_dump() for c in get_qdrant_admin().list_collections()]
+        # LEFT JOIN: una colección "normal" (rd_id NULL) no tiene fila en
+        # rds — con INNER JOIN quedaba afuera del listado por completo.
         links = await db.run(
             db.fetch_all,
             "SELECT c.id AS link_id, c.qdrant_collection_name, c.rd_id, c.moodle_courseid, r.nombre AS rd_nombre "
-            "FROM colecciones_rd c JOIN rds r ON r.id = c.rd_id "
+            "FROM colecciones_rd c LEFT JOIN rds r ON r.id = c.rd_id "
             "WHERE c.qdrant_collection_name IS NOT NULL",
         )
         links_by_name = {l["qdrant_collection_name"]: l for l in links}
@@ -309,35 +333,45 @@ async def list_collections(
 async def qdrant_create_collection(req: CollectionCreateRequest):
     """Crea una colección en Qdrant. `vector_schema`: "hybrid" (dense+sparse,
     requerido para el pipeline RAG configurable) o "legacy" (vector único,
-    compatible con el flujo anterior). `rd_id`+`moodle_courseid` son
-    obligatorios: la colección queda asignada a esa RD/curso en Postgres
-    (colecciones_rd) — sin eso ningún asistente podría encontrarla.
+    compatible con el flujo anterior). `moodle_courseid` siempre es
+    obligatorio; `rd_id` es opcional y determina el tipo de colección:
 
-    Para colecciones híbridas, el tamaño de vector denso NO se recibe del
-    cliente: si la RD ya tiene un embedding maestro fijado, se deriva de
-    ahí (ignora lo que venga en `dense_size`/`dense_strategy`, todas las
-    colecciones de una RD deben ser intercambiables entre sí); si es la
-    primera colección real de la RD, `dense_strategy` es obligatorio y
-    queda fijado como el embedding maestro de esa RD de ahí en adelante.
+    - Sin `rd_id` ("normal"): independiente, ningún asistente la encuentra.
+      Esquema/distancia/embedding los elige el cliente libremente.
+    - Con `rd_id` y la RD SIN embedding maestro fijado ("padre"): es su
+      primera colección real — `dense_strategy` es obligatorio y queda
+      fijado (junto a `sparse_strategy`/`distance`) como el embedding
+      maestro de esa RD de ahí en adelante.
+    - Con `rd_id` y la RD YA con embedding maestro fijado ("hija"): hereda
+      dense/sparse/distance de la RD — ignora lo que venga en el request
+      para esos campos, todas las colecciones de una RD deben ser
+      intercambiables entre sí.
 
     Si el RD/curso no existe, ya tiene otra colección asignada, o falla
     fijar el embedding maestro, la colección recién creada en Qdrant se
     revierte para no dejar huérfanos."""
     dense_size = req.dense_size
-    lock_in_embedding: Optional[tuple] = None  # (dense_strategy, sparse_strategy) a fijar tras crear
+    distance = req.distance
+    lock_in_embedding: Optional[tuple] = None  # (dense_strategy, sparse_strategy, distance) a fijar tras crear
+    rd = None
 
-    if req.vector_schema == "hybrid":
+    if req.rd_id is not None:
         rd = await db.run(rds.get_rd, req.rd_id)
         if not rd:
             raise HTTPException(400, f"La RD {req.rd_id} no existe")
-        if rd.get("dense_strategy"):
+
+    if req.vector_schema == "hybrid":
+        if rd and rd.get("dense_strategy"):
+            # Hija: hereda todo de la RD, ignora lo que venga en el request.
             dense_size = get_model_dimensions(rd["dense_strategy"])
+            distance = rd.get("distance") or req.distance
         else:
+            # Padre (RD sin embedding fijado) o Normal (sin RD): el cliente elige.
             if not req.dense_strategy:
                 raise HTTPException(
                     400,
-                    "Esta RD todavía no tiene un embedding maestro fijado — es su primera "
-                    "colección, indica 'dense_strategy' para fijarlo.",
+                    "Se requiere 'dense_strategy' para esta colección (es la primera "
+                    "de su RD, o no tiene RD).",
                 )
             try:
                 get_strategy_info("dense", req.dense_strategy)
@@ -345,7 +379,8 @@ async def qdrant_create_collection(req: CollectionCreateRequest):
                 raise HTTPException(400, str(e))
             dense_size = get_model_dimensions(req.dense_strategy)
             sparse_strategy = req.sparse_strategy or settings.SPARSE_EMBEDDING_STRATEGY
-            lock_in_embedding = (req.dense_strategy, sparse_strategy)
+            if rd:  # Padre: queda fijado como embedding maestro de la RD.
+                lock_in_embedding = (req.dense_strategy, sparse_strategy, distance)
 
     try:
         result = get_qdrant_admin().create_collection(
@@ -353,7 +388,7 @@ async def qdrant_create_collection(req: CollectionCreateRequest):
             description=req.description,
             vector_schema=req.vector_schema,
             dense_size=dense_size,
-            distance=req.distance,
+            distance=distance,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -397,7 +432,7 @@ async def qdrant_update_collection(collection_name: str, req: CollectionUpdateRe
 
 
 class CollectionRdReassignRequest(BaseModel):
-    rd_id: int
+    rd_id: Optional[int] = None
     moodle_courseid: int
 
 
@@ -489,6 +524,7 @@ class RdUpdateRequest(BaseModel):
     # colecciones reales creadas (ver rds.update_rd).
     dense_strategy: Optional[str] = None
     sparse_strategy: Optional[str] = None
+    distance: Optional[str] = None
 
 
 @app.get("/api/rds", tags=["RD"])
@@ -514,7 +550,7 @@ async def create_rd_endpoint(req: RdCreateRequest):
 @app.patch("/api/rds/{rd_id}", tags=["RD"])
 async def update_rd_endpoint(rd_id: int, req: RdUpdateRequest):
     fields = req.model_dump(exclude_unset=True)
-    strategy_kwargs = {k: fields[k] for k in ("dense_strategy", "sparse_strategy") if k in fields}
+    strategy_kwargs = {k: fields[k] for k in ("dense_strategy", "sparse_strategy", "distance") if k in fields}
     try:
         return await db.run(
             rds.update_rd, rd_id, req.nombre, req.moodle_courseid, req.moodle_course_url, **strategy_kwargs
@@ -581,7 +617,10 @@ _ASISTENTE_STRATEGY_FIELDS = (
 
 class AsistenteCreateRequest(BaseModel):
     nombre: str
-    rd_id: int
+    # rd_id=None -> asistente "normal": moodle_courseid pasa a ser
+    # obligatorio (resuelve su única colección directo por courseid).
+    rd_id: Optional[int] = None
+    moodle_courseid: Optional[int] = None
     prompt_maestro: Optional[str] = None
     # Config RAG propia del asistente — None/omitido = usa el valor por
     # defecto del sistema. etl_document/etl_audio/contextual también se
@@ -597,11 +636,18 @@ class AsistenteCreateRequest(BaseModel):
     # None/omitido = "soy {nombre}. Pregúntame lo que necesites sobre el
     # curso." — se agrega después de "Hola {nombre del alumno}, ".
     mensaje_bienvenida: Optional[str] = None
+    # Se muestra (no se guarda) al reabrir una conversación con historial.
+    mensaje_reencuentro: Optional[str] = None
+    max_actividades_sesion: int = 10
+    # None/omitido = se genera uno aleatorio como antes; si se pasa, se usa
+    # tal cual (rechaza si ya lo tiene otro asistente).
+    token: Optional[str] = None
 
 
 class AsistenteUpdateRequest(BaseModel):
     nombre: Optional[str] = None
     rd_id: Optional[int] = None
+    moodle_courseid: Optional[int] = None
     prompt_maestro: Optional[str] = None
     activo: Optional[bool] = None
     # Si el campo no viene en el body, la etapa queda intacta; si viene como
@@ -613,6 +659,10 @@ class AsistenteUpdateRequest(BaseModel):
     rerank_strategy: Optional[str] = None
     generation_strategy: Optional[str] = None
     mensaje_bienvenida: Optional[str] = None
+    mensaje_reencuentro: Optional[str] = None
+    max_actividades_sesion: Optional[int] = None
+    # Cambiar el token invalida cualquier enlace ya compartido con el viejo.
+    token: Optional[str] = None
 
 
 @app.get("/api/asistentes", tags=["Asistentes"])
@@ -632,13 +682,17 @@ async def get_asistente_endpoint(asistente_id: int):
 async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(auth.get_current_user)):
     strategy_kwargs = {field: getattr(req, field) for field in _ASISTENTE_STRATEGY_FIELDS}
     strategy_kwargs["mensaje_bienvenida"] = req.mensaje_bienvenida
+    strategy_kwargs["mensaje_reencuentro"] = req.mensaje_reencuentro
+    strategy_kwargs["max_actividades_sesion"] = req.max_actividades_sesion
     try:
         return await db.run(
             assistants.create_asistente,
-            req.nombre,
-            req.rd_id,
-            req.prompt_maestro,
-            user["id"],
+            nombre=req.nombre,
+            rd_id=req.rd_id,
+            moodle_courseid=req.moodle_courseid,
+            prompt_maestro=req.prompt_maestro,
+            created_by=user["id"],
+            token=req.token,
             **strategy_kwargs,
         )
     except ValueError as e:
@@ -648,15 +702,21 @@ async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(au
 @app.patch("/api/asistentes/{asistente_id}", tags=["Asistentes"])
 async def update_asistente_endpoint(asistente_id: int, req: AsistenteUpdateRequest):
     fields = req.model_dump(exclude_unset=True)
-    kwargs = {k: fields[k] for k in (*_ASISTENTE_STRATEGY_FIELDS, "mensaje_bienvenida") if k in fields}
+    kwargs = {
+        k: fields[k]
+        for k in (*_ASISTENTE_STRATEGY_FIELDS, "mensaje_bienvenida", "mensaje_reencuentro", "max_actividades_sesion")
+        if k in fields
+    }
     try:
         return await db.run(
             assistants.update_asistente,
             asistente_id,
-            req.nombre,
-            req.rd_id,
-            req.prompt_maestro,
-            req.activo,
+            nombre=req.nombre,
+            rd_id=req.rd_id,
+            moodle_courseid=req.moodle_courseid,
+            prompt_maestro=req.prompt_maestro,
+            activo=req.activo,
+            token=req.token,
             **kwargs,
         )
     except ValueError as e:
@@ -676,6 +736,33 @@ async def delete_asistente_endpoint(asistente_id: int):
 # ASISTENTE PÚBLICO (sin login)  /asistente/{token}
 # ═══════════════════════════════════════════════════════════════════
 
+def _build_asistente_context(
+    asistente: Dict[str, Any], rd: Dict[str, Any], student_fullname: Optional[str] = None
+) -> str:
+    """Contexto de identidad que se antepone al `prompt_maestro` del
+    asistente antes de mandarlo como `extra_system_prompt` al generador.
+    Sin esto, el LLM no sabe su propio nombre ni que ya se presentó (la
+    burbuja de saludo la pinta el frontend, nunca llega como mensaje al
+    LLM) y termina reintroduciéndose o confundiendo su nombre con el del
+    estudiante en cada respuesta."""
+    partes = [
+        f'Te llamas "{asistente["nombre"]}" y eres el tutor virtual de este curso.',
+    ]
+    if student_fullname:
+        partes.append(f"Estás conversando con el estudiante {student_fullname}.")
+    if rd.get("nombre"):
+        partes.append(f"El curso es: {rd['nombre']}.")
+    partes.append(
+        "Ya te presentaste al estudiante al inicio de la conversación (fuera de este "
+        "historial), así que NO vuelvas a saludar ni a repetir tu presentación en tus "
+        "respuestas: continúa la conversación de forma natural y directa, como si ya se "
+        "conocieran."
+    )
+    if asistente.get("prompt_maestro"):
+        partes.append(asistente["prompt_maestro"])
+    return "\n".join(partes)
+
+
 @app.get("/asistente/{token}", response_class=HTMLResponse, tags=["Asistente público"])
 async def asistente_chat_page(token: str, request: Request, courseid: int = Query(...), userid: int = Query(...)):
     asistente = await db.run(assistants.get_asistente_by_token, token)
@@ -686,7 +773,13 @@ async def asistente_chat_page(token: str, request: Request, courseid: int = Quer
             status_code=404,
         )
 
-    collection_name = await db.run(rds.resolve_collection, asistente["rd_id"], courseid)
+    # rd_id=None -> asistente "normal": resuelve directo por su propio
+    # courseid (ignora el courseid de la URL, que puede venir de un curso
+    # cualquiera del alumno) en vez de RD+courseid.
+    if asistente["rd_id"] is not None:
+        collection_name = await db.run(rds.resolve_collection, asistente["rd_id"], courseid)
+    else:
+        collection_name = await db.run(rds.resolve_collection_normal, asistente["moodle_courseid"])
     if not collection_name:
         return templates.TemplateResponse(
             "asistente_chat.html",
@@ -699,12 +792,37 @@ async def asistente_chat_page(token: str, request: Request, courseid: int = Quer
 
     loop = asyncio.get_event_loop()
     fullname = await loop.run_in_executor(None, get_moodle_user_fullname, userid)
+    saludo = assistants.compose_saludo(asistente["nombre"], asistente.get("mensaje_bienvenida"), fullname)
+
+    # ¿Ya existía esta sesión con historial antes de este load? -> se
+    # muestra (no se guarda) el mensaje de reencuentro en vez del saludo.
+    existing_sesion = await db.run(
+        db.fetch_one,
+        "SELECT id FROM asistente_sesiones WHERE asistente_id=%s AND moodle_courseid=%s AND moodle_userid=%s "
+        "ORDER BY started_at DESC LIMIT 1",
+        (asistente["id"], courseid, userid),
+    )
+    tenia_historial = False
+    if existing_sesion:
+        tenia_historial = bool(await db.run(assistants.count_preguntas, existing_sesion["id"]))
 
     sesion = await db.run(
         assistants.get_or_create_sesion,
-        asistente["id"], courseid, userid, None, fullname, collection_name,
+        asistente["id"], courseid, userid, None, fullname, collection_name, saludo,
     )
-    historial = await db.run(assistants.get_mensajes, sesion["id"])
+    historial_rows = await db.run(assistants.get_mensajes, sesion["id"])
+    # id/rol/contenido/calificacion: escalares simples, no rompen el
+    # `tojson` de Jinja (a diferencia de fuentes_json/config_usado_json/
+    # created_at, que sí traen tipos no serializables).
+    historial = [
+        {"id": m["id"], "rol": m["rol"], "contenido": m["contenido"], "calificacion": m["calificacion"]}
+        for m in historial_rows
+    ]
+
+    reencuentro = None
+    if tenia_historial:
+        resto_reencuentro = asistente.get("mensaje_reencuentro") or "¡qué bueno verte de nuevo! Seguimos donde lo dejamos."
+        reencuentro = assistants.compose_saludo(asistente["nombre"], resto_reencuentro, fullname)
 
     return templates.TemplateResponse(
         "asistente_chat.html",
@@ -717,6 +835,9 @@ async def asistente_chat_page(token: str, request: Request, courseid: int = Quer
             "sesion_id": sesion["id"],
             "saludo_nombre": fullname or "",
             "historial": historial,
+            "reencuentro": reencuentro,
+            "max_actividades_sesion": asistente.get("max_actividades_sesion", 10),
+            "preguntas_usadas": await db.run(assistants.count_preguntas, sesion["id"]),
             "courseid": courseid,
             "userid": userid,
         },
@@ -741,6 +862,15 @@ async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
     if not req.pregunta or not req.pregunta.strip():
         raise HTTPException(400, "La pregunta no puede estar vacía.")
 
+    max_actividades = asistente.get("max_actividades_sesion") or 10
+    preguntas_usadas = await db.run(assistants.count_preguntas, req.sesion_id)
+    if preguntas_usadas >= max_actividades:
+        raise HTTPException(
+            429,
+            f"Llegaste al máximo de {max_actividades} preguntas para esta conversación. "
+            "Iniciá una nueva conversación para seguir preguntando.",
+        )
+
     # Se obtiene el historial ANTES de guardar la pregunta actual, para no
     # duplicarla (memoria de hasta 30 pares pregunta/respuesta).
     history = await db.run(assistants.get_recent_history, req.sesion_id)
@@ -749,6 +879,8 @@ async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
     # dense/sparse son el embedding maestro de la RD (no del asistente):
     # todas las colecciones de la RD deben compartirlo para que un mismo
     # asistente pueda responder con cualquiera de ellas indistintamente.
+    # Para un asistente "normal" (sin RD) no hay embedding maestro que
+    # heredar — usa el valor por defecto del sistema (rd={}).
     rd = await db.run(rds.get_rd_for_collection, sesion["qdrant_collection_name"]) or {}
 
     try:
@@ -759,16 +891,21 @@ async def asistente_enviar_mensaje(token: str, req: AsistenteMensajeRequest):
             sparse_strategy_name=rd.get("sparse_strategy"),
             rerank_strategy_name=asistente.get("rerank_strategy"),
             generation_strategy_name=asistente.get("generation_strategy"),
-            extra_system_prompt=asistente.get("prompt_maestro"),
+            extra_system_prompt=_build_asistente_context(asistente, rd, sesion.get("moodle_fullname")),
             history=history,
         )
     except Exception as e:
         raise HTTPException(502, f"Error generando la respuesta: {e}")
 
-    await db.run(
+    tiempo_respuesta_ms = result.get("config_used", {}).get("timings_ms", {}).get("total_ms")
+    saved = await db.run(
         assistants.save_mensaje,
         req.sesion_id, "assistant", result["answer"], result["sources"], result["config_used"],
+        result.get("tokens_consumidos"), tiempo_respuesta_ms,
     )
+    result["preguntas_usadas"] = preguntas_usadas + 1
+    result["max_actividades_sesion"] = max_actividades
+    result["mensaje_id"] = saved["id"]
 
     return result
 
@@ -786,23 +923,23 @@ async def asistente_nueva_conversacion(token: str, req: AsistenteNuevaConversaci
     if not asistente:
         raise HTTPException(404, "Este asistente no existe o no está activo.")
 
-    collection_name = await db.run(rds.resolve_collection, asistente["rd_id"], req.courseid)
+    if asistente["rd_id"] is not None:
+        collection_name = await db.run(rds.resolve_collection, asistente["rd_id"], req.courseid)
+    else:
+        collection_name = await db.run(rds.resolve_collection_normal, asistente["moodle_courseid"])
     if not collection_name:
         raise HTTPException(404, f"No hay ninguna colección asignada al curso {req.courseid} en esta RD.")
 
     loop = asyncio.get_event_loop()
     fullname = await loop.run_in_executor(None, get_moodle_user_fullname, req.userid)
+    saludo = assistants.compose_saludo(asistente["nombre"], asistente.get("mensaje_bienvenida"), fullname)
 
     sesion = await db.run(
         assistants.get_or_create_sesion,
-        asistente["id"], req.courseid, req.userid, None, fullname, collection_name,
-        True,
+        asistente["id"], req.courseid, req.userid, None, fullname, collection_name, saludo,
+        force_new=True,
     )
-    return {
-        "sesion_id": sesion["id"],
-        "saludo_nombre": fullname or "",
-        "mensaje_bienvenida": asistente.get("mensaje_bienvenida"),
-    }
+    return {"sesion_id": sesion["id"], "saludo": saludo}
 
 
 @app.get("/asistente/{token}/conversaciones", tags=["Asistente público"])
@@ -836,6 +973,126 @@ async def asistente_ver_conversacion(
         raise HTTPException(404, "Conversación no encontrada.")
     historial = await db.run(assistants.get_mensajes, sesion_id)
     return {"sesion_id": sesion_id, "historial": historial}
+
+
+async def _validar_sesion_del_alumno(token: str, sesion_id: int, courseid: int, userid: int) -> Dict[str, Any]:
+    """Mismo chequeo de acceso que `asistente_ver_conversacion`, reusado
+    por los endpoints de renombrar/mover — el alumno solo puede tocar sus
+    propias sesiones de este asistente/curso."""
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+    sesion = await db.run(assistants.get_sesion, sesion_id)
+    if (
+        not sesion
+        or sesion["asistente_id"] != asistente["id"]
+        or sesion["moodle_courseid"] != courseid
+        or sesion["moodle_userid"] != userid
+    ):
+        raise HTTPException(404, "Conversación no encontrada.")
+    return asistente
+
+
+class CalificarMensajeRequest(BaseModel):
+    courseid: int
+    userid: int
+    calificacion: int  # 1 = útil, -1 = no útil
+    comentario: Optional[str] = None  # solo se usa si calificacion == -1
+
+
+@app.patch("/asistente/{token}/mensajes/{mensaje_id}/calificar", tags=["Asistente público"])
+async def asistente_calificar_mensaje(token: str, mensaje_id: int, req: CalificarMensajeRequest):
+    """El alumno indica si la respuesta le fue útil (no califica al
+    mentor/RD, solo la interacción). Solo mensajes 'assistant' de una
+    sesión que pertenezca a este token+courseid+userid."""
+    if req.calificacion not in (1, -1):
+        raise HTTPException(400, "calificacion debe ser 1 o -1")
+
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+
+    mensaje = await db.run(assistants.get_mensaje_con_sesion, mensaje_id)
+    if (
+        not mensaje
+        or mensaje["rol"] != "assistant"
+        or mensaje["asistente_id"] != asistente["id"]
+        or mensaje["moodle_courseid"] != req.courseid
+        or mensaje["moodle_userid"] != req.userid
+    ):
+        raise HTTPException(404, "Mensaje no encontrado.")
+
+    try:
+        actualizado = await db.run(assistants.calificar_mensaje, mensaje_id, req.calificacion, req.comentario)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    return {"mensaje_id": mensaje_id, "calificacion": actualizado["calificacion"]}
+
+
+class RenombrarSesionRequest(BaseModel):
+    courseid: int
+    userid: int
+    nombre: Optional[str] = None  # None/vacío = vuelve al nombre por defecto
+
+
+@app.patch("/asistente/{token}/conversaciones/{sesion_id}/nombre", tags=["Asistente público"])
+async def asistente_renombrar_sesion(token: str, sesion_id: int, req: RenombrarSesionRequest):
+    await _validar_sesion_del_alumno(token, sesion_id, req.courseid, req.userid)
+    sesion = await db.run(assistants.rename_sesion, sesion_id, req.nombre)
+    return {"sesion_id": sesion["id"], "nombre": sesion["nombre"]}
+
+
+class MoverSesionRequest(BaseModel):
+    courseid: int
+    userid: int
+    carpeta_id: Optional[int] = None  # None = sacar de cualquier carpeta
+
+
+@app.patch("/asistente/{token}/conversaciones/{sesion_id}/carpeta", tags=["Asistente público"])
+async def asistente_mover_sesion(token: str, sesion_id: int, req: MoverSesionRequest):
+    await _validar_sesion_del_alumno(token, sesion_id, req.courseid, req.userid)
+    sesion = await db.run(assistants.mover_sesion_a_carpeta, sesion_id, req.carpeta_id)
+    return {"sesion_id": sesion["id"], "carpeta_id": sesion["carpeta_id"]}
+
+
+class CrearCarpetaRequest(BaseModel):
+    courseid: int
+    userid: int
+    nombre: str
+
+
+@app.post("/asistente/{token}/carpetas", status_code=201, tags=["Asistente público"])
+async def asistente_crear_carpeta(token: str, req: CrearCarpetaRequest):
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+    try:
+        carpeta = await db.run(assistants.create_carpeta, asistente["id"], req.userid, req.nombre)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return carpeta
+
+
+@app.get("/asistente/{token}/carpetas", tags=["Asistente público"])
+async def asistente_listar_carpetas(token: str, courseid: int = Query(...), userid: int = Query(...)):
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+    carpetas = await db.run(assistants.list_carpetas, asistente["id"], userid)
+    return {"carpetas": carpetas}
+
+
+@app.delete("/asistente/{token}/carpetas/{carpeta_id}", tags=["Asistente público"])
+async def asistente_borrar_carpeta(token: str, carpeta_id: int, courseid: int = Query(...), userid: int = Query(...)):
+    asistente = await db.run(assistants.get_asistente_by_token, token)
+    if not asistente:
+        raise HTTPException(404, "Este asistente no existe o no está activo.")
+    carpeta = await db.run(assistants.get_carpeta, carpeta_id)
+    if not carpeta or carpeta["asistente_id"] != asistente["id"] or carpeta["moodle_userid"] != userid:
+        raise HTTPException(404, "Carpeta no encontrada.")
+    await db.run(assistants.delete_carpeta, carpeta_id)
+    return {"success": True}
 
 
 @app.get("/api/jobs/{job_id}", tags=["Compartido"])
@@ -954,6 +1211,34 @@ async def semi_confirm(job_id: str, background_tasks: BackgroundTasks):
         "status":          "procesando",
         "embedding_model": job["context"].get("model_name", settings.EMBEDDING_MODEL),
     }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# COLA DE INDEXACIÓN (curso_archivos)  /api/ledger/*
+# Detección de altas/modificaciones/bajas por archivo, a demanda — sin job
+# periódico (ver ledger.py). Independiente de Semiautomático/Automático/
+# Actualización, no los reemplaza ni se engancha a ellos todavía.
+# ═══════════════════════════════════════════════════════════════════
+
+@app.post("/api/ledger/sync", tags=["Cola de indexación"])
+async def ledger_sync(
+    curid: int = Query(..., description="ID del curso en Moodle"),
+    collection_name: str = Query(..., description="Colección a la que pertenecen estos archivos"),
+):
+    """Compara la lista actual de archivos del curso contra `curso_archivos`
+    y actualiza altas/posibles modificaciones/bajas. No vectoriza nada por
+    sí mismo — solo deja la cola de trabajo lista para que el pipeline
+    (Semiautomático/Automático/Actualización) la consulte."""
+    try:
+        return await db.run(ledger.sync_curso_archivos, collection_name, curid)
+    except Exception as e:
+        raise HTTPException(502, f"Error consultando Moodle: {e}")
+
+
+@app.get("/api/ledger", tags=["Cola de indexación"])
+async def ledger_list(collection_name: str = Query(...)):
+    """Estado completo de la cola de indexación de una colección."""
+    return {"archivos": await db.run(ledger.list_curso_archivos, collection_name)}
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1468,22 +1753,29 @@ async def rag_answer(req: RagAnswerRequest):
         asistente = await db.run(assistants.get_asistente, req.asistente_id)
         if not asistente:
             raise HTTPException(404, f"El asistente {req.asistente_id} no existe")
-        vinculo = await db.run(
-            db.fetch_one,
-            "SELECT 1 FROM colecciones_rd WHERE rd_id = %s AND qdrant_collection_name = %s",
-            (asistente["rd_id"], req.collection_name),
-        )
+        if asistente["rd_id"] is not None:
+            vinculo = await db.run(
+                db.fetch_one,
+                "SELECT 1 FROM colecciones_rd WHERE rd_id = %s AND qdrant_collection_name = %s",
+                (asistente["rd_id"], req.collection_name),
+            )
+        else:
+            vinculo = await db.run(
+                db.fetch_one,
+                "SELECT 1 FROM colecciones_rd WHERE rd_id IS NULL AND moodle_courseid = %s AND qdrant_collection_name = %s",
+                (asistente["moodle_courseid"], req.collection_name),
+            )
         if not vinculo:
             raise HTTPException(
                 400,
-                f"La colección '{req.collection_name}' no está vinculada a la RD de este asistente.",
+                f"La colección '{req.collection_name}' no está vinculada a este asistente.",
             )
-        extra_system_prompt = asistente.get("prompt_maestro")
         # La config propia del asistente aplica salvo que el request la
         # override explícitamente (así "Prueba de Asistente" prueba
         # exactamente lo que respondería en público). dense/sparse son el
         # embedding maestro de la RD, no del asistente.
         rd = await db.run(rds.get_rd, asistente["rd_id"]) or {}
+        extra_system_prompt = _build_asistente_context(asistente, rd)
         dense_strategy = dense_strategy or rd.get("dense_strategy")
         sparse_strategy = sparse_strategy or rd.get("sparse_strategy")
         rerank_strategy = rerank_strategy or asistente.get("rerank_strategy")
@@ -1510,6 +1802,16 @@ async def rag_answer(req: RagAnswerRequest):
 # ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════
 
+# La app se monta bajo settings.resolved_url_prefix cuando corre detrás de
+# un nginx compartido con otras funcionalidades (ver settings.py); sin
+# prefijo (desarrollo local) sirve directo en la raíz, sin envoltorio.
+if settings.resolved_url_prefix:
+    asgi_app = FastAPI(title=settings.API_TITLE)
+    asgi_app.mount(settings.resolved_url_prefix, app)
+else:
+    asgi_app = app
+
+
 if __name__ == "__main__":
     import uvicorn
     print("\n" + "=" * 65)
@@ -1521,7 +1823,7 @@ if __name__ == "__main__":
     print(f"🤖 Modelo   : {settings.EMBEDDING_MODEL}")
     print("=" * 65 + "\n")
     uvicorn.run(
-        "app:app",
+        "app:asgi_app",
         host=settings.API_HOST,
         port=settings.API_PORT,
         reload=False,

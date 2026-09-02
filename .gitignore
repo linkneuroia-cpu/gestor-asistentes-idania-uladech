@@ -1,11 +1,13 @@
 # Ignorar
 .env
+deploy/.env.deploy
 venv/
 __pycache__/
 temp_docs/
 *.log
 .claude/
 runtime_config.json
+*.dump
 
 # Material de referencia de diseño (no forma parte de la app, es pesado)
 3_wowdash-tailwind-css-admin-dashboard-template-*.zip

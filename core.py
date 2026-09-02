@@ -22,6 +22,8 @@ import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from settings import settings
+import db
+import ledger
 
 from definitions import (
     get_service,
@@ -363,15 +365,26 @@ class AutoCore:
         service = get_service(model_name)
         resources = get_course_resources(curid)
 
+        # Un mismo archivo puede estar enlazado en varias secciones/semanas
+        # de Moodle a la vez (p.ej. un libro de bibliografía usado como
+        # lectura de apoyo en varias semanas) — file_map está indexado por
+        # filename, así que hay que ACUMULAR las secciones vistas en vez de
+        # sobreescribir con la última, o se pierde la info de todas menos
+        # una.
         file_map: Dict[str, Dict] = {}
         for resource in resources:
             module_name = resource.get("name", "")
+            section_name = resource.get("section_name", "")
             for cf in resource.get("contentfiles", []):
-                file_map[cf["filename"]] = {
-                    "fileurl":     cf["fileurl"],
-                    "course_name": module_name,
-                    "source":      cf.get("source"),
-                }
+                filename = cf["filename"]
+                entry = file_map.setdefault(filename, {
+                    "fileurl":       cf["fileurl"],
+                    "course_name":   module_name,
+                    "section_names": [],
+                    "source":        cf.get("source"),
+                })
+                if section_name and section_name not in entry["section_names"]:
+                    entry["section_names"].append(section_name)
 
         summaries = []
         downloaded: List[Dict] = []
@@ -411,11 +424,12 @@ class AutoCore:
                 ).dict())
 
                 downloaded.append({
-                    "filename":    filename,
-                    "path":        str(temp_path),
-                    "course_name": info["course_name"],
-                    "total_pages": val["total_pages"],
-                    "source_type": file_source_types.get(filename, source_type or DEFAULT_SOURCE_TYPE),
+                    "filename":     filename,
+                    "path":         str(temp_path),
+                    "course_name":  info["course_name"],
+                    "section_name": "; ".join(info.get("section_names", [])),
+                    "total_pages":  val["total_pages"],
+                    "source_type":  file_source_types.get(filename, source_type or DEFAULT_SOURCE_TYPE),
                 })
 
             except Exception as e:
@@ -428,6 +442,7 @@ class AutoCore:
 
         job_id = _new_job(context={
             "mode":            "auto",
+            "curid":           curid,
             "collection_name": collection_name,
             "model_name":      model_name or settings.EMBEDDING_MODEL,
             "source_type":     source_type or DEFAULT_SOURCE_TYPE,
@@ -456,6 +471,7 @@ class AutoCore:
         job["status"] = "procesando"
         ctx = job["context"]
         collection_name = ctx["collection_name"]
+        curid = ctx.get("curid")
         model_name: str = ctx.get("model_name", settings.EMBEDDING_MODEL)
 
         service = get_service(model_name)
@@ -466,11 +482,22 @@ class AutoCore:
         base_pipeline_config = _build_pipeline_config(collection_name, ctx.get("source_type"))
         results = []
 
+        # Cola de indexación (ver ledger.py): registra altas/modificaciones/
+        # bajas comparando contra el listado actual de Moodle, ANTES de
+        # vectorizar — así el estado de curso_archivos queda al día aunque
+        # algún archivo individual falle más abajo.
+        if curid:
+            try:
+                await db.run(ledger.sync_curso_archivos, collection_name, curid)
+            except Exception as e:
+                print(f"⚠️ No se pudo sincronizar curso_archivos para curid={curid}: {e}")
+
         for fd in ctx["files"]:
-            file_path   = Path(fd["path"])
-            filename    = fd["filename"]
-            course_name = fd.get("course_name", "")
-            total_pages = fd.get("total_pages", 0)
+            file_path    = Path(fd["path"])
+            filename     = fd["filename"]
+            course_name  = fd.get("course_name", "")
+            section_name = fd.get("section_name", "")
+            total_pages  = fd.get("total_pages", 0)
             file_source_type = fd.get("source_type", DEFAULT_SOURCE_TYPE)
             pipeline_config = (
                 base_pipeline_config.model_copy(update={"source_type": file_source_type})
@@ -491,8 +518,14 @@ class AutoCore:
                     service=service,
                     original_filename=filename,
                     pipeline_config=pipeline_config,
+                    section_name=section_name,
                 )
                 results.append({"filename": filename, **result})
+                if curid:
+                    try:
+                        await db.run(ledger.marcar_vectorizado, collection_name, filename, result.get("document_hash"))
+                    except Exception as e:
+                        print(f"⚠️ No se pudo actualizar curso_archivos para {filename}: {e}")
 
             except Exception as e:
                 print(f"❌ Error vectorizando {filename}: {e}")

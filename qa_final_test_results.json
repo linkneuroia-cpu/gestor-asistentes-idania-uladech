@@ -1,0 +1,455 @@
+[
+  {
+    "id": 1,
+    "categoria": "Tabla (regresión)",
+    "pregunta": "dame un ejemplo de tabla de frecuencia",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "Para construir una **tabla de frecuencia** con los datos sobre el número de actividades realizadas por 20 estudiantes (2, 3, 1, 4, 2, 2, 3, 5, 1, 2, 4, 3, 2, 1, 3, 4, 2, 5, 3, 2), primero debemos contar cuántas veces aparece cada valor. Aquí está la tabla de frecuencia correspondiente:\n\n| Actividades | Frecuencia Absoluta |\n|---|---|\n| 1 | 3 |\n| 2 | 7 |\n| 3 | 5 |\n| 4 | 4 |\n| 5 | 2 |\n\nAhora, vamos a comprobar que la suma de las frecuencias coincide con el número total de datos:\n\n\\[\n3 + 7 + 5 + 4 + 2 = 21\n\\]\n\nParece que hay un error en el conteo, ya que la suma debería ser 20, que es el número total de estudiantes. Vamos a revisar los datos:\n\n- **1** aparece 3 veces.\n- **2** aparece 7 veces.\n- **3** aparece 5 veces.\n- **4** aparece 4 veces.\n- **5** aparece 2 veces.\n\nLa suma correcta es:\n\n\\[\n3 + 7 + 5 + 4 + 2 = 21\n\\]\n\nEsto indica que hay un error en los datos o en el conteo. Por favor, revisa los datos originales para asegurarte de que son correctos.\n\nEn cuanto a la **variable**, en este caso, es **cuantitativa** porque se refiere a un número de actividades que se pueden contar. Un ejemplo de variable **cualitativa** que podría recogerse en el mismo grupo podría ser \"el tipo de actividad realizada\" (por ejemplo, \"deporte\", \"arte\", \"estudio\", etc.).\n\nSi tienes más preguntas o necesitas más ejemplos, ¡no dudes en preguntar!",
+    "detail": null,
+    "sources": [
+      "GUIA_PRACTICA_12_Pensamiento_Logico_Matematico.docx",
+      "SESION_12_Pensamiento_Logico_Matematico_FINAL.pdf",
+      "SESION_12_Pensamiento_Logico_Matematico_FINAL.pdf",
+      "GUIA_PRACTICA_12_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_13_Pensamiento_Logico_Matematico.docx"
+    ],
+    "tokens_consumidos": 2620,
+    "timings_ms": {
+      "embed_query_ms": 2592,
+      "qdrant_search_ms": 230,
+      "rerank_ms": 13336,
+      "generation_ms": 5605,
+      "total_ms": 21834
+    }
+  },
+  {
+    "id": 2,
+    "categoria": "Fórmula",
+    "pregunta": "¿Cuál es la fórmula general para resolver una ecuación cuadrática? Dame un ejemplo aplicado.",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "La **fórmula general** para resolver una ecuación cuadrática de la forma \\( ax^2 + bx + c = 0 \\) es:\n\n\\[\nx = \\frac{{-b \\pm \\sqrt{{b^2 - 4ac}}}}{{2a}}\n\\]\n\nDonde:\n- \\( a \\), \\( b \\) y \\( c \\) son coeficientes de la ecuación cuadrática.\n- El término \\( b^2 - 4ac \\) se llama **discriminante** y determina la naturaleza de las raíces de la ecuación.\n\n### Ejemplo Aplicado\n\nSupongamos que tenemos la ecuación cuadrática:\n\n\\[\n2x^2 - 4x - 6 = 0\n\\]\n\nAquí, \\( a = 2 \\), \\( b = -4 \\) y \\( c = -6 \\).\n\n1. **Calculamos el discriminante**:\n\n\\[\nD = b^2 - 4ac = (-4)^2 - 4(2)(-6) = 16 + 48 = 64\n\\]\n\n2. **Aplicamos la fórmula general**:\n\n\\[\nx = \\frac{{-(-4) \\pm \\sqrt{64}}}{{2(2)}} = \\frac{{4 \\pm 8}}{{4}}\n\\]\n\n3. **Calculamos las dos soluciones**:\n\n- Para \\( x_1 \\):\n\n\\[\nx_1 = \\frac{{4 + 8}}{4} = \\frac{12}{4} = 3\n\\]\n\n- Para \\( x_2 \\):\n\n\\[\nx_2 = \\frac{{4 - 8}}{4} = \\frac{-4}{4} = -1\n\\]\n\n### Soluciones\n\nLas soluciones de la ecuación \\( 2x^2 - 4x - 6 = 0 \\) son \\( x_1 = 3 \\) y \\( x_2 = -1 \\).\n\nSi tienes más preguntas sobre este tema o necesitas más ejemplos, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf"
+    ],
+    "tokens_consumidos": 3881,
+    "timings_ms": {
+      "embed_query_ms": 2886,
+      "qdrant_search_ms": 181,
+      "rerank_ms": 3691,
+      "generation_ms": 5588,
+      "total_ms": 12345
+    }
+  },
+  {
+    "id": 3,
+    "categoria": "Fórmula (bibliografía)",
+    "pregunta": "Según el libro de precálculo, ¿cómo se calcula el interés compuesto? Dame la fórmula.",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "Para calcular el **interés compuesto**, se utiliza la siguiente fórmula:\n\n\\[\nA = P \\left(1 + \\frac{r}{n}\\right)^{nt}\n\\]\n\nDonde:\n- \\( A \\) es el monto total acumulado después de \\( t \\) años, incluyendo el interés.\n- \\( P \\) es el capital inicial (la cantidad de dinero que se invierte).\n- \\( r \\) es la tasa de interés anual (en forma decimal).\n- \\( n \\) es el número de veces que se capitaliza el interés por año.\n- \\( t \\) es el número de años que el dinero se invierte o se toma prestado.\n\n### Ejemplo Aplicado\n\nSupongamos que inviertes \\( P = 1000 \\) dólares a una tasa de interés anual \\( r = 5\\% \\) (0.05 en forma decimal), capitalizado trimestralmente (\\( n = 4 \\)), durante \\( t = 3 \\) años.\n\n1. **Sustituimos los valores en la fórmula**:\n\n\\[\nA = 1000 \\left(1 + \\frac{0.05}{4}\\right)^{4 \\times 3}\n\\]\n\n2. **Calculamos**:\n\n\\[\nA = 1000 \\left(1 + 0.0125\\right)^{12} = 1000 \\left(1.0125\\right)^{12}\n\\]\n\n3. **Calculamos \\( (1.0125)^{12} \\)**:\n\n\\[\n(1.0125)^{12} \\approx 1.1616\n\\]\n\n4. **Finalmente, calculamos \\( A \\)**:\n\n\\[\nA \\approx 1000 \\times 1.1616 \\approx 1161.60\n\\]\n\n### Resultado\n\nDespués de 3 años, el monto total acumulado sería aproximadamente **1161.60 dólares**.\n\nSi necesitas más ejemplos o aclaraciones sobre el interés compuesto, ¡no dudes en preguntar!",
+    "detail": null,
+    "sources": [],
+    "tokens_consumidos": 2477,
+    "timings_ms": {
+      "embed_query_ms": 643,
+      "qdrant_search_ms": 100,
+      "rerank_ms": 3332,
+      "generation_ms": 4719,
+      "total_ms": 8794
+    }
+  },
+  {
+    "id": 4,
+    "categoria": "Fórmula",
+    "pregunta": "¿Cuáles son las identidades trigonométricas de seno y coseno de una suma de ángulos?",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "Las **identidades trigonométricas** de seno y coseno para la suma de ángulos son las siguientes:\n\n1. **Identidad del seno**:\n\n\\[\n\\sin(a + b) = \\sin(a) \\cos(b) + \\cos(a) \\sin(b)\n\\]\n\n2. **Identidad del coseno**:\n\n\\[\n\\cos(a + b) = \\cos(a) \\cos(b) - \\sin(a) \\sin(b)\n\\]\n\n### Ejemplo Aplicado\n\nSupongamos que queremos calcular \\( \\sin(30^\\circ + 45^\\circ) \\) y \\( \\cos(30^\\circ + 45^\\circ) \\).\n\n1. **Para el seno**:\n\n\\[\n\\sin(30^\\circ + 45^\\circ) = \\sin(30^\\circ) \\cos(45^\\circ) + \\cos(30^\\circ) \\sin(45^\\circ)\n\\]\n\nSustituyendo los valores:\n\n- \\( \\sin(30^\\circ) = \\frac{1}{2} \\)\n- \\( \\cos(45^\\circ) = \\frac{\\sqrt{2}}{2} \\)\n- \\( \\cos(30^\\circ) = \\frac{\\sqrt{3}}{2} \\)\n- \\( \\sin(45^\\circ) = \\frac{\\sqrt{2}}{2} \\)\n\nEntonces:\n\n\\[\n\\sin(30^\\circ + 45^\\circ) = \\frac{1}{2} \\cdot \\frac{\\sqrt{2}}{2} + \\frac{\\sqrt{3}}{2} \\cdot \\frac{\\sqrt{2}}{2} = \\frac{\\sqrt{2}}{4} + \\frac{\\sqrt{6}}{4} = \\frac{\\sqrt{2} + \\sqrt{6}}{4}\n\\]\n\n2. **Para el coseno**:\n\n\\[\n\\cos(30^\\circ + 45^\\circ) = \\cos(30^\\circ) \\cos(45^\\circ) - \\sin(30^\\circ) \\sin(45^\\circ)\n\\]\n\nSustituyendo los valores:\n\n\\[\n\\cos(30^\\circ + 45^\\circ) = \\frac{\\sqrt{3}}{2} \\cdot \\frac{\\sqrt{2}}{2} - \\frac{1}{2} \\cdot \\frac{\\sqrt{2}}{2} = \\frac{\\sqrt{6}}{4} - \\frac{\\sqrt{2}}{4} = \\frac{\\sqrt{6} - \\sqrt{2}}{4}\n\\]\n\nSi tienes más preguntas sobre identidades trigonométricas o cualquier otro tema, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf"
+    ],
+    "tokens_consumidos": 3801,
+    "timings_ms": {
+      "embed_query_ms": 691,
+      "qdrant_search_ms": 87,
+      "rerank_ms": 3388,
+      "generation_ms": 18496,
+      "total_ms": 22663
+    }
+  },
+  {
+    "id": 5,
+    "categoria": "Tabla (DOCX real)",
+    "pregunta": "¿Cómo es la escala de valoración que usan las guías de práctica para calificar? Preséntala en una tabla.",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "Aquí tienes la **escala de valoración** que se utiliza en las guías de práctica para calificar, presentada en forma de tabla:\n\n| Valoración | Descripción                   |\n|------------|-------------------------------|\n| 4          | Logro destacado               |\n| 3          | Logro esperado                |\n| 2          | En proceso                    |\n| 1          | Requiere apoyo                |\n| 0          | No evidenciado                |\n\nEsta escala se registra en la **Participación y desempeño en sesiones**. Si tienes más preguntas o necesitas más información, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "GUIA_PRACTICA_06_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_14_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_04_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_01_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_07_Pensamiento_Logico_Matematico.docx"
+    ],
+    "tokens_consumidos": 4166,
+    "timings_ms": {
+      "embed_query_ms": 593,
+      "qdrant_search_ms": 85,
+      "rerank_ms": 3091,
+      "generation_ms": 1726,
+      "total_ms": 5496
+    }
+  },
+  {
+    "id": 6,
+    "categoria": "Tabla forzada",
+    "pregunta": "Compara el razonamiento deductivo y el inductivo en una tabla.",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "Para calcular el porcentaje que representa cada grupo de participantes y verificar que los porcentajes sean coherentes con el total, utilizamos la siguiente fórmula para el porcentaje:\n\n\\[\n\\text{Porcentaje} = \\left( \\frac{\\text{Número de participantes del grupo}}{\\text{Total de participantes}} \\right) \\times 100\n\\]\n\n### Cálculo de Porcentajes\n\n1. **Grupo A**:\n   \\[\n   \\text{Porcentaje A} = \\left( \\frac{48}{120} \\right) \\times 100 = 40\\%\n   \\]\n\n2. **Grupo B**:\n   \\[\n   \\text{Porcentaje B} = \\left( \\frac{42}{120} \\right) \\times 100 = 35\\%\n   \\]\n\n3. **Grupo C**:\n   \\[\n   \\text{Porcentaje C} = \\left( \\frac{30}{120} \\right) \\times 100 = 25\\%\n   \\]\n\n### Verificación de los Porcentajes\n\nSumamos los porcentajes obtenidos:\n\n\\[\n40\\% + 35\\% + 25\\% = 100\\%\n\\]\n\nEsto confirma que los porcentajes son coherentes con el total de participantes.\n\n### Conclusiones Cuantitativas\n\n1. **Conclusión 1**: El **Grupo A** representa el **40%** del total de participantes, lo que indica que es el grupo más grande en comparación con los otros dos grupos.\n\n2. **Conclusión 2**: El **Grupo C**, con un **25%**, es el grupo más pequeño, lo que sugiere que hay menos participantes en este grupo en comparación con los grupos A y B.\n\nSi necesitas más información o tienes otras preguntas, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "GUIA_PRACTICA_04_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_01_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_06_Pensamiento_Logico_Matematico.docx",
+      "SESION_01_Pensamiento_Logico_Matematico_NUEVA_VERSION_FINAL.docx",
+      "VI revisado-SILABO_Pensamiento_Logico_y_Matematico.pdf"
+    ],
+    "tokens_consumidos": 4503,
+    "timings_ms": {
+      "embed_query_ms": 338,
+      "qdrant_search_ms": 110,
+      "rerank_ms": 2742,
+      "generation_ms": 5542,
+      "total_ms": 8733
+    }
+  },
+  {
+    "id": 7,
+    "categoria": "Lista numerada anidada (bug de hoy)",
+    "pregunta": "Para la Actividad Formativa Evaluable 1 - AF1-U1, ¿qué debo presentar como producto? Dame los puntos exactos.",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "Para la **Actividad Formativa Evaluable 1 - AF1-U1**, debes presentar un archivo en formato PDF que contenga los siguientes puntos:\n\n1. **Identificación de los conjuntos**: Define claramente los conjuntos involucrados en la situación problemática.\n   \n2. **Diagrama de Venn**: Representa la información utilizando un diagrama de Venn que ilustre las relaciones entre los conjuntos.\n\n3. **Operaciones y resultados**: Selecciona y aplica las operaciones necesarias para resolver la situación, mostrando los resultados obtenidos.\n\n4. **Interpretación de los resultados**: Explica el significado de los resultados en el contexto de la situación planteada.\n\n5. **Justificación breve del procedimiento**: Proporciona una justificación clara y ordenada del procedimiento utilizado para llegar a los resultados.\n\nRecuerda revisar la rúbrica de evaluación antes de enviar la actividad y asegúrate de presentar el archivo en Moodle dentro del plazo establecido. Si tienes más preguntas o necesitas ayuda adicional, ¡estaré encantada de asistirte!",
+    "detail": null,
+    "sources": [
+      "AFE1.pdf",
+      "SESION_02_Pensamiento_Logico_Matematico_REPLANTEADA.docx",
+      "SESION_02_Pensamiento_Logico_Matematico_REPLANTEADA.pdf",
+      "SESION_02_Pensamiento_Logico_Matematico_REPLANTEADA.pdf",
+      "SESION_10_Pensamiento_Logico_Matematico_FINAL.pdf"
+    ],
+    "tokens_consumidos": 5011,
+    "timings_ms": {
+      "embed_query_ms": 340,
+      "qdrant_search_ms": 63,
+      "rerank_ms": 2882,
+      "generation_ms": 4217,
+      "total_ms": 7503
+    }
+  },
+  {
+    "id": 8,
+    "categoria": "Lista numerada",
+    "pregunta": "Explícame paso a paso cómo se resuelve una ecuación lineal simple.",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "Para resolver una **ecuación lineal simple**, puedes seguir estos pasos:\n\n### Paso 1: Identifica la ecuación\nUna ecuación lineal simple tiene la forma general:\n\n\\[\nax + b = c\n\\]\n\ndonde \\( a \\), \\( b \\) y \\( c \\) son números reales y \\( x \\) es la variable que queremos despejar.\n\n### Paso 2: Aísla la variable\nEl objetivo es despejar \\( x \\). Para hacerlo, primero debes mover todos los términos que no contienen \\( x \\) al otro lado de la ecuación. Esto se hace restando \\( b \\) de ambos lados:\n\n\\[\nax = c - b\n\\]\n\n### Paso 3: Despeja \\( x \\)\nAhora, divide ambos lados de la ecuación por \\( a \\) para obtener \\( x \\):\n\n\\[\nx = \\frac{c - b}{a}\n\\]\n\n### Ejemplo Aplicado\nSupongamos que tenemos la ecuación:\n\n\\[\n3x + 6 = 15\n\\]\n\n1. **Identifica la ecuación**: Aquí, \\( a = 3 \\), \\( b = 6 \\), y \\( c = 15 \\).\n\n2. **Aísla la variable**:\n   - Resta 6 de ambos lados:\n   \\[\n   3x = 15 - 6\n   \\]\n   \\[\n   3x = 9\n   \\]\n\n3. **Despeja \\( x \\)**:\n   - Divide ambos lados por 3:\n   \\[\n   x = \\frac{9}{3} = 3\n   \\]\n\n### Resultado\nLa solución de la ecuación \\( 3x + 6 = 15 \\) es \\( x = 3 \\).\n\nSi tienes más preguntas sobre este proceso o necesitas más ejemplos, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf",
+      "GUIA_PRACTICA_05_Pensamiento_Logico_Matematico.docx",
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf"
+    ],
+    "tokens_consumidos": 6230,
+    "timings_ms": {
+      "embed_query_ms": 6899,
+      "qdrant_search_ms": 123,
+      "rerank_ms": 3523,
+      "generation_ms": 4917,
+      "total_ms": 15463
+    }
+  },
+  {
+    "id": 9,
+    "categoria": "Fórmula bloque LaTeX (bug de hoy)",
+    "pregunta": "dame un ejemplo para definir un conjunto universal",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "Un **conjunto universal** es el conjunto que contiene todos los elementos relevantes para un contexto específico. Por ejemplo, si estamos hablando de un grupo de estudiantes en una clase, el conjunto universal podría incluir a todos los estudiantes de esa clase.\n\n### Ejemplo de Conjunto Universal\n\nSupongamos que estamos analizando a los estudiantes de una clase de matemáticas. El conjunto universal \\( U \\) podría definirse como:\n\n\\[\nU = \\{ \\text{Estudiante 1, Estudiante 2, Estudiante 3, Estudiante 4, Estudiante 5} \\}\n\\]\n\n### Subconjuntos\n\nA partir de este conjunto universal, podemos definir subconjuntos. Por ejemplo:\n\n- **Conjunto A**: Estudiantes que utilizan Moodle.\n\\[\nA = \\{ \\text{Estudiante 1, Estudiante 2} \\}\n\\]\n\n- **Conjunto B**: Estudiantes que participan en tutoría académica.\n\\[\nB = \\{ \\text{Estudiante 3, Estudiante 4} \\}\n\\]\n\nEn este caso, el conjunto universal \\( U \\) incluye a todos los estudiantes, mientras que \\( A \\) y \\( B \\) son subconjuntos que representan grupos específicos dentro del conjunto universal.\n\nSi necesitas más ejemplos o aclaraciones sobre conjuntos, ¡no dudes en preguntar!",
+    "detail": null,
+    "sources": [
+      "SESION_02_Pensamiento_Logico_Matematico_REPLANTEADA.docx",
+      "SESION_02_Pensamiento_Logico_Matematico_REPLANTEADA.pdf",
+      "AFE1.pdf",
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf"
+    ],
+    "tokens_consumidos": 5876,
+    "timings_ms": {
+      "embed_query_ms": 11503,
+      "qdrant_search_ms": 67,
+      "rerank_ms": 3594,
+      "generation_ms": 4455,
+      "total_ms": 19620
+    }
+  },
+  {
+    "id": 10,
+    "categoria": "Navegación",
+    "pregunta": "¿En qué semana encuentro la guía de práctica 5?",
+    "sesion_id": 50,
+    "ok": true,
+    "answer": "La **guía de práctica 5** se encuentra en la **Semana 5**, específicamente en la **Sesión 5**. Si necesitas más información sobre esta guía o cualquier otro tema, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "GUIA_PRACTICA_05_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_15_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_04_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_14_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_01_Pensamiento_Logico_Matematico.docx"
+    ],
+    "tokens_consumidos": 5973,
+    "timings_ms": {
+      "embed_query_ms": 615,
+      "qdrant_search_ms": 96,
+      "rerank_ms": 2616,
+      "generation_ms": 2797,
+      "total_ms": 6124
+    }
+  },
+  {
+    "id": 11,
+    "categoria": "Navegación multi-semana",
+    "pregunta": "El archivo Precalculo_2ed-WEB_R2h7jtX.pdf, ¿en qué semana lo encuentro?",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "No tengo información sobre en qué semana se encuentra el archivo \"Precalculo_2ed-WEB_R2h7jtX.pdf\". Te sugiero que revises el aula virtual o el índice del curso para localizarlo. Si necesitas ayuda con otro tema, ¡estaré encantada de asistirte!",
+    "detail": null,
+    "sources": [],
+    "tokens_consumidos": 1233,
+    "timings_ms": {
+      "embed_query_ms": 11474,
+      "qdrant_search_ms": 1935,
+      "rerank_ms": 3281,
+      "generation_ms": 12644,
+      "total_ms": 29334
+    }
+  },
+  {
+    "id": 12,
+    "categoria": "Control (sin fórmulas)",
+    "pregunta": "¿Qué es un silogismo? Dame un ejemplo.",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "Un **silogismo** es una forma de razonamiento deductivo que consiste en dos premisas y una conclusión. Se utiliza para llegar a una conclusión lógica a partir de dos afirmaciones que se consideran verdaderas. \n\nUn ejemplo clásico de silogismo es el siguiente:\n\n- Premisa 1: Todos los humanos son mortales.\n- Premisa 2: Sócrates es humano.\n- Conclusión: Por lo tanto, Sócrates es mortal.\n\nEn este caso, las dos premisas llevan a una conclusión lógica que se deriva de ellas. Si tienes más preguntas sobre silogismos o cualquier otro tema, ¡no dudes en preguntar!",
+    "detail": null,
+    "sources": [],
+    "tokens_consumidos": 1387,
+    "timings_ms": {
+      "embed_query_ms": 1268,
+      "qdrant_search_ms": 88,
+      "rerank_ms": 3208,
+      "generation_ms": 2187,
+      "total_ms": 6751
+    }
+  },
+  {
+    "id": 13,
+    "categoria": "Control",
+    "pregunta": "¿Qué contenidos se ven en la sesión 9?",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "En la **sesión 9** del curso, se abordan los siguientes contenidos:\n\n- **Formas y propiedades geométricas**.\n- **Resolución de problemas mediante representaciones gráficas y recursos de apoyo**.\n\nEl objetivo es que los estudiantes analicen **propiedades y relaciones de figuras geométricas** para resolver situaciones de forma y espacio. Además, se valorará el resultado de aprendizaje mediante tres criterios, que incluyen la participación y desempeño, así como la retroalimentación. También se realizarán actividades prácticas relacionadas con la resolución de problemas sobre estas formas y propiedades geométricas.\n\nSi necesitas más información o tienes alguna otra pregunta, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "VI revisado-SILABO_Pensamiento_Logico_y_Matematico.docx",
+      "VI revisado-SILABO_Pensamiento_Logico_y_Matematico.pdf",
+      "VI revisado-SILABO_Pensamiento_Logico_y_Matematico.docx",
+      "VI revisado-SILABO_Pensamiento_Logico_y_Matematico.pdf",
+      "VI revisado-SILABO_Pensamiento_Logico_y_Matematico.docx"
+    ],
+    "tokens_consumidos": 2293,
+    "timings_ms": {
+      "embed_query_ms": 682,
+      "qdrant_search_ms": 77,
+      "rerank_ms": 2382,
+      "generation_ms": 3648,
+      "total_ms": 6789
+    }
+  },
+  {
+    "id": 14,
+    "categoria": "Conversacional",
+    "pregunta": "Gracias, eso me ayudó mucho.",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "Me alegra saber que la información te fue útil. Si tienes más preguntas o necesitas aclaraciones sobre algún tema, no dudes en decírmelo. Estoy aquí para ayudarte en lo que necesites. ¡Sigue adelante con tu aprendizaje!",
+    "detail": null,
+    "sources": [
+      "GUIA_PRACTICA_05_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_09_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_12_Pensamiento_Logico_Matematico.docx"
+    ],
+    "tokens_consumidos": 2353,
+    "timings_ms": {
+      "embed_query_ms": 736,
+      "qdrant_search_ms": 63,
+      "rerank_ms": 2907,
+      "generation_ms": 1526,
+      "total_ms": 5231
+    }
+  },
+  {
+    "id": 15,
+    "categoria": "Fórmula",
+    "pregunta": "¿Cómo se calcula una proporción y qué es la regla de tres simple? Dame un ejemplo con números.",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "Para calcular una **proporción**, se establece una relación entre dos razones. La regla de tres simple es una técnica que se utiliza para resolver problemas de proporcionalidad directa o inversa. Consiste en encontrar un valor desconocido a partir de tres valores conocidos.\n\n### Pasos para calcular una proporción usando la regla de tres simple:\n\n1. **Identificar las cantidades**: Determina las dos cantidades que están en relación.\n2. **Establecer la proporción**: Escribe la relación entre las cantidades conocidas y la cantidad desconocida.\n3. **Resolver la ecuación**: Multiplica en cruz y despeja la variable desconocida.\n\n### Ejemplo:\n\nSupongamos que sabemos que 4 unidades de un recurso cuestan S/ 54. Queremos saber cuánto costarán 10 unidades.\n\n1. **Identificar las cantidades**:\n   - 4 unidades → S/ 54\n   - 10 unidades → \\( x \\) (costo desconocido)\n\n2. **Establecer la proporción**:\n   \\[\n   \\frac{4}{54} = \\frac{10}{x}\n   \\]\n\n3. **Resolver la ecuación**:\n   Multiplicamos en cruz:\n   \\[\n   4x = 54 \\times 10\n   \\]\n   \\[\n   4x = 540\n   \\]\n   Despejamos \\( x \\):\n   \\[\n   x = \\frac{540}{4} = 135\n   \\]\n\nPor lo tanto, el costo de 10 unidades es **S/ 135**.\n\nSi tienes más preguntas sobre proporciones o cualquier otro tema, ¡no dudes en preguntar!",
+    "detail": null,
+    "sources": [
+      "libro-terminado-matematica-compressed.pdf",
+      "libro-terminado-matematica-compressed.pdf",
+      "SESION_04_Pensamiento_Logico_Matematico_FINAL.docx",
+      "libro-terminado-matematica-compressed.pdf",
+      "GUIA_PRACTICA_04_Pensamiento_Logico_Matematico.docx"
+    ],
+    "tokens_consumidos": 3525,
+    "timings_ms": {
+      "embed_query_ms": 11678,
+      "qdrant_search_ms": 59,
+      "rerank_ms": 3291,
+      "generation_ms": 15049,
+      "total_ms": 30078
+    }
+  },
+  {
+    "id": 16,
+    "categoria": "Fórmula",
+    "pregunta": "¿Cómo se calcula la probabilidad clásica de un evento? Dame la fórmula y un ejemplo.",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "La **probabilidad clásica** de un evento se calcula utilizando la siguiente fórmula:\n\n\\[\nP(E) = \\frac{n(E)}{n(S)}\n\\]\n\ndonde:\n- \\( P(E) \\) es la probabilidad del evento \\( E \\).\n- \\( n(E) \\) es el número de resultados favorables al evento \\( E \\).\n- \\( n(S) \\) es el número total de resultados en el espacio muestral \\( S \\).\n\n### Ejemplo:\n\nSupongamos que lanzamos un dado de seis caras. Queremos calcular la probabilidad de obtener un número par.\n\n1. **Identificar el espacio muestral**: El espacio muestral \\( S \\) para un dado de seis caras es: {1, 2, 3, 4, 5, 6}. Por lo tanto, \\( n(S) = 6 \\).\n\n2. **Identificar los resultados favorables**: Los números pares en el dado son: {2, 4, 6}. Por lo tanto, \\( n(E) = 3 \\).\n\n3. **Calcular la probabilidad**:\n   \\[\n   P(E) = \\frac{n(E)}{n(S)} = \\frac{3}{6} = 0.5\n   \\]\n\nEsto significa que la probabilidad de obtener un número par al lanzar el dado es **0.5** o **50%**.\n\nSi tienes más preguntas sobre probabilidad o cualquier otro tema, ¡no dudes en preguntar!",
+    "detail": null,
+    "sources": [
+      "GUIA_PRACTICA_14_Pensamiento_Logico_Matematico.docx",
+      "SESION_14_Pensamiento_Logico_Matematico_FINAL.pdf",
+      "SESION_14_Pensamiento_Logico_Matematico_FINAL.docx",
+      "IIU-Evaluacion_Rapida_Unidad_Pensamiento_Logico_Matematico.xlsx",
+      "SESION_14_Pensamiento_Logico_Matematico_FINAL.pdf"
+    ],
+    "tokens_consumidos": 3285,
+    "timings_ms": {
+      "embed_query_ms": 466,
+      "qdrant_search_ms": 45,
+      "rerank_ms": 3224,
+      "generation_ms": 3717,
+      "total_ms": 7452
+    }
+  },
+  {
+    "id": 17,
+    "categoria": "Estrés (lista+fórmula+tabla)",
+    "pregunta": "Explícame paso a paso cómo se calcula el área y el perímetro de varias figuras geométricas, con la fórmula de cada una y un resumen final en tabla.",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "Para calcular el **área** y el **perímetro** de varias figuras geométricas, es importante conocer las fórmulas específicas para cada figura. A continuación, te explico cómo calcular el área y el perímetro de algunas figuras comunes, paso a paso.\n\n### 1. Cuadrado\n\n- **Perímetro**: \n  \\[\n  P = 4 \\times l\n  \\]\n  donde \\( l \\) es la longitud de un lado.\n\n- **Área**: \n  \\[\n  A = l^2\n  \\]\n\n### 2. Rectángulo\n\n- **Perímetro**: \n  \\[\n  P = 2 \\times (l + w)\n  \\]\n  donde \\( l \\) es la longitud y \\( w \\) es el ancho.\n\n- **Área**: \n  \\[\n  A = l \\times w\n  \\]\n\n### 3. Triángulo\n\n- **Perímetro**: \n  \\[\n  P = a + b + c\n  \\]\n  donde \\( a, b, c \\) son las longitudes de los lados.\n\n- **Área**: \n  \\[\n  A = \\frac{b \\times h}{2}\n  \\]\n  donde \\( b \\) es la base y \\( h \\) es la altura.\n\n### 4. Círculo\n\n- **Perímetro (Circunferencia)**: \n  \\[\n  P = 2 \\pi r\n  \\]\n  donde \\( r \\) es el radio.\n\n- **Área**: \n  \\[\n  A = \\pi r^2\n  \\]\n\n### 5. Trapecio\n\n- **Perímetro**: \n  \\[\n  P = a + b + c + d\n  \\]\n  donde \\( a \\) y \\( b \\) son las bases, y \\( c \\) y \\( d \\) son los lados no paralelos.\n\n- **Área**: \n  \\[\n  A = \\frac{(a + b) \\times h}{2}\n  \\]\n  donde \\( h \\) es la altura.\n\n### Resumen en Tabla\n\n| Figura      | Perímetro (P)                  | Área (A)                     |\n|-------------|--------------------------------|-------------------------------|\n| Cuadrado    | \\( P = 4 \\times l \\)          | \\( A = l^2 \\)                |\n| Rectángulo  | \\( P = 2 \\times (l + w) \\)    | \\( A = l \\times w \\)         |\n| Triángulo   | \\( P = a + b + c \\)           | \\( A = \\frac{b \\times h}{2} \\) |\n| Círculo     | \\( P = 2 \\pi r \\)             | \\( A = \\pi r^2 \\)            |\n| Trapecio    | \\( P = a + b + c + d \\)       | \\( A = \\frac{(a + b) \\times h}{2} \\) |\n\nSi necesitas más detalles sobre alguna figura en particular o tienes más preguntas, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "libro-terminado-matematica-compressed.pdf",
+      "SESION_10_Pensamiento_Logico_Matematico_FINAL.pdf",
+      "IIU-Evaluacion_Rapida_Unidad_Pensamiento_Logico_Matematico.xlsx",
+      "SESION_10_Pensamiento_Logico_Matematico_FINAL.docx",
+      "GUIA_PRACTICA_10_Pensamiento_Logico_Matematico.docx"
+    ],
+    "tokens_consumidos": 4149,
+    "timings_ms": {
+      "embed_query_ms": 444,
+      "qdrant_search_ms": 24,
+      "rerank_ms": 3311,
+      "generation_ms": 7328,
+      "total_ms": 11107
+    }
+  },
+  {
+    "id": 18,
+    "categoria": "Tabla (DOCX real, sesión)",
+    "pregunta": "¿Cómo se estructura el desarrollo de la sesión 5? Preséntalo en tabla si el material lo trae así.",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "La **sesión 5** no tiene un contenido específico recuperado en el material que me proporcionaste. Sin embargo, puedo ofrecerte un resumen de cómo se estructuran las sesiones en general, basándome en la información de otras sesiones.\n\n### Estructura General de las Sesiones\n\n| Momento         | Actividad de Aprendizaje                                           | Seguimiento y Retroalimentación | Tiempo  |\n|------------------|-------------------------------------------------------------------|----------------------------------|---------|\n| **Inicio**       | Presentación de argumentos y discusión sobre conclusiones.        | Preguntas diagnósticas y retroalimentación oral. | 10 min  |\n| **Desarrollo**   | Actividades prácticas y teóricas relacionadas con el tema.       | Contraste de procedimientos con compañeros. | Variable |\n| **Cierre**       | Resumen de aprendizajes y evaluación de la sesión.               | Reflexión sobre lo aprendido y corrección de errores. | Variable |\n\nSi necesitas información específica sobre la sesión 5 o cualquier otro tema, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "SESION_01_Pensamiento_Logico_Matematico_NUEVA_VERSION_FINAL.pdf",
+      "SESION_13_Pensamiento_Logico_Matematico_FINAL.pdf",
+      "SESION_14_Pensamiento_Logico_Matematico_FINAL.pdf",
+      "GUIA_PRACTICA_06_Pensamiento_Logico_Matematico.docx",
+      "SESION_14_Pensamiento_Logico_Matematico_FINAL.docx"
+    ],
+    "tokens_consumidos": 4178,
+    "timings_ms": {
+      "embed_query_ms": 11650,
+      "qdrant_search_ms": 29,
+      "rerank_ms": 2973,
+      "generation_ms": 4997,
+      "total_ms": 19648
+    }
+  },
+  {
+    "id": 19,
+    "categoria": "Lista numerada (guía)",
+    "pregunta": "¿Qué debo presentar en la guía de práctica 4? Dame los puntos exactos.",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "En la **guía de práctica 4**, debes presentar los siguientes puntos exactos:\n\n1. **Datos de la práctica**:\n   - Unidad I: Razonamiento lógico, numérico y algebraico.\n   - Semana / sesión: Semana 4 / Sesión 4.\n   - Tema: Razón, proporción, proporcionalidad y porcentajes.\n   - Resultado de aprendizaje: Analiza información cuantitativa mediante razones, proporciones y porcentajes para interpretar situaciones y formular conclusiones sustentadas.\n   - Tiempo de aplicación práctica: 75 minutos dentro de la sesión de aprendizaje.\n   - Modalidad de trabajo: Individual y en pares, según la actividad.\n\n2. **Propósito de la práctica**:\n   - Analiza información cuantitativa mediante razones, proporciones y porcentajes para interpretar situaciones y formular conclusiones sustentadas.\n\n3. **Temas a trabajar**:\n   - Razón y proporción.\n   - Proporcionalidad directa e inversa.\n   - Porcentajes y variación porcentual.\n\n4. **Cierre de la práctica**:\n   - Responde brevemente a las siguientes preguntas:\n     - ¿Qué procedimiento me resultó más útil para interpretar correctamente una situación de proporcionalidad o porcentaje?\n     - ¿Qué aspecto debo reforzar para sustentar mejor mis conclusiones a partir de información cuantitativa?\n\nRecuerda que esta guía corresponde a la práctica lectiva de la sesión y no sustituye la actividad de Investigación Formativa U1 programada como actividad no lectiva. Si tienes más preguntas o necesitas más detalles, ¡estaré encantada de ayudarte!",
+    "detail": null,
+    "sources": [
+      "GUIA_PRACTICA_06_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_14_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_04_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_04_Pensamiento_Logico_Matematico.docx",
+      "GUIA_PRACTICA_12_Pensamiento_Logico_Matematico.docx"
+    ],
+    "tokens_consumidos": 4576,
+    "timings_ms": {
+      "embed_query_ms": 478,
+      "qdrant_search_ms": 20,
+      "rerank_ms": 3049,
+      "generation_ms": 3589,
+      "total_ms": 7136
+    }
+  },
+  {
+    "id": 20,
+    "categoria": "Multi-turno (2/2)",
+    "pregunta": "¿Me puedes dar otro ejemplo del mismo tema que acabas de explicar?",
+    "sesion_id": 51,
+    "ok": true,
+    "answer": "Claro, aquí tienes otro ejemplo relacionado con el cálculo de área y perímetro, esta vez utilizando un **rectángulo**.\n\n### Ejemplo: Rectángulo\n\nSupongamos que tenemos un rectángulo con una longitud de 8 metros y un ancho de 5 metros.\n\n1. **Calcular el Perímetro**:\n   - Usamos la fórmula del perímetro:\n   \\[\n   P = 2 \\times (l + w)\n   \\]\n   - Sustituyendo los valores:\n   \\[\n   P = 2 \\times (8 + 5) = 2 \\times 13 = 26 \\text{ metros}\n   \\]\n\n2. **Calcular el Área**:\n   - Usamos la fórmula del área:\n   \\[\n   A = l \\times w\n   \\]\n   - Sustituyendo los valores:\n   \\[\n   A = 8 \\times 5 = 40 \\text{ metros cuadrados}\n   \\]\n\n### Resumen de Resultados:\n- **Perímetro**: 26 metros\n- **Área**: 40 metros cuadrados\n\nSi tienes más preguntas o necesitas más ejemplos, ¡no dudes en preguntar!",
+    "detail": null,
+    "sources": [
+      "libro-terminado-matematica-compressed.pdf"
+    ],
+    "tokens_consumidos": 4200,
+    "timings_ms": {
+      "embed_query_ms": 459,
+      "qdrant_search_ms": 47,
+      "rerank_ms": 3089,
+      "generation_ms": 3082,
+      "total_ms": 6676
+    }
+  }
+]

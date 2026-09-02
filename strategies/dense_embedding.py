@@ -104,9 +104,14 @@ class LocalSentenceTransformerDenseStrategy(DenseEmbeddingStrategy):
         self._task_passage = info.get("task_passage", "retrieval.passage")
         self._task_query = info.get("task_query", "retrieval.query")
 
+        import torch
         from sentence_transformers import SentenceTransformer
 
-        self._model = SentenceTransformer(model_name, trust_remote_code=self._use_task)
+        # device=None no siempre auto-detecta CUDA en esta versión de
+        # sentence-transformers (se vio cargar en CPU con una GPU disponible
+        # y torch.cuda.is_available()==True) — se fuerza explícito.
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self._model = SentenceTransformer(model_name, trust_remote_code=self._use_task, device=device)
 
     async def embed(self, texts: List[str], is_query: bool = False) -> List[List[float]]:
         import asyncio

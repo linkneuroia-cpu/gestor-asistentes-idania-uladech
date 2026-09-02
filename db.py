@@ -30,15 +30,30 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
         # conexión ya abierta. Con minconn=1 (el default anterior), cualquier
         # solicitud concurrente pagaba ese costo extra de conexión; con 5
         # precalentadas, las primeras 5 solicitudes simultáneas no lo pagan.
+        # maxconn=20: cada mensaje de un asistente encadena varias llamadas
+        # cortas a Postgres (historial, guardar pregunta, resolver RD,
+        # guardar respuesta) — con varios alumnos preguntando a la vez hace
+        # falta margen por encima de esas 5 precalentadas.
         _pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=5,
-            maxconn=10,
+            maxconn=20,
             host=settings.PG_HOST,
             port=settings.PG_PORT,
             user=settings.PG_USER,
             password=settings.PG_PASSWORD,
             dbname=settings.PG_DATABASE,
             connect_timeout=10,
+            # Sin keepalives, un firewall/NAT entre esta máquina y el host
+            # remoto de Postgres corta en silencio las conexiones ociosas
+            # entre turnos de uso — el socket queda "muerto" pero psycopg2
+            # no se entera hasta el siguiente query (InterfaceError
+            # "connection already closed"). Con keepalives, el SO manda un
+            # paquete cada 30s de inactividad y detecta/renueva la conexión
+            # antes de que el intermediario la cierre.
+            keepalives=1,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=5,
         )
     return _pool
 
@@ -47,12 +62,20 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
 def _cursor():
     pool = _get_pool()
     conn = pool.getconn()
+    broken = False
     try:
         with conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 yield cur
+    except (psycopg2.InterfaceError, psycopg2.OperationalError):
+        # Conexión caída (red, timeout del lado del servidor, idle
+        # demasiado tiempo, etc.) — se descarta en vez de devolverla al
+        # pool, si no el pool sigue entregando la misma conexión rota a
+        # cada request siguiente hasta reiniciar el proceso.
+        broken = True
+        raise
     finally:
-        pool.putconn(conn)
+        pool.putconn(conn, close=broken)
 
 
 def fetch_all(sql: str, params: tuple = ()) -> List[Dict[str, Any]]:

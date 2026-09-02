@@ -1,0 +1,24 @@
+# network_mode: host — Postgres y Qdrant corren en el mismo servidor
+# (10.0.0.92); con host networking, "localhost" desde adentro del
+# contenedor resuelve directo al host, sin tener que mapear IPs/puertos a
+# mano. El proxy inverso (nginx, administrado por otro equipo) también le
+# pega directo al puerto 8100 del host.
+services:
+  app:
+    build: .
+    container_name: gestor_f1
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      # Cache de modelos (sentence-transformers/EasyOCR/faster-whisper) —
+      # persiste entre rebuilds, evita re-descargar en cada deploy.
+      # (pix2tex guarda sus pesos dentro del propio paquete instalado, no
+      # acá — se re-descargan en cada rebuild de la imagen; ~115MB, no es
+      # grave, pero es una limitación conocida a mejorar más adelante.)
+      - model-cache:/root/.cache
+      - ./temp_docs:/app/temp_docs
+    restart: unless-stopped
+
+volumes:
+  model-cache:

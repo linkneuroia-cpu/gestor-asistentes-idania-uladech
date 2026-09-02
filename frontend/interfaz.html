@@ -355,7 +355,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   </button>
   <div class="hdr-logo">
     <div class="logo-circle">
-      <img src="/img/uladechcatolica-logo-purple-300x213.webp"
+      <img src="{{ URL_PREFIX }}/img/uladechcatolica-logo-purple-300x213.webp"
           alt="Logo ULADECH Católica" />
     </div>
 
@@ -429,7 +429,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0018 0V5M3 12a9 3 0 0018 0"/></svg>
     <span class="nav-lbl">Colecciones</span>
   </div>
-  <div class="nav" onclick="showMod('qdrant-crear');qLoadRdOptions()" id="nav-qdrant-crear">
+  <div class="nav" onclick="showMod('qdrant-crear');qLoadCreateRds()" id="nav-qdrant-crear">
     <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     <span class="nav-lbl">Crear colección</span>
   </div>
@@ -454,7 +454,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   </div>
   {% endif %}
   <div class="sb-foot">
-    <span>API Docs: <a href="/docs" target="_blank">/docs</a></span>
+    <span>API Docs: <a href="{{ URL_PREFIX }}/docs" target="_blank">/docs</a></span>
     <span style="margin-top:4px;display:block;">Sesión: {{ user.username if user else '' }}</span>
   </div>
 </nav>
@@ -930,7 +930,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
         <button class="btn btn-prim btn-sm" onclick="asisWizardOpen()">+ Crear asistente</button>
       </span>
     </div>
-    <div class="tw"><table><thead><tr><th>Nombre</th><th>RD</th><th>Estado</th><th>URL pública</th><th>Acciones</th></tr></thead><tbody id="asis-tbl"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody></table></div>
+    <div class="tw"><table><thead><tr><th>Nombre</th><th>RD</th><th>Estado</th><th>URL pública</th><th>Calificación</th><th>Acciones</th></tr></thead><tbody id="asis-tbl"><tr><td colspan="6" class="muted">Cargando…</td></tr></tbody></table></div>
   </div>
 </section>
 
@@ -1004,7 +1004,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
 <section class="mod" id="mod-qdrant-crear">
   <div class="mod-hdr">
     <h1><div class="accent" style="background:var(--blue-800)"></div>Crear colección</h1>
-    <p>Crea una nueva colección en Qdrant. Elige esquema híbrido (dense+sparse) para usar el pipeline RAG configurable, o legacy para compatibilidad con el flujo anterior.</p>
+    <p>Crea una nueva colección en Qdrant: como colección <b>padre</b> de una RD (fija su embedding maestro), <b>hija</b> de una RD que ya lo tiene, o <b>normal</b> (independiente, sin RD).</p>
   </div>
   <div class="card">
     <div class="fg">
@@ -1017,39 +1017,20 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
       <textarea class="fc" id="q-create-desc" rows="2"></textarea>
     </div>
     <div class="fg">
-      <label class="fl">Esquema de vectores</label>
+      <label class="fl">Tipo de colección <span class="req">*</span></label>
       <div class="srcs">
-        <div class="src selected" id="q-schema-hybrid" onclick="qSelectSchema('hybrid')">
-          <span class="src-icon">🧬</span><span class="src-name">Híbrido</span><span class="src-desc">Dense + Sparse (BM25/BGE-M3). Requerido para el pipeline RAG configurable.</span>
+        <div class="src selected" id="q-tipo-padre" onclick="qSelectTipo('padre')">
+          <span class="src-icon">🔑</span><span class="src-name">Padre</span><span class="src-desc">Primera colección de una RD — fija su embedding maestro.</span>
         </div>
-        <div class="src" id="q-schema-legacy" onclick="qSelectSchema('legacy')">
-          <span class="src-icon">📦</span><span class="src-name">Legacy</span><span class="src-desc">Un solo vector denso, compatible con el flujo anterior.</span>
+        <div class="src" id="q-tipo-hija" onclick="qSelectTipo('hija')">
+          <span class="src-icon">🔗</span><span class="src-name">Hija</span><span class="src-desc">Otro curso de una RD que ya tiene embedding maestro — lo hereda.</span>
+        </div>
+        <div class="src" id="q-tipo-normal" onclick="qSelectTipo('normal')">
+          <span class="src-icon">📦</span><span class="src-name">Normal</span><span class="src-desc">Sin RD — independiente, ningún asistente la encuentra.</span>
         </div>
       </div>
     </div>
-    <div class="fg hidden" id="q-create-size-box">
-      <label class="fl">Tamaño de vector denso</label>
-      <input class="fc" type="number" id="q-create-size" value="1536" style="max-width:160px">
-    </div>
-    <div class="fg">
-      <label class="fl">Métrica de distancia</label>
-      <select class="fc" id="q-create-distance" style="max-width:200px">
-        <option value="Cosine">Cosine — similitud coseno</option>
-        <option value="Euclid">Euclid — distancia euclídea</option>
-        <option value="Dot">Dot — producto punto</option>
-      </select>
-    </div>
-    <div class="div"></div>
-    <div class="fg">
-      <label class="fl">RD (aula) a la que pertenece <span class="req">*</span></label>
-      <select class="fc" id="q-create-rd" onchange="qCreateOnRdChange()"><option value="">— Selecciona —</option></select>
-      <div class="fh">Necesario para que un asistente pueda encontrar esta colección.</div>
-    </div>
-    <div id="q-create-embedding-box"></div>
-    <div class="fg">
-      <label class="fl">Course ID de Moodle para esta colección <span class="req">*</span></label>
-      <input class="fc" type="number" id="q-create-courseid" style="max-width:200px">
-    </div>
+    <div id="q-tipo-body"></div>
     <button class="btn btn-prim" onclick="qCreate()">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
       Crear colección
@@ -1094,7 +1075,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
       <tr><td><span class="tag" style="background:var(--blue-400);color:var(--blue-800)">GET</span></td><td><code>/api/config/{stage}</code></td><td>Estrategia activa + catálogo de una etapa del pipeline RAG</td></tr>
       <tr><td><span class="tag t-new">POST</span></td><td><code>/api/config/{stage}</code></td><td>Cambia la estrategia activa de una etapa</td></tr>
     </tbody></table></div>
-    <p class="muted mt16">Documentación interactiva completa: <a href="/docs" target="_blank">/docs</a></p>
+    <p class="muted mt16">Documentación interactiva completa: <a href="{{ URL_PREFIX }}/docs" target="_blank">/docs</a></p>
   </div>
 </section>
 
@@ -1161,7 +1142,7 @@ function showModalWide(t,b){showModal(t,b);$('modal-box').classList.add('modal-w
 
 async function api(path,opts={}){
   const r=await fetch(API+path,opts);
-  if(r.status===401){window.location.href='/login';throw new Error('Sesión expirada');}
+  if(r.status===401){window.location.href='{{ URL_PREFIX }}/login';throw new Error('Sesión expirada');}
   const j=await r.json();
   if(!r.ok)throw new Error(j.detail||JSON.stringify(j));
   return j;
@@ -1251,7 +1232,7 @@ function renderErr(cid,sid,msg){
 
 function poll(id,onOk,onErr,ms=2500){
   const t=setInterval(async()=>{
-    try{const j=await api('/api/jobs/'+id);
+    try{const j=await api('{{ URL_PREFIX }}/api/jobs/'+id);
       if(j.status==='completado'){clearInterval(t);onOk(j.result)}
       else if(j.status==='error'){clearInterval(t);onErr(j.message)}
     }catch(e){clearInterval(t);onErr(e.message)}
@@ -1288,8 +1269,8 @@ function closeMobileSidebar(){
 }
 
 async function logout(){
-  try{ await fetch('/logout',{method:'POST'}); }catch(e){}
-  window.location.href='/login';
+  try{ await fetch('{{ URL_PREFIX }}/logout',{method:'POST'}); }catch(e){}
+  window.location.href='{{ URL_PREFIX }}/login';
 }
 
 // ═══ USUARIOS (admin) ═══
@@ -1298,7 +1279,7 @@ async function usrLoad(){
   if(!tbl)return;
   tbl.innerHTML='<tr><td colspan="5" class="muted">Cargando…</td></tr>';
   try{
-    const d=await api('/api/usuarios');
+    const d=await api('{{ URL_PREFIX }}/api/usuarios');
     const us=d.usuarios||[];
     tbl.innerHTML=us.map(u=>`
       <tr>
@@ -1317,7 +1298,7 @@ async function usrCreate(){
   const isAdmin=$('usr-new-isadmin').value==='true';
   if(!username||!password){showModal('Campos requeridos','<p>Ingresa usuario y contraseña.</p>');return;}
   try{
-    await api('/api/usuarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,is_admin:isAdmin})});
+    await api('{{ URL_PREFIX }}/api/usuarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,is_admin:isAdmin})});
     $('usr-new-username').value='';$('usr-new-password').value='';
     usrLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
@@ -1329,7 +1310,7 @@ function usrDelete(id,username){
 }
 async function usrDeleteConfirmed(id){
   try{
-    await api('/api/usuarios/'+id,{method:'DELETE'});
+    await api('{{ URL_PREFIX }}/api/usuarios/'+id,{method:'DELETE'});
     usrLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
@@ -1340,7 +1321,7 @@ async function rdLoad(){
   if(!tbl)return;
   tbl.innerHTML='<tr><td colspan="5" class="muted">Cargando…</td></tr>';
   try{
-    const d=await api('/api/rds');
+    const d=await api('{{ URL_PREFIX }}/api/rds');
     const list=d.rds||[];
     $('rd-count').textContent=list.length;
     tbl.innerHTML=list.map(r=>`
@@ -1363,7 +1344,7 @@ async function rdCreate(){
   const courseid=$('rd-new-courseid').value;
   if(!nombre||!courseid){showModal('Campos requeridos','<p>Ingresa nombre y course ID.</p>');return;}
   try{
-    await api('/api/rds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    await api('{{ URL_PREFIX }}/api/rds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       nombre, moodle_courseid:parseInt(courseid), moodle_course_url:$('rd-new-url').value.trim()||null,
     })});
     $('rd-new-nombre').value='';$('rd-new-courseid').value='';$('rd-new-url').value='';
@@ -1373,23 +1354,30 @@ async function rdCreate(){
 
 async function rdEdit(id){
   try{
-    const rd=await api('/api/rds/'+id);
+    const rd=await api('{{ URL_PREFIX }}/api/rds/'+id);
     const hasReal=(rd.colecciones||[]).some(c=>c.qdrant_collection_name);
     let embeddingBlock;
     if(hasReal){
       embeddingBlock=`<div class="fg"><label class="fl">Embedding maestro</label>
-        <div class="fh">${esc(rd.dense_strategy||'valor por defecto del sistema')} / ${esc(rd.sparse_strategy||'valor por defecto del sistema')} — no se puede cambiar: esta RD ya tiene colecciones reales creadas.</div>
+        <div class="fh">${esc(rd.dense_strategy||'valor por defecto del sistema')} / ${esc(rd.sparse_strategy||'valor por defecto del sistema')}, distancia ${esc(rd.distance||'Cosine')} — no se puede cambiar: esta RD ya tiene colecciones reales creadas.</div>
       </div>`;
     }else{
       embeddingBlock=`<div class="fg"><label class="fl">Embedding denso</label>
           <select class="fc" id="rd-edit-dense"><option value="">Cargando…</option></select>
-          <div class="fh">Se puede fijar aquí, o se fija automáticamente al crear la primera colección de esta RD.</div>
+          <div class="fh">Se puede fijar aquí, o se fija automáticamente al crear la primera colección (padre) de esta RD.</div>
         </div>
         <div class="fg"><label class="fl">Embedding disperso</label>
           <select class="fc" id="rd-edit-sparse">
             <option value="" ${!rd.sparse_strategy?'selected':''}>Valor por defecto del sistema</option>
             <option value="bm25" ${rd.sparse_strategy==='bm25'?'selected':''}>bm25</option>
             <option value="bge_m3" ${rd.sparse_strategy==='bge_m3'?'selected':''}>bge_m3</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Métrica de distancia</label>
+          <select class="fc" id="rd-edit-distance" style="max-width:200px">
+            <option value="Cosine" ${(!rd.distance||rd.distance==='Cosine')?'selected':''}>Cosine</option>
+            <option value="Euclid" ${rd.distance==='Euclid'?'selected':''}>Euclid</option>
+            <option value="Dot" ${rd.distance==='Dot'?'selected':''}>Dot</option>
           </select>
         </div>`;
     }
@@ -1405,7 +1393,7 @@ async function rdEdit(id){
     `);
     if(!hasReal){
       try{
-        const d=await api('/api/config/dense');
+        const d=await api('{{ URL_PREFIX }}/api/config/dense');
         $('rd-edit-dense').innerHTML='<option value="">Valor por defecto del sistema</option>'+(d.options||[]).map(o=>`<option value="${esc(o.name)}" ${o.name===rd.dense_strategy?'selected':''}>${esc(o.name)}</option>`).join('');
       }catch(e){$('rd-edit-dense').innerHTML='<option value="">Error al cargar</option>'}
     }
@@ -1416,14 +1404,13 @@ async function rdEdit(id){
 // cursos, crear colección inline para uno que todavía no tiene ──
 async function rdCourses(rdId){
   try{
-    const rd=await api('/api/rds/'+rdId);
+    const rd=await api('{{ URL_PREFIX }}/api/rds/'+rdId);
     showModal(`Cursos de "${esc(rd.nombre)}"`, rdCoursesHTML(rd));
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
-function rdCoursesHTML(rd){
-  const rows=(rd.colecciones||[]).map(c=>`
-    <div class="di">
+function rdCourseDi(rd,c){
+  return `<div class="di">
       <div class="di-info">
         <div class="di-name">Curso ${c.moodle_courseid}${c.qdrant_collection_name?` → ${esc(c.qdrant_collection_name)}`:''}</div>
         <div class="di-meta">${c.qdrant_collection_name?'Colección asignada':'Sin colección todavía'}</div>
@@ -1432,9 +1419,31 @@ function rdCoursesHTML(rd){
         ?`<button class="btn btn-ghost btn-sm" onclick='closeModal();qLoadCols();showMod("qdrant-cols")'>Ver en Colecciones</button>`
         :`<button class="btn btn-prim btn-sm" onclick='rdCourseCreateCol(${rd.id},${c.moodle_courseid})'>Crear colección</button>
           <button class="btn btn-danger btn-sm" onclick='rdCourseRemove(${c.id},${rd.id})'>Quitar</button>`}
-    </div>`).join('')||'<p class="muted">Sin cursos registrados</p>';
+    </div>`;
+}
+
+function rdCoursesHTML(rd){
+  const cols=rd.colecciones||[];
+  // La "padre" es, por construcción, la colección cuyo courseid es el
+  // courseid original de la RD (así se autocompleta siempre al crearla —
+  // ver qCreateOnRdChange/asisCfgCreateColeccion) — es la única forma
+  // confiable de identificarla sin guardar un flag aparte.
+  const padre=cols.find(c=>c.moodle_courseid===rd.moodle_courseid&&c.qdrant_collection_name);
+  const hijas=cols.filter(c=>c.qdrant_collection_name&&c!==padre);
+  const sinColeccion=cols.filter(c=>!c.qdrant_collection_name);
+
+  const padreBlock=padre
+    ?`<div class="card-ttl">🔑 Colección padre</div><div class="dl">${rdCourseDi(rd,padre)}</div>`
+    :`<div class="alert a-warn mt8">Esta RD todavía no tiene colección padre — la primera colección que crees (con el Course ID original, ${rd.moodle_courseid}) la fija.</div>`;
+  const hijasBlock=hijas.length
+    ?`<div class="card-ttl mt16">🔗 Colecciones hijas (${hijas.length})</div><div class="dl">${hijas.map(c=>rdCourseDi(rd,c)).join('')}</div>`
+    :'';
+  const sinColeccionBlock=sinColeccion.length
+    ?`<div class="card-ttl mt16">Cursos sin colección (${sinColeccion.length})</div><div class="dl">${sinColeccion.map(c=>rdCourseDi(rd,c)).join('')}</div>`
+    :'';
+
   return `
-    <div class="dl">${rows}</div>
+    ${padreBlock}${hijasBlock}${sinColeccionBlock}
     <div class="fb mt16" style="align-items:end;gap:10px">
       <div class="fg" style="flex:1;margin:0"><label class="fl">Agregar otro curso (Course ID de Moodle)</label><input class="fc" type="number" id="rd-course-new"></div>
       <button class="btn btn-prim btn-sm" onclick='rdCourseAdd(${rd.id})'>Agregar</button>
@@ -1445,14 +1454,14 @@ async function rdCourseAdd(rdId){
   const courseid=$('rd-course-new').value;
   if(!courseid){showModal('Campo requerido','<p>Ingresa un Course ID.</p>');return;}
   try{
-    await api(`/api/rds/${rdId}/courseids`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({moodle_courseid:parseInt(courseid)})});
+    await api(`{{ URL_PREFIX }}/api/rds/${rdId}/courseids`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({moodle_courseid:parseInt(courseid)})});
     rdCourses(rdId);rdLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
 async function rdCourseRemove(entryId,rdId){
   try{
-    await api('/api/rds/courseids/'+entryId,{method:'DELETE'});
+    await api('{{ URL_PREFIX }}/api/rds/courseids/'+entryId,{method:'DELETE'});
     rdCourses(rdId);rdLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
@@ -1460,17 +1469,14 @@ async function rdCourseRemove(entryId,rdId){
 let RDCC_RD=null;
 
 async function rdCourseCreateCol(rdId,courseid){
-  try{ RDCC_RD=await api('/api/rds/'+rdId); }catch(e){ RDCC_RD=null; }
+  try{ RDCC_RD=await api('{{ URL_PREFIX }}/api/rds/'+rdId); }catch(e){ RDCC_RD=null; }
   showModal('Crear colección',`
     <div class="fg"><label class="fl">Nombre <span class="req">*</span></label><input class="fc" id="rdcc-name" placeholder="Ej: Curso_${courseid}"></div>
+    <div class="fg"><label class="fl">Descripción</label><textarea class="fc" id="rdcc-desc" rows="2"></textarea></div>
     ${qEmbeddingFieldHTML('rdcc',RDCC_RD)}
-    <div class="fg"><label class="fl">Métrica de distancia</label>
-      <select class="fc" id="rdcc-distance" style="max-width:200px">
-        <option value="Cosine">Cosine</option><option value="Euclid">Euclid</option><option value="Dot">Dot</option>
-      </select>
-    </div>
-    <p class="muted">RD: #${rdId} · Course ID: ${courseid}</p>
-    <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick='rdCourseCreateColConfirm(${rdId},${courseid})'>Crear</button></div>
+    <div class="fg"><label class="fl">Métrica de distancia</label>${qDistanceFieldHTML('rdcc',RDCC_RD)}</div>
+    <p class="muted">${RDCC_RD&&RDCC_RD.dense_strategy?'Tipo: <b>hija</b>':'Tipo: <b>padre</b>'} de "${esc(RDCC_RD?RDCC_RD.nombre:'')}" · Course ID: ${courseid}</p>
+    <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" id="rdcc-confirm-btn" onclick='rdCourseCreateColConfirm(${rdId},${courseid})'>Crear</button></div>
   `);
   if(!RDCC_RD||!RDCC_RD.dense_strategy)qEmbeddingFieldLoadOptions('rdcc');
 }
@@ -1480,18 +1486,25 @@ async function rdCourseCreateColConfirm(rdId,courseid){
   if(!name){showModal('Campo requerido','<p>Ingresa un nombre para la colección.</p>');return;}
   const denseStrategy=qEmbeddingFieldValue('rdcc',RDCC_RD);
   if(!(RDCC_RD&&RDCC_RD.dense_strategy)&&!denseStrategy){
-    showModal('Campo requerido','<p>Selecciona un embedding denso — es la primera colección de esta RD.</p>');
+    showModal('Campo requerido','<p>Selecciona un embedding denso.</p>');
     return;
   }
+  const btnEl=$('rdcc-confirm-btn');
+  if(btnEl){btnEl.disabled=true;btnEl.textContent='Creando…';}
   try{
-    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      name, vector_schema:'hybrid',
+    await api('{{ URL_PREFIX }}/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name,
+      description:$('rdcc-desc').value.trim()||null,
+      vector_schema:'hybrid',
       dense_strategy:denseStrategy,
-      distance:$('rdcc-distance').value,
+      sparse_strategy:qSparseFieldValue('rdcc',RDCC_RD),
+      distance:qDistanceFieldValue('rdcc',RDCC_RD),
       rd_id:rdId, moodle_courseid:courseid,
     })});
     closeModal();rdLoad();loadCols();
-  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
+  }catch(e){
+    showModal('Error',`<p>${esc(e.message)}</p>`);
+  }
 }
 
 async function rdEditSave(id,hasReal){
@@ -1503,9 +1516,10 @@ async function rdEditSave(id,hasReal){
   if(!hasReal){
     body.dense_strategy=$('rd-edit-dense').value||null;
     body.sparse_strategy=$('rd-edit-sparse').value||null;
+    body.distance=$('rd-edit-distance').value||null;
   }
   try{
-    await api('/api/rds/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    await api('{{ URL_PREFIX }}/api/rds/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     closeModal();
     rdLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
@@ -1519,7 +1533,7 @@ function rdDelete(id,nombre,totalColecciones,totalAsistentes){
 }
 async function rdDeleteConfirmed(id){
   try{
-    await api('/api/rds/'+id,{method:'DELETE'});
+    await api('{{ URL_PREFIX }}/api/rds/'+id,{method:'DELETE'});
     rdLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
@@ -1555,11 +1569,12 @@ function asisCfgGroupsHTML(idPrefix,rd,returnFn){
       let embeddingContent;
       if(rd&&rd.dense_strategy){
         embeddingContent=`<div class="dl mt8">
-          <div class="di"><div class="di-info"><div class="di-name">Colección madre</div><div class="di-meta">${esc(rd.dense_strategy)} / ${esc(rd.sparse_strategy||'bm25')}</div></div></div>
-        </div>`;
+          <div class="di"><div class="di-info"><div class="di-name">🔑 Colección padre</div><div class="di-meta">${esc(rd.dense_strategy)} / ${esc(rd.sparse_strategy||'bm25')}, distancia ${esc(rd.distance||'Cosine')}</div></div></div>
+        </div>
+        <button class="btn btn-ghost btn-sm mt8" onclick='asisCfgCreateColeccion(${rd.id},${JSON.stringify(returnFn)})'>+ Crear colección hija (otro curso de esta RD)</button>`;
       }else if(rd){
-        embeddingContent=`<div class="alert a-warn mt8">Esta RD todavía no tiene una colección madre.</div>
-          <button class="btn btn-prim btn-sm mt8" onclick='asisCfgCreateMadre(${rd.id},${JSON.stringify(returnFn)})'>Crear colección madre</button>`;
+        embeddingContent=`<div class="alert a-warn mt8">Esta RD todavía no tiene una colección padre.</div>
+          <button class="btn btn-prim btn-sm mt8" onclick='asisCfgCreateColeccion(${rd.id},${JSON.stringify(returnFn)})'>Crear colección padre</button>`;
       }else{
         embeddingContent=`<div class="fh">Selecciona una RD en el paso 1 primero.</div>`;
       }
@@ -1573,41 +1588,57 @@ function asisCfgGroupsHTML(idPrefix,rd,returnFn){
   }).join('');
 }
 
-// Crea la "colección madre" de una RD (su primera colección real) usando
-// el courseid original de la RD — no requiere haber elegido un curso
-// todavía. `returnFn`: nombre de la función global que reabre el modal
-// (wizard o edición) desde el que se llamó, para volver ahí al terminar.
-async function asisCfgCreateMadre(rdId,returnFn){
-  showModal('Crear colección madre',`
+// Crea una colección para una RD desde el wizard/edición de asistente: si
+// la RD todavía no tiene embedding maestro, es la "padre" (usa el courseid
+// original de la RD, no hace falta haber elegido un curso todavía); si ya
+// lo tiene, es una "hija" (el Course ID se ingresa a mano). `returnFn`:
+// nombre de la función global que reabre el modal (wizard o edición) desde
+// el que se llamó, para volver ahí al terminar.
+let ASIS_CFG_COLL_RD=null;
+
+async function asisCfgCreateColeccion(rdId,returnFn){
+  try{ ASIS_CFG_COLL_RD=await api('{{ URL_PREFIX }}/api/rds/'+rdId); }catch(e){ ASIS_CFG_COLL_RD=null; return; }
+  const esHija=!!ASIS_CFG_COLL_RD.dense_strategy;
+  const courseIdField=esHija
+    ?`<div class="fg"><label class="fl">Course ID de Moodle <span class="req">*</span></label><input class="fc" type="number" id="madre-courseid" placeholder="Ej: 1400"></div>`
+    :`<div class="fg"><label class="fl">Course ID de Moodle</label><input class="fc" type="number" id="madre-courseid" value="${ASIS_CFG_COLL_RD.moodle_courseid}" readonly style="background:var(--neutral-100)"><div class="fh">Autocompletado: el curso original de esta RD.</div></div>`;
+  showModal(esHija?'Crear colección hija':'Crear colección padre',`
     <div class="fg"><label class="fl">Nombre <span class="req">*</span></label><input class="fc" id="madre-name" placeholder="Ej: Curso_..."></div>
-    ${qEmbeddingFieldHTML('madre',null)}
-    <div class="fg"><label class="fl">Métrica de distancia</label>
-      <select class="fc" id="madre-distance" style="max-width:200px"><option value="Cosine">Cosine</option><option value="Euclid">Euclid</option><option value="Dot">Dot</option></select>
-    </div>
+    <div class="fg"><label class="fl">Descripción</label><textarea class="fc" id="madre-desc" rows="2"></textarea></div>
+    ${courseIdField}
+    ${qEmbeddingFieldHTML('madre',ASIS_CFG_COLL_RD)}
+    <div class="fg"><label class="fl">Métrica de distancia</label>${qDistanceFieldHTML('madre',ASIS_CFG_COLL_RD)}</div>
     <div class="modal-foot" style="margin-top:14px">
       <button class="btn btn-ghost btn-sm" onclick='${returnFn}()'>Cancelar</button>
-      <button class="btn btn-prim btn-sm" id="madre-confirm-btn" onclick='asisCfgCreateMadreConfirm(${rdId},${JSON.stringify(returnFn)})'>Crear</button>
+      <button class="btn btn-prim btn-sm" id="madre-confirm-btn" onclick='asisCfgCreateColeccionConfirm(${rdId},${JSON.stringify(returnFn)})'>Crear</button>
     </div>
   `);
-  qEmbeddingFieldLoadOptions('madre');
+  if(!esHija)qEmbeddingFieldLoadOptions('madre');
 }
 
-async function asisCfgCreateMadreConfirm(rdId,returnFn){
+async function asisCfgCreateColeccionConfirm(rdId,returnFn){
   const name=$('madre-name').value.trim();
   if(!name){showModal('Campo requerido','<p>Ingresa un nombre para la colección.</p>');return;}
-  const denseStrategy=qEmbeddingFieldValue('madre',null);
-  if(!denseStrategy){showModal('Campo requerido','<p>Selecciona un embedding denso.</p>');return;}
+  const courseId=$('madre-courseid').value;
+  if(!courseId){showModal('Campo requerido','<p>Ingresa un Course ID de Moodle.</p>');return;}
+  const denseStrategy=qEmbeddingFieldValue('madre',ASIS_CFG_COLL_RD);
+  if(!(ASIS_CFG_COLL_RD&&ASIS_CFG_COLL_RD.dense_strategy)&&!denseStrategy){
+    showModal('Campo requerido','<p>Selecciona un embedding denso.</p>');
+    return;
+  }
   const btnEl=$('madre-confirm-btn');
   if(btnEl){btnEl.disabled=true;btnEl.textContent='Creando…';}
   try{
-    const rd=await api('/api/rds/'+rdId);
-    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      name, vector_schema:'hybrid',
+    await api('{{ URL_PREFIX }}/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name,
+      description:$('madre-desc').value.trim()||null,
+      vector_schema:'hybrid',
       dense_strategy:denseStrategy,
-      distance:$('madre-distance').value,
-      rd_id:rdId, moodle_courseid:rd.moodle_courseid,
+      sparse_strategy:qSparseFieldValue('madre',ASIS_CFG_COLL_RD),
+      distance:qDistanceFieldValue('madre',ASIS_CFG_COLL_RD),
+      rd_id:rdId, moodle_courseid:parseInt(courseId),
     })});
-    const updatedRd=await api('/api/rds/'+rdId);
+    const updatedRd=await api('{{ URL_PREFIX }}/api/rds/'+rdId);
     if(typeof ASIS_WIZ!=='undefined'&&ASIS_WIZ){const i=ASIS_WIZ.rds.findIndex(r=>r.id===rdId);if(i>=0)ASIS_WIZ.rds[i]=updatedRd;}
     if(typeof ASIS_EDIT!=='undefined'&&ASIS_EDIT){const i=ASIS_EDIT.rds.findIndex(r=>r.id===rdId);if(i>=0)ASIS_EDIT.rds[i]=updatedRd;}
     window[returnFn]();
@@ -1619,9 +1650,9 @@ async function asisCfgCreateMadreConfirm(rdId,returnFn){
 async function asisLoad(){
   const tbl=$('asis-tbl');
   if(!tbl)return;
-  tbl.innerHTML='<tr><td colspan="5" class="muted">Cargando…</td></tr>';
+  tbl.innerHTML='<tr><td colspan="6" class="muted">Cargando…</td></tr>';
   try{
-    const d=await api('/api/asistentes');
+    const d=await api('{{ URL_PREFIX }}/api/asistentes');
     const list=d.asistentes||[];
     tbl.innerHTML=list.map(a=>`
       <tr>
@@ -1629,12 +1660,21 @@ async function asisLoad(){
         <td>${esc(a.rd_nombre||'—')}</td>
         <td>${a.activo?'<span class="tag t-new">Activo</span>':'<span class="tag t-warn">Inactivo</span>'}</td>
         <td><a href="${esc(a.public_url)}" target="_blank" style="font-family:monospace;font-size:11px">${esc(a.public_url)}</a></td>
+        <td>${fmtCalificacion(a.calificacion_promedio, a.calificaciones_total)}</td>
         <td>
           <button class="btn btn-ghost btn-sm" onclick="asisEditOpen(${a.id})">Editar</button>
           <button class="btn btn-danger btn-sm" onclick='asisDelete(${a.id},${JSON.stringify(a.nombre)})'>Eliminar</button>
         </td>
-      </tr>`).join('')||'<tr><td colspan="5" class="muted">Sin asistentes creados</td></tr>';
-  }catch(e){tbl.innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`}
+      </tr>`).join('')||'<tr><td colspan="6" class="muted">Sin asistentes creados</td></tr>';
+  }catch(e){tbl.innerHTML=`<tr><td colspan="6" class="muted">${esc(e.message)}</td></tr>`}
+}
+
+// Promedio de calificación (-1..1) de los alumnos -> "Sin calificaciones" si
+// nunca hubo votos, o un porcentaje "útil" (mapeando -1..1 a 0-100%) + conteo.
+function fmtCalificacion(promedio, total){
+  if(!total) return '<span class="muted">Sin calificaciones</span>';
+  const pct = Math.round(((Number(promedio) + 1) / 2) * 100);
+  return `👍 ${pct}% <span class="muted">(${total})</span>`;
 }
 
 // ── Wizard de creación (5 fases, marcadas conforme se completan) ──
@@ -1642,9 +1682,14 @@ const ASIS_WIZ_STEPS=['Datos básicos','Configuración RAG','Curso','Prompt maes
 let ASIS_WIZ=null;
 
 async function asisWizardOpen(){
-  ASIS_WIZ={step:1,maxStep:1,nombre:'',rd_id:null,rds:[],courseid:null,courseName:null,promptMaestro:'',mensajeBienvenida:'',cfg:{}};
+  ASIS_WIZ={
+    step:1,maxStep:1,nombre:'',token:null,tipo:'rd',rd_id:null,rds:[],
+    normalCourseId:null,normalCourseName:null,normalCollection:null,
+    promptMaestro:'',mensajeBienvenida:'',mensajeReencuentro:'',maxActividades:10,
+    cfg:{},
+  };
   showModalWide('Crear asistente','<div id="wiz-body"><p class="muted">Cargando…</p></div>');
-  try{ const d=await api('/api/rds'); ASIS_WIZ.rds=d.rds||[]; }catch(e){}
+  try{ const d=await api('{{ URL_PREFIX }}/api/rds'); ASIS_WIZ.rds=d.rds||[]; }catch(e){}
   asisWizardRender();
 }
 
@@ -1680,7 +1725,10 @@ function asisWizardRender(){
       ${ASIS_WIZ.step<5?`<button class="btn btn-prim btn-sm" onclick="asisWizardNext()">Siguiente →</button>`:`<button class="btn btn-prim btn-sm" onclick="asisWizardSubmit()">Crear asistente</button>`}
     </div>`;
 
-  if(ASIS_WIZ.step===2)ASIS_STAGE_DEFS.forEach(s=>asisWizRenderStage(s));
+  if(ASIS_WIZ.step===2){
+    if(ASIS_WIZ.tipo==='normal')asisWizRenderNormalDefaults();
+    else ASIS_STAGE_DEFS.forEach(s=>asisWizRenderStage(s));
+  }
   if(ASIS_WIZ.step===3)asisWizInitStep3();
 }
 
@@ -1691,49 +1739,110 @@ function asisWizError(msg){
 
 function asisWizStep1HTML(){
   return `
-    <div class="fg"><label class="fl">Nombre del asistente</label><input class="fc" id="wiz-nombre" value="${esc(ASIS_WIZ.nombre)}" placeholder="Ej: Tutor de Introducción al Derecho"></div>
-    <div class="fg"><label class="fl">RD (aula)</label>
-      <select class="fc" id="wiz-rd">
-        <option value="">— Selecciona —</option>
-        ${ASIS_WIZ.rds.map(r=>`<option value="${r.id}" ${r.id===ASIS_WIZ.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}
-      </select>
-    </div>`;
+    <div class="fg"><label class="fl">Nombre del tutor <span class="req">*</span></label><input class="fc" id="wiz-nombre" value="${esc(ASIS_WIZ.nombre)}" placeholder="Ej: IdanIA"></div>
+    <div class="fg"><label class="fl">Token de acceso público (opcional)</label>
+      <input class="fc" id="wiz-token" value="${esc(ASIS_WIZ.token||'')}" placeholder="Dejar vacío para generar uno automático">
+      <div class="fh">Es la parte de la URL pública (/asistente/&lt;token&gt;) — si lo dejás vacío se genera uno al azar.</div>
+    </div>
+    <div class="fg"><label class="fl">Tipo de asistente <span class="req">*</span></label>
+      <div class="srcs">
+        <div class="src ${ASIS_WIZ.tipo==='rd'?'selected':''}" id="wiz-tipo-rd" onclick="asisWizSelectTipo('rd')">
+          <span class="src-icon">🏫</span><span class="src-name">Con RD</span><span class="src-desc">Hereda la configuración de una RD — responde para cualquier curso que la RD tenga registrado.</span>
+        </div>
+        <div class="src ${ASIS_WIZ.tipo==='normal'?'selected':''}" id="wiz-tipo-normal" onclick="asisWizSelectTipo('normal')">
+          <span class="src-icon">📦</span><span class="src-name">Normal</span><span class="src-desc">Independiente, un solo curso — usa los valores por defecto del sistema.</span>
+        </div>
+      </div>
+    </div>
+    <div id="wiz-tipo-body">${asisWizTipoBodyHTML()}</div>`;
+}
+
+function asisWizTipoBodyHTML(){
+  if(ASIS_WIZ.tipo==='normal')return '<div class="fh">El curso (Course ID) se pide más adelante, en el paso "Curso".</div>';
+  return `<div class="fg"><label class="fl">RD (aula) <span class="req">*</span></label>
+    <select class="fc" id="wiz-rd">
+      <option value="">— Selecciona —</option>
+      ${ASIS_WIZ.rds.map(r=>`<option value="${r.id}" ${r.id===ASIS_WIZ.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}
+    </select>
+  </div>`;
+}
+
+function asisWizSelectTipo(tipo){
+  ASIS_WIZ.tipo=tipo;
+  $('wiz-tipo-rd').classList.toggle('selected',tipo==='rd');
+  $('wiz-tipo-normal').classList.toggle('selected',tipo==='normal');
+  $('wiz-tipo-body').innerHTML=asisWizTipoBodyHTML();
 }
 
 function asisWizStep2HTML(){
+  if(ASIS_WIZ.tipo==='normal'){
+    return `<div class="alert a-info">📦 Asistente <b>normal</b>: usa siempre los valores por defecto del sistema en todas las etapas (no hay RD de la que heredar ni elegir aquí).</div>
+      <div class="card mt16"><div class="card-ttl">Configuración (solo lectura)</div>
+        <div class="dl" id="wiz-normal-cfg-list"><p class="muted">Cargando…</p></div>
+      </div>`;
+  }
   const rd=ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id);
   return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
     asisCfgGroupsHTML('wiz',rd,'asisWizardReopen');
 }
 
+async function asisWizRenderNormalDefaults(){
+  const box=$('wiz-normal-cfg-list');
+  if(!box)return;
+  try{
+    const stages=['etl_document','etl_audio','contextual','dense','sparse','rerank','generation'];
+    const results=await Promise.all(stages.map(s=>api('{{ URL_PREFIX }}/api/config/'+s).catch(()=>({current:'—'}))));
+    box.innerHTML=results.map((d,i)=>`<div class="di"><div class="di-info"><div class="di-name">${esc(stages[i])}</div><div class="di-meta">${esc(d.current||'—')}</div></div></div>`).join('');
+  }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
+}
+
 function asisWizStep3HTML(){
+  if(ASIS_WIZ.tipo==='normal'){
+    return `<div class="fg"><label class="fl">Course ID de Moodle <span class="req">*</span></label>
+        <div style="display:flex;gap:8px">
+          <input class="fc" type="number" id="wiz-normal-courseid" value="${ASIS_WIZ.normalCourseId||''}" placeholder="Ej: 1396">
+          <button class="btn btn-out btn-sm" style="white-space:nowrap" id="wiz-normal-btn" onclick="asisWizSetNormalCourse()">Buscar</button>
+        </div>
+        <div class="fh">Este asistente "normal" responde solo para este curso. Si no existe todavía una colección para él, se crea acá mismo con los valores por defecto del sistema.</div>
+      </div>
+      <div id="wiz-normal-status" class="fh"></div>`;
+  }
   return `<div id="wiz-courses-list"><p class="muted">Cargando…</p></div>
-    <div class="card-ttl mt16">Agregar un curso</div>
+    <div class="card-ttl mt16">Agregar un curso (crea su colección hija automáticamente)</div>
     <div class="fg"><label class="fl">Course ID (Moodle)</label>
       <div style="display:flex;gap:8px">
         <input class="fc" type="number" id="wiz-courseid" placeholder="Ej: 1396">
-        <button class="btn btn-out btn-sm" style="white-space:nowrap" id="wiz-addcourse-btn" onclick="asisWizAddCourse()">Buscar y agregar</button>
+        <button class="btn btn-out btn-sm" style="white-space:nowrap" id="wiz-addcourse-btn" onclick="asisWizAddCourse()">Buscar y crear</button>
       </div>
     </div>
     <div id="wiz-course-status" class="fh"></div>`;
 }
 
 async function asisWizInitStep3(){
+  if(ASIS_WIZ.tipo==='normal')return;
   const box=$('wiz-courses-list');
   if(!box)return;
   try{
-    const rd=await api('/api/rds/'+ASIS_WIZ.rd_id);
-    const cursos=rd.colecciones||[];
-    if(!cursos.length){
-      box.innerHTML=`<p class="muted">Esta RD todavía no tiene cursos registrados — puedes continuar de todas formas y agregar uno cuando quieras, aquí abajo o desde "Gestión RD → Cursos".</p>`;
-      return;
-    }
-    box.innerHTML=`<div class="dl">${cursos.map(c=>`
-      <div class="di"><div class="di-info">
-        <div class="di-name">Curso ${c.moodle_courseid}${c.qdrant_collection_name?` → ${esc(c.qdrant_collection_name)}`:''}</div>
-        <div class="di-meta">${c.qdrant_collection_name?'Colección asignada':'Sin colección todavía'}</div>
-      </div></div>`).join('')}</div>`;
+    const rd=await api('{{ URL_PREFIX }}/api/rds/'+ASIS_WIZ.rd_id);
+    const cols=rd.colecciones||[];
+    const padre=cols.find(c=>c.moodle_courseid===rd.moodle_courseid&&c.qdrant_collection_name);
+    const hijas=cols.filter(c=>c.qdrant_collection_name&&c!==padre);
+    const sinCol=cols.filter(c=>!c.qdrant_collection_name);
+    let html='';
+    html+=padre
+      ?`<div class="card-ttl">🔑 Colección padre</div><div class="dl">${rdCourseDiSimple(padre)}</div>`
+      :`<div class="alert a-warn">Esta RD todavía no tiene colección padre — la de "Configuración RAG" (paso anterior) muestra cómo crearla desde Gestión RD.</div>`;
+    if(hijas.length)html+=`<div class="card-ttl mt16">🔗 Colecciones hijas (${hijas.length})</div><div class="dl">${hijas.map(rdCourseDiSimple).join('')}</div>`;
+    if(sinCol.length)html+=`<div class="card-ttl mt16">Cursos sin colección (${sinCol.length})</div><div class="dl">${sinCol.map(rdCourseDiSimple).join('')}</div>`;
+    box.innerHTML=html||'<p class="muted">Esta RD todavía no tiene cursos registrados — puedes continuar de todas formas y agregar uno abajo.</p>';
   }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
+}
+
+function rdCourseDiSimple(c){
+  return `<div class="di"><div class="di-info">
+      <div class="di-name">Curso ${c.moodle_courseid}${c.qdrant_collection_name?` → ${esc(c.qdrant_collection_name)}`:''}</div>
+      <div class="di-meta">${c.qdrant_collection_name?'Colección asignada':'Sin colección todavía'}</div>
+    </div></div>`;
 }
 
 async function asisWizAddCourse(){
@@ -1741,22 +1850,57 @@ async function asisWizAddCourse(){
   const status=$('wiz-course-status');
   const btnEl=$('wiz-addcourse-btn');
   if(!courseId){asisWizError('Ingresa un Course ID.');return;}
-  btnEl.disabled=true;
+  btnEl.disabled=true;btnEl.textContent='Creando…';
   status.innerHTML='<span class="muted">Consultando Moodle…</span>';
   try{
-    const d=await api('/api/moodle/curso/'+courseId);
-    try{
-      await api(`/api/rds/${ASIS_WIZ.rd_id}/courseids`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({moodle_courseid:parseInt(courseId)})});
-    }catch(e){
-      if(!/ya está registrado/i.test(e.message))throw e;
+    const d=await api('{{ URL_PREFIX }}/api/moodle/curso/'+courseId);
+    const rd=await api('{{ URL_PREFIX }}/api/rds/'+ASIS_WIZ.rd_id);
+    if(!rd.dense_strategy){
+      status.innerHTML=`<span style="color:var(--red-700)">Esta RD todavía no tiene colección padre — creala primero desde "Configuración RAG" o Gestión RD.</span>`;
+      return;
     }
-    status.innerHTML=`<span style="color:var(--green-700)">✓ ${esc(d.fullname)} agregado.</span>`;
+    // Hija: se crea con la config heredada de la RD, sin pedir nada más.
+    await api('{{ URL_PREFIX }}/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name:`Curso_${courseId}`, vector_schema:'hybrid', rd_id:ASIS_WIZ.rd_id, moodle_courseid:parseInt(courseId),
+    })});
+    status.innerHTML=`<span style="color:var(--green-700)">✓ ${esc(d.fullname)}: colección hija creada.</span>`;
     $('wiz-courseid').value='';
     asisWizInitStep3();
   }catch(e){
     status.innerHTML=`<span style="color:var(--red-700)">${esc(e.message)}</span>`;
   }finally{
-    btnEl.disabled=false;
+    btnEl.disabled=false;btnEl.textContent='Buscar y crear';
+  }
+}
+
+async function asisWizSetNormalCourse(){
+  const courseId=$('wiz-normal-courseid').value;
+  const status=$('wiz-normal-status');
+  const btnEl=$('wiz-normal-btn');
+  if(!courseId){asisWizError('Ingresa un Course ID.');return;}
+  btnEl.disabled=true;btnEl.textContent='Buscando…';
+  status.innerHTML='<span class="muted">Consultando Moodle…</span>';
+  try{
+    const d=await api('{{ URL_PREFIX }}/api/moodle/curso/'+courseId);
+    const existing=(await api('{{ URL_PREFIX }}/api/collections?detail=true')).collections||[];
+    let col=existing.find(c=>c.rd_id==null&&c.moodle_courseid===parseInt(courseId));
+    if(!col){
+      status.innerHTML='<span class="muted">No existe colección para este curso todavía — creándola con los valores por defecto…</span>';
+      const denseInfo=await api('{{ URL_PREFIX }}/api/config/dense');
+      const created=await api('{{ URL_PREFIX }}/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        name:`Curso_${courseId}`, vector_schema:'hybrid', dense_strategy:denseInfo.current,
+        rd_id:null, moodle_courseid:parseInt(courseId),
+      })});
+      col={name:created.collection_name};
+    }
+    ASIS_WIZ.normalCourseId=parseInt(courseId);
+    ASIS_WIZ.normalCourseName=d.fullname;
+    ASIS_WIZ.normalCollection=col.name;
+    status.innerHTML=`<span style="color:var(--green-700)">✓ ${esc(d.fullname)} — colección: ${esc(col.name)}.</span>`;
+  }catch(e){
+    status.innerHTML=`<span style="color:var(--red-700)">${esc(e.message)}</span>`;
+  }finally{
+    btnEl.disabled=false;btnEl.textContent='Buscar';
   }
 }
 
@@ -1764,7 +1908,7 @@ async function asisWizRenderStage(stageDef){
   const box=$('wiz-cfgbox-'+stageDef.stage);
   if(!box)return;
   try{
-    const d=await api('/api/config/'+stageDef.stage);
+    const d=await api('{{ URL_PREFIX }}/api/config/'+stageDef.stage);
     const selected=ASIS_WIZ.cfg[stageDef.stage];
     let cards=`<div class="src ${!selected?'selected':''}" style="flex:1 1 200px" onclick='asisWizCfgSelect(${JSON.stringify(stageDef.stage)},null)'>
       <span class="src-name">Usar valor por defecto del sistema</span><span class="src-desc">Actualmente: ${esc(d.current)}</span>
@@ -1791,58 +1935,86 @@ function asisWizStep4HTML(){
   <div class="fg"><label class="fl">Mensaje de bienvenida <span class="muted">— opcional</span></label>
     <textarea class="fc" id="wiz-saludo" rows="3" placeholder="Ej: soy IdanIA. Pregúntame lo que necesites sobre el curso.">${esc(ASIS_WIZ.mensajeBienvenida)}</textarea>
     <div class="fh">Se muestra al abrir el chat, después de "Hola [nombre del alumno], ". Déjalo vacío para usar el mensaje por defecto ("soy ${esc(ASIS_WIZ.nombre)}. Pregúntame lo que necesites sobre el curso.").</div>
+  </div>
+  <div class="fg"><label class="fl">Mensaje de reencuentro <span class="muted">— opcional</span></label>
+    <textarea class="fc" id="wiz-reencuentro" rows="3" placeholder="Ej: ¡qué bueno verte de nuevo! Seguimos donde lo dejamos.">${esc(ASIS_WIZ.mensajeReencuentro)}</textarea>
+    <div class="fh">Se muestra (no se guarda en el historial) cuando el alumno reabre una conversación que ya tenía preguntas — después de "Hola [nombre], ".</div>
+  </div>
+  <div class="fg"><label class="fl">Máximo de preguntas por conversación</label>
+    <input class="fc" type="number" id="wiz-max-act" value="${ASIS_WIZ.maxActividades}" min="1" style="max-width:140px">
+    <div class="fh">Al llegar al tope, el alumno debe iniciar una conversación nueva para seguir preguntando.</div>
   </div>`;
 }
 
 function asisWizStep5HTML(){
   const rd=ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id);
-  const cfgLines=ASIS_STAGE_DEFS.map(s=>`<div class="di"><div class="di-info"><div class="di-name">${esc(s.label)}</div><div class="di-meta">${ASIS_WIZ.cfg[s.stage]?esc(ASIS_WIZ.cfg[s.stage]):'Valor por defecto del sistema'}</div></div></div>`).join('');
+  const cfgLines=ASIS_WIZ.tipo==='normal'
+    ?'<p class="muted">Todas las etapas usan el valor por defecto del sistema.</p>'
+    :`<div class="dl">${ASIS_STAGE_DEFS.map(s=>`<div class="di"><div class="di-info"><div class="di-name">${esc(s.label)}</div><div class="di-meta">${ASIS_WIZ.cfg[s.stage]?esc(ASIS_WIZ.cfg[s.stage]):'Valor por defecto del sistema'}</div></div></div>`).join('')}</div>`;
   return `
     <div class="card">
       <div class="card-ttl">Resumen</div>
-      <p><b>Nombre:</b> ${esc(ASIS_WIZ.nombre)}</p>
-      <p class="mt8"><b>RD:</b> ${esc(rd?rd.nombre:'')}</p>
+      <p><b>Nombre del tutor:</b> ${esc(ASIS_WIZ.nombre)}</p>
+      <p class="mt8"><b>Tipo:</b> ${ASIS_WIZ.tipo==='normal'?'📦 Normal':'🏫 Con RD'}</p>
+      ${ASIS_WIZ.tipo==='rd'
+        ?`<p class="mt8"><b>RD:</b> ${esc(rd?rd.nombre:'')}</p>`
+        :`<p class="mt8"><b>Curso:</b> ${esc(ASIS_WIZ.normalCourseName||'')} (id ${ASIS_WIZ.normalCourseId}) → ${esc(ASIS_WIZ.normalCollection||'')}</p>`}
       <p class="mt8"><b>Prompt maestro:</b> ${ASIS_WIZ.promptMaestro?esc(ASIS_WIZ.promptMaestro):'<span class="muted">Ninguno</span>'}</p>
       <p class="mt8"><b>Mensaje de bienvenida:</b> ${ASIS_WIZ.mensajeBienvenida?esc(ASIS_WIZ.mensajeBienvenida):'<span class="muted">Por defecto</span>'}</p>
+      <p class="mt8"><b>Mensaje de reencuentro:</b> ${ASIS_WIZ.mensajeReencuentro?esc(ASIS_WIZ.mensajeReencuentro):'<span class="muted">Por defecto</span>'}</p>
+      <p class="mt8"><b>Máximo de preguntas por conversación:</b> ${ASIS_WIZ.maxActividades}</p>
     </div>
-    <div class="card"><div class="card-ttl">Configuración RAG</div><div class="dl">${cfgLines}</div>
-      <p class="muted mt8">3. Índexación y Búsqueda Híbrida: hereda la colección madre de la RD (no se elige aquí).</p>
+    <div class="card"><div class="card-ttl">Configuración RAG</div>${cfgLines}
+      ${ASIS_WIZ.tipo==='rd'?'<p class="muted mt8">3. Índexación y Búsqueda Híbrida: hereda la colección madre de la RD (no se elige aquí).</p>':''}
     </div>
-    <p class="muted">Este asistente responderá para cualquier courseid que la RD tenga registrado — agrega o quita cursos cuando quieras desde "Gestión RD → Cursos".</p>`;
+    <p class="muted">${ASIS_WIZ.tipo==='rd'
+      ?'Este asistente responderá para cualquier courseid que la RD tenga registrado — agrega o quita cursos cuando quieras desde "Gestión RD → Cursos".'
+      :'Este asistente responde solo para el curso elegido en el paso "Curso".'}</p>`;
+}
+
+function asisWizCaptureStep4(){
+  const p=$('wiz-prompt');if(p)ASIS_WIZ.promptMaestro=p.value.trim();
+  const s=$('wiz-saludo');if(s)ASIS_WIZ.mensajeBienvenida=s.value.trim();
+  const r=$('wiz-reencuentro');if(r)ASIS_WIZ.mensajeReencuentro=r.value.trim();
+  const m=$('wiz-max-act');if(m)ASIS_WIZ.maxActividades=parseInt(m.value)||10;
 }
 
 async function asisWizardNext(){
   if(ASIS_WIZ.step===1){
     const nombre=$('wiz-nombre').value.trim();
-    const rdId=$('wiz-rd').value;
-    if(!nombre||!rdId){asisWizError('Ingresa un nombre y selecciona una RD.');return;}
-    ASIS_WIZ.nombre=nombre;ASIS_WIZ.rd_id=parseInt(rdId);
+    if(!nombre){asisWizError('Ingresa el nombre del tutor.');return;}
+    ASIS_WIZ.nombre=nombre;
+    ASIS_WIZ.token=$('wiz-token').value.trim()||null;
+    if(ASIS_WIZ.tipo==='rd'){
+      const rdId=$('wiz-rd').value;
+      if(!rdId){asisWizError('Selecciona una RD.');return;}
+      ASIS_WIZ.rd_id=parseInt(rdId);
+    }else{
+      ASIS_WIZ.rd_id=null;
+    }
   }
-  if(ASIS_WIZ.step===4){
-    ASIS_WIZ.promptMaestro=$('wiz-prompt').value.trim();
-    ASIS_WIZ.mensajeBienvenida=$('wiz-saludo').value.trim();
+  if(ASIS_WIZ.step===3&&ASIS_WIZ.tipo==='normal'&&!ASIS_WIZ.normalCollection){
+    asisWizError('Buscá y confirmá un Course ID antes de continuar.');return;
   }
+  if(ASIS_WIZ.step===4)asisWizCaptureStep4();
   ASIS_WIZ.step++;
   if(ASIS_WIZ.step>ASIS_WIZ.maxStep)ASIS_WIZ.maxStep=ASIS_WIZ.step;
   asisWizardRender();
 }
 
 function asisWizardBack(){
-  if(ASIS_WIZ.step===4){
-    const p=$('wiz-prompt');if(p)ASIS_WIZ.promptMaestro=p.value.trim();
-    const s=$('wiz-saludo');if(s)ASIS_WIZ.mensajeBienvenida=s.value.trim();
-  }
+  if(ASIS_WIZ.step===4)asisWizCaptureStep4();
   ASIS_WIZ.step--;
   asisWizardRender();
 }
 
 function asisWizardGoto(n){
   if(n>ASIS_WIZ.maxStep||n===ASIS_WIZ.step)return;
-  if(ASIS_WIZ.step===1){const el=$('wiz-nombre');if(el)ASIS_WIZ.nombre=el.value.trim();}
-  if(ASIS_WIZ.step===4){
-    const p=$('wiz-prompt');if(p)ASIS_WIZ.promptMaestro=p.value.trim();
-    const s=$('wiz-saludo');if(s)ASIS_WIZ.mensajeBienvenida=s.value.trim();
+  if(ASIS_WIZ.step===1){
+    const el=$('wiz-nombre');if(el)ASIS_WIZ.nombre=el.value.trim();
+    const elTok=$('wiz-token');if(elTok)ASIS_WIZ.token=elTok.value.trim()||null;
   }
+  if(ASIS_WIZ.step===4)asisWizCaptureStep4();
   ASIS_WIZ.step=n;
   asisWizardRender();
 }
@@ -1851,14 +2023,20 @@ async function asisWizardSubmit(){
   const btnEl=document.querySelector('#wiz-body .modal-foot .btn-prim');
   if(btnEl){btnEl.disabled=true;btnEl.textContent='Creando…';}
   try{
-    const d=await api('/api/asistentes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      nombre:ASIS_WIZ.nombre, rd_id:ASIS_WIZ.rd_id, prompt_maestro:ASIS_WIZ.promptMaestro||null,
+    const d=await api('{{ URL_PREFIX }}/api/asistentes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      nombre:ASIS_WIZ.nombre,
+      token:ASIS_WIZ.token||null,
+      rd_id:ASIS_WIZ.tipo==='rd'?ASIS_WIZ.rd_id:null,
+      moodle_courseid:ASIS_WIZ.tipo==='normal'?ASIS_WIZ.normalCourseId:null,
+      prompt_maestro:ASIS_WIZ.promptMaestro||null,
       mensaje_bienvenida:ASIS_WIZ.mensajeBienvenida||null,
-      etl_document_strategy:ASIS_WIZ.cfg.etl_document||null,
-      etl_audio_strategy:ASIS_WIZ.cfg.etl_audio||null,
-      contextual_strategy:ASIS_WIZ.cfg.contextual||null,
-      rerank_strategy:ASIS_WIZ.cfg.rerank||null,
-      generation_strategy:ASIS_WIZ.cfg.generation||null,
+      mensaje_reencuentro:ASIS_WIZ.mensajeReencuentro||null,
+      max_actividades_sesion:ASIS_WIZ.maxActividades||10,
+      etl_document_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.etl_document||null):null,
+      etl_audio_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.etl_audio||null):null,
+      contextual_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.contextual||null):null,
+      rerank_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.rerank||null):null,
+      generation_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.generation||null):null,
     })});
     const nombre=ASIS_WIZ.nombre;
     ASIS_WIZ=null;
@@ -1876,8 +2054,8 @@ let ASIS_EDIT=null;
 
 async function asisEditOpen(id){
   try{
-    const a=await api('/api/asistentes/'+id);
-    const rdOpts=await api('/api/rds');
+    const a=await api('{{ URL_PREFIX }}/api/asistentes/'+id);
+    const rdOpts=await api('{{ URL_PREFIX }}/api/rds');
     ASIS_EDIT={
       id, tab:'general', data:a, rds:rdOpts.rds||[],
       cfg:{
@@ -1904,10 +2082,13 @@ function asisEditCapture(){
     const n=$('edit-nombre'); if(n)ASIS_EDIT.data.nombre=n.value.trim();
     const r=$('edit-rd'); if(r)ASIS_EDIT.data.rd_id=parseInt(r.value);
     const act=$('edit-activo'); if(act)ASIS_EDIT.data.activo=act.value==='true';
+    const tok=$('edit-token'); if(tok)ASIS_EDIT.data.token=tok.value.trim();
   }
   if(ASIS_EDIT.tab==='prompt'){
     const p=$('edit-prompt'); if(p)ASIS_EDIT.data.prompt_maestro=p.value.trim();
     const s=$('edit-saludo'); if(s)ASIS_EDIT.data.mensaje_bienvenida=s.value.trim();
+    const re=$('edit-reencuentro'); if(re)ASIS_EDIT.data.mensaje_reencuentro=re.value.trim();
+    const ma=$('edit-max-act'); if(ma)ASIS_EDIT.data.max_actividades_sesion=parseInt(ma.value)||10;
   }
 }
 
@@ -1938,7 +2119,11 @@ function asisEditGeneralHTML(){
     <div class="fg"><label class="fl">Nombre</label><input class="fc" id="edit-nombre" value="${esc(a.nombre)}"></div>
     <div class="fg"><label class="fl">RD</label><select class="fc" id="edit-rd">${ASIS_EDIT.rds.map(r=>`<option value="${r.id}" ${r.id===a.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}</select></div>
     <div class="fg"><label class="fl">Estado</label><select class="fc" id="edit-activo"><option value="true" ${a.activo?'selected':''}>Activo</option><option value="false" ${!a.activo?'selected':''}>Inactivo</option></select></div>
-    <p class="muted">URL pública: <a href="${esc(a.public_url)}" target="_blank">${esc(a.public_url)}</a></p>`;
+    <div class="fg"><label class="fl">Token de acceso público</label><input class="fc" id="edit-token" value="${esc(a.token)}">
+      <div class="fh">⚠️ Cambiarlo invalida el enlace público actual — cualquiera que lo tenga guardado dejará de poder usarlo.</div>
+    </div>
+    <p class="muted">URL pública: <a href="${esc(a.public_url)}" target="_blank">${esc(a.public_url)}</a></p>
+    <p class="muted">Calificación de los alumnos: ${fmtCalificacion(a.calificacion_promedio, a.calificaciones_total)}</p>`;
 }
 
 function asisEditCursoHTML(){
@@ -1953,6 +2138,13 @@ function asisEditPromptHTML(){
   <div class="fg"><label class="fl">Mensaje de bienvenida <span class="muted">— opcional</span></label>
     <textarea class="fc" id="edit-saludo" rows="3" placeholder="Ej: soy IdanIA. Pregúntame lo que necesites sobre el curso.">${esc(ASIS_EDIT.data.mensaje_bienvenida||'')}</textarea>
     <div class="fh">Se muestra al abrir el chat, después de "Hola [nombre del alumno], ". Déjalo vacío para usar el mensaje por defecto ("soy ${esc(ASIS_EDIT.data.nombre)}. Pregúntame lo que necesites sobre el curso.").</div>
+  </div>
+  <div class="fg"><label class="fl">Mensaje de reencuentro <span class="muted">— opcional</span></label>
+    <textarea class="fc" id="edit-reencuentro" rows="3" placeholder="Ej: ¡qué bueno verte de nuevo! Seguimos donde lo dejamos.">${esc(ASIS_EDIT.data.mensaje_reencuentro||'')}</textarea>
+    <div class="fh">Se muestra (no se guarda) al reabrir una conversación con historial.</div>
+  </div>
+  <div class="fg"><label class="fl">Máximo de preguntas por conversación</label>
+    <input class="fc" type="number" id="edit-max-act" value="${ASIS_EDIT.data.max_actividades_sesion||10}" min="1" style="max-width:140px">
   </div>`;
 }
 
@@ -1966,7 +2158,7 @@ async function asisEditRenderStage(stageDef){
   const box=$('edit-cfgbox-'+stageDef.stage);
   if(!box)return;
   try{
-    const d=await api('/api/config/'+stageDef.stage);
+    const d=await api('{{ URL_PREFIX }}/api/config/'+stageDef.stage);
     const selected=ASIS_EDIT.cfg[stageDef.stage];
     let cards=`<div class="src ${!selected?'selected':''}" style="flex:1 1 200px" onclick='asisEditCfgSelect(${JSON.stringify(stageDef.stage)},null)'>
       <span class="src-name">Usar valor por defecto del sistema</span><span class="src-desc">Actualmente: ${esc(d.current)}</span>
@@ -1991,9 +2183,12 @@ async function asisEditSubmit(){
   const btnEl=document.querySelector('#edit-body .modal-foot .btn-prim');
   if(btnEl){btnEl.disabled=true;btnEl.textContent='Guardando…';}
   try{
-    await api('/api/asistentes/'+ASIS_EDIT.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    await api('{{ URL_PREFIX }}/api/asistentes/'+ASIS_EDIT.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
       nombre:a.nombre, rd_id:a.rd_id, prompt_maestro:a.prompt_maestro||null, activo:a.activo,
+      token:a.token||null,
       mensaje_bienvenida:a.mensaje_bienvenida||null,
+      mensaje_reencuentro:a.mensaje_reencuentro||null,
+      max_actividades_sesion:a.max_actividades_sesion||10,
       etl_document_strategy:ASIS_EDIT.cfg.etl_document||null,
       etl_audio_strategy:ASIS_EDIT.cfg.etl_audio||null,
       contextual_strategy:ASIS_EDIT.cfg.contextual||null,
@@ -2016,7 +2211,7 @@ function asisDelete(id,nombre){
 }
 async function asisDeleteConfirmed(id){
   try{
-    await api('/api/asistentes/'+id,{method:'DELETE'});
+    await api('{{ URL_PREFIX }}/api/asistentes/'+id,{method:'DELETE'});
     asisLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
@@ -2024,7 +2219,7 @@ async function asisDeleteConfirmed(id){
 // ── Collections ──
 async function loadCols(){
   try{
-    const d=await api('/api/collections');
+    const d=await api('{{ URL_PREFIX }}/api/collections');
     const cols=d.collections||[];
     const opts='<option value="">— Selecciona —</option>'+cols.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
     ['semi-col','auto-col','upd-col','srch-col'].forEach(id=>{const e=$(id);if(e)e.innerHTML=opts});
@@ -2070,7 +2265,7 @@ async function sUpload(){
 async function sConfirm(){
   $('btn-s3').disabled=true;sGo(4);
   try{
-    await api(`/api/semi/confirm/${S.semi.jobId}`,{method:'POST'});
+    await api(`{{ URL_PREFIX }}/api/semi/confirm/${S.semi.jobId}`,{method:'POST'});
     poll(S.semi.jobId,r=>renderOK('semi-res','semi-proc',r),e=>renderErr('semi-res','semi-proc',e));
   }catch(e){renderErr('semi-res','semi-proc',e.message);}
 }
@@ -2088,7 +2283,7 @@ async function aPreview(){
   S.auto.curid=curid;S.auto.sel=[];S.auto.typeFilter=null;S.auto.fileSourceTypes={};
   const btn=$('btn-a-prev');btn.disabled=true;btn.textContent='Consultando...';
   try{
-    const d=await api(`/api/auto/preview?curid=${curid}&collection_name=${encodeURIComponent(S.auto.col)}`);
+    const d=await api(`{{ URL_PREFIX }}/api/auto/preview?curid=${curid}&collection_name=${encodeURIComponent(S.auto.col)}`);
     S.auto.mods=d.modules||[];
     aRenderTree();
     aGo(3);
@@ -2197,7 +2392,7 @@ async function aDownVal(){
   try{
     const fileSourceTypes={};
     S.auto.sel.forEach(fn=>{fileSourceTypes[fn]=aFileSourceType(fn)});
-    const d=await api('/api/auto/download-validate',{method:'POST',headers:{'Content-Type':'application/json'},
+    const d=await api('{{ URL_PREFIX }}/api/auto/download-validate',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({collection_name:S.auto.col,curid:S.auto.curid,selected_filenames:S.auto.sel,file_source_types:fileSourceTypes})});
     S.auto.jobId=d.job_id;
     $('auto-sg').innerHTML=(d.summaries||[]).map(scardHTML).join('');
@@ -2221,7 +2416,7 @@ async function aDownVal(){
 async function aConfirm(){
   aGo(5);
   try{
-    await api(`/api/auto/confirm/${S.auto.jobId}`,{method:'POST'});
+    await api(`{{ URL_PREFIX }}/api/auto/confirm/${S.auto.jobId}`,{method:'POST'});
     poll(S.auto.jobId,r=>renderOK('auto-res','auto-proc',r),e=>renderErr('auto-res','auto-proc',e));
   }catch(e){renderErr('auto-res','auto-proc',e.message);}
 }
@@ -2280,7 +2475,7 @@ function uGo(n){
 async function uLoadDocs(){
   show('upd-dll');hide('upd-dl');
   try{
-    const d=await api(`/api/update/list?collection_name=${encodeURIComponent(S.upd.col)}`);
+    const d=await api(`{{ URL_PREFIX }}/api/update/list?collection_name=${encodeURIComponent(S.upd.col)}`);
     const docs=d.documents||[];
     $('upd-dl').innerHTML=docs.length===0
       ?'<p class="muted">No hay documentos vectorizados en esta colección.</p>'
@@ -2352,7 +2547,7 @@ async function uPrevMod(){
   S.upd.mCurid=curid;S.upd.mFile=null;en('btn-u3b',false);
   const btn=$('btn-upd-consult');btn.disabled=true;btn.textContent='Consultando...';
   try{
-    const d=await api(`/api/update/preview-modules?curid=${curid}&collection_name=${encodeURIComponent(S.upd.col)}`);
+    const d=await api(`{{ URL_PREFIX }}/api/update/preview-modules?curid=${curid}&collection_name=${encodeURIComponent(S.upd.col)}`);
     S.upd.mMods=d.modules||[];
     S.upd.typeFilter=null;
     uRenderTree();
@@ -2472,7 +2667,7 @@ async function uPrepare(){
       if(!r.ok)throw new Error(d.detail||'Error al preparar el archivo');
     } else {
       d=await api(
-        `/api/update/prepare-moodle?collection_name=${encodeURIComponent(S.upd.col)}&filename_to_replace=${encodeURIComponent(S.upd.doc)}&curid=${S.upd.mCurid}&moodle_filename=${encodeURIComponent(S.upd.mFile)}&source_type=${encodeURIComponent(S.upd.sourceType)}`,
+        `{{ URL_PREFIX }}/api/update/prepare-moodle?collection_name=${encodeURIComponent(S.upd.col)}&filename_to_replace=${encodeURIComponent(S.upd.doc)}&curid=${S.upd.mCurid}&moodle_filename=${encodeURIComponent(S.upd.mFile)}&source_type=${encodeURIComponent(S.upd.sourceType)}`,
         {method:'POST'}
       );
     }
@@ -2515,7 +2710,7 @@ async function uConfirm(){
   uSyncStepper(5, isMoodle?6:null);
   uShowPanel('upd-p5');
   try{
-    await api(`/api/update/confirm/${S.upd.jobId}`,{method:'POST'});
+    await api(`{{ URL_PREFIX }}/api/update/confirm/${S.upd.jobId}`,{method:'POST'});
     poll(S.upd.jobId,
       r=>renderOKUpd('upd-res','upd-proc',r),
       e=>renderErr('upd-res','upd-proc',e)
@@ -2530,7 +2725,7 @@ async function doSearch(){
   const col=$('srch-col').value,q=$('srch-q').value.trim(),k=$('srch-k').value;
   if(!col||!q){showModal('Campos requeridos','<p>Selecciona una colección e ingresa una consulta.</p>');return;}
   try{
-    const d=await api(`/api/search?collection_name=${encodeURIComponent(col)}&query=${encodeURIComponent(q)}&top_k=${k}`);
+    const d=await api(`{{ URL_PREFIX }}/api/search?collection_name=${encodeURIComponent(col)}&query=${encodeURIComponent(q)}&top_k=${k}`);
     const rs=d.results||[];
     $('srch-cnt').textContent=`${rs.length} resultado(s) para "${q}"`;
     $('srch-list').innerHTML=rs.map(r=>`
@@ -2547,7 +2742,7 @@ async function doSearch(){
 async function credLoad(highlightField){
   const box=$('cred-box');
   try{
-    const d=await api('/api/config/credentials');
+    const d=await api('{{ URL_PREFIX }}/api/config/credentials');
     box.innerHTML=(d.credentials||[]).map(c=>credCardHTML(c)).join('');
     if(highlightField){
       const el=$('cred-in-'+highlightField);
@@ -2576,7 +2771,7 @@ async function credSave(field){
   const val=input.value;
   if(!val){showModal('Campo vacío','<p>Ingresa un valor antes de guardar.</p>');return;}
   try{
-    await api('/api/config/credentials/'+field,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:val})});
+    await api('{{ URL_PREFIX }}/api/config/credentials/'+field,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:val})});
     if($('cred-box'))credLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
@@ -2588,7 +2783,7 @@ async function credTest(field){
   statusEl.textContent='Probando…';
   try{
     const body=(input&&input.value)?{value:input.value}:{};
-    const d=await api('/api/config/credentials/'+field+'/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await api('{{ URL_PREFIX }}/api/config/credentials/'+field+'/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     statusEl.innerHTML=d.success?'<span style="color:var(--green-700)">✓ Conexión exitosa</span>':`<span style="color:var(--red-700)">✗ ${esc(d.message)}</span>`;
   }catch(e){statusEl.innerHTML=`<span style="color:var(--red-700)">✗ ${esc(e.message)}</span>`;}
 }
@@ -2608,7 +2803,7 @@ async function llmtestLoad(){
   $('llmtest-col').innerHTML='<option value="">Elige un asistente primero</option>';
   $('llmtest-col').disabled=true;
   try{
-    const d=await api('/api/asistentes');
+    const d=await api('{{ URL_PREFIX }}/api/asistentes');
     LLMTEST_ASISTENTES=d.asistentes||[];
     sel.innerHTML='<option value="">— Selecciona —</option>'+LLMTEST_ASISTENTES.map(a=>`<option value="${a.id}">${esc(a.nombre)}${a.activo?'':' (inactivo)'}</option>`).join('');
   }catch(e){sel.innerHTML='<option value="">Error al cargar</option>'}
@@ -2629,7 +2824,7 @@ async function llmtestOnAsisChange(){
   colSel.innerHTML='<option value="">Cargando…</option>';
   colSel.disabled=true;
   try{
-    const rd=await api(`/api/rds/${asis.rd_id}`);
+    const rd=await api(`{{ URL_PREFIX }}/api/rds/${asis.rd_id}`);
     const cols=rd.colecciones||[];
     if(!cols.length){colSel.innerHTML='<option value="">Esta RD no tiene colecciones vinculadas</option>';return;}
     colSel.innerHTML='<option value="">— Selecciona —</option>'+cols.map(c=>`<option value="${esc(c.qdrant_collection_name)}">${esc(c.qdrant_collection_name)} (curso ${c.moodle_courseid})</option>`).join('');
@@ -2650,7 +2845,7 @@ async function ragAsk(){
   const btn=$('llmtest-btn');btn.disabled=true;
   $('llmtest-result').innerHTML='<div class="pbox"><div class="spin"></div><p>Recuperando, rerankeando y generando la respuesta…</p></div>';
   try{
-    const d=await api('/api/rag/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({collection_name:col,query:q,asistente_id:Number(asisId)})});
+    const d=await api('{{ URL_PREFIX }}/api/rag/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({collection_name:col,query:q,asistente_id:Number(asisId)})});
     const sources=d.sources||[];
     $('llmtest-result').innerHTML=`
       <div class="card">
@@ -2687,6 +2882,88 @@ function qSelectSchema(s){
   if(s==='hybrid'&&(!Q_CREATE_RD||!Q_CREATE_RD.dense_strategy))qEmbeddingFieldLoadOptions('q-create');
 }
 
+// ── Tipo de colección (padre/hija/normal): determina qué se pide y qué se
+// autocompleta. Padre y Hija siempre son "hybrid" (heredan/fijan el
+// embedding maestro de una RD); Normal permite elegir hybrid o legacy. ──
+let Q_CREATE_TIPO='padre';
+let Q_CREATE_ALL_RDS=[];
+let Q_CREATE_RD=null;
+
+async function qLoadCreateRds(){
+  try{ Q_CREATE_ALL_RDS=(await api('{{ URL_PREFIX }}/api/rds')).rds||[]; }catch(e){ Q_CREATE_ALL_RDS=[]; }
+  qSelectTipo(Q_CREATE_TIPO);
+}
+
+function qSelectTipo(tipo){
+  Q_CREATE_TIPO=tipo;
+  Q_CREATE_RD=null;
+  ['padre','hija','normal'].forEach(t=>{const el=$('q-tipo-'+t);if(el)el.classList.toggle('selected',t===tipo);});
+  const box=$('q-tipo-body');
+  if(!box)return;
+
+  if(tipo==='normal'){
+    qSchemaSelected='hybrid';
+    box.innerHTML=`
+      <div class="fg"><label class="fl">Course ID de Moodle <span class="req">*</span></label>
+        <input class="fc" type="number" id="q-create-courseid" style="max-width:200px"></div>
+      <div class="fg"><label class="fl">Esquema de vectores</label>
+        <div class="srcs">
+          <div class="src selected" id="q-schema-hybrid" onclick="qSelectSchema('hybrid')">
+            <span class="src-icon">🧬</span><span class="src-name">Híbrido</span><span class="src-desc">Dense + Sparse (BM25/BGE-M3). Requerido para el pipeline RAG configurable.</span>
+          </div>
+          <div class="src" id="q-schema-legacy" onclick="qSelectSchema('legacy')">
+            <span class="src-icon">📦</span><span class="src-name">Legacy</span><span class="src-desc">Un solo vector denso, compatible con el flujo anterior.</span>
+          </div>
+        </div>
+      </div>
+      <div class="fg hidden" id="q-create-size-box">
+        <label class="fl">Tamaño de vector denso</label>
+        <input class="fc" type="number" id="q-create-size" value="1536" style="max-width:160px">
+      </div>
+      <div id="q-create-embedding-box">${qEmbeddingFieldHTML('q-create',null)}</div>
+      <div class="fg"><label class="fl">Métrica de distancia</label>${qDistanceFieldHTML('q-create',null)}</div>
+    `;
+    qEmbeddingFieldLoadOptions('q-create');
+    return;
+  }
+
+  // padre / hija: se elige una RD primero.
+  const rdsFiltered=Q_CREATE_ALL_RDS.filter(r=>tipo==='padre'?!r.dense_strategy:!!r.dense_strategy);
+  box.innerHTML=`
+    <div class="fg"><label class="fl">RD (aula) <span class="req">*</span></label>
+      <select class="fc" id="q-create-rd" onchange="qCreateOnRdChange()">
+        <option value="">— Selecciona —</option>
+        ${rdsFiltered.map(r=>`<option value="${r.id}">${esc(r.nombre)}</option>`).join('')}
+      </select>
+      ${rdsFiltered.length===0?`<div class="fh">${tipo==='padre'?'No hay RD sin embedding maestro — todas ya tienen una colección padre.':'No hay RD con embedding maestro fijado todavía — creá primero una colección padre para alguna RD.'}</div>`:''}
+    </div>
+    <div id="q-create-rd-body"></div>
+  `;
+}
+
+async function qCreateOnRdChange(){
+  const rdId=$('q-create-rd').value;
+  Q_CREATE_RD=null;
+  const rdBody=$('q-create-rd-body');
+  if(!rdId){rdBody.innerHTML='';return;}
+  try{ Q_CREATE_RD=await api('{{ URL_PREFIX }}/api/rds/'+rdId); }catch(e){ rdBody.innerHTML='';return; }
+
+  qSchemaSelected='hybrid';
+  const courseIdField=Q_CREATE_TIPO==='padre'
+    ?`<div class="fg"><label class="fl">Course ID de Moodle</label>
+        <input class="fc" type="number" id="q-create-courseid" value="${Q_CREATE_RD.moodle_courseid}" readonly style="max-width:200px;background:var(--neutral-100)">
+        <div class="fh">Autocompletado: el curso original de esta RD.</div></div>`
+    :`<div class="fg"><label class="fl">Course ID de Moodle <span class="req">*</span></label>
+        <input class="fc" type="number" id="q-create-courseid" style="max-width:200px" placeholder="Ej: 1400"></div>`;
+  rdBody.innerHTML=`
+    ${courseIdField}
+    <div class="fg"><label class="fl">Esquema de vectores</label><div class="fh">Híbrido (dense + sparse) — todas las colecciones de una RD lo son.</div></div>
+    <div id="q-create-embedding-box">${qEmbeddingFieldHTML('q-create',Q_CREATE_RD)}</div>
+    <div class="fg"><label class="fl">Métrica de distancia</label>${qDistanceFieldHTML('q-create',Q_CREATE_RD)}</div>
+  `;
+  if(!Q_CREATE_RD.dense_strategy)qEmbeddingFieldLoadOptions('q-create');
+}
+
 // ── Campo de embedding compartido entre "Crear colección" (Gestión
 // Qdrant), "Gestión RD → Cursos → Crear colección" y el wizard de
 // asistentes: si la RD elegida ya tiene un embedding maestro fijado se
@@ -2694,20 +2971,28 @@ function qSelectSchema(s){
 // pide elegir un dense_strategy que queda fijado para toda la RD. ──
 function qEmbeddingFieldHTML(idPrefix,rd){
   if(rd&&rd.dense_strategy){
-    return `<div class="fg"><label class="fl">Embedding (heredado de la RD)</label>
-      <div class="fh">Esta RD ya usa <b>${esc(rd.dense_strategy)}</b> / <b>${esc(rd.sparse_strategy||'bm25')}</b> — todas sus colecciones deben compartirlo.</div>
+    return `<div class="fg"><label class="fl">Embedding</label>
+      <div class="alert a-info mt8">🔗 Colección <b>hija</b> de esta RD — hereda su embedding maestro: <b>${esc(rd.dense_strategy)}</b> / <b>${esc(rd.sparse_strategy||'bm25')}</b>. No se puede cambiar acá: todas las colecciones de una RD deben compartir el mismo embedding para ser intercambiables entre sí.</div>
     </div>`;
   }
-  return `<div class="fg"><label class="fl">Embedding denso <span class="req">*</span> <span class="muted">— primera colección de esta RD, queda fijado para todas las siguientes</span></label>
-    <select class="fc" id="${idPrefix}-dense-strategy"><option value="">Cargando…</option></select>
-  </div>`;
+  return `<div class="fg"><label class="fl">Embedding denso <span class="req">*</span></label>
+      <div class="fh">🔑 Esta será la <b>colección madre</b> (padre) de la RD — lo que elijas acá queda fijado para todas las colecciones que se creen después en esta misma RD.</div>
+      <select class="fc" id="${idPrefix}-dense-strategy"><option value="">Cargando…</option></select>
+    </div>
+    <div class="fg"><label class="fl">Embedding disperso (sparse)</label>
+      <select class="fc" id="${idPrefix}-sparse-strategy">
+        <option value="">bm25 — valor por defecto</option>
+        <option value="bm25">bm25</option>
+        <option value="bge_m3">bge_m3</option>
+      </select>
+    </div>`;
 }
 
 async function qEmbeddingFieldLoadOptions(idPrefix){
   const sel=$(idPrefix+'-dense-strategy');
   if(!sel)return;
   try{
-    const d=await api('/api/config/dense');
+    const d=await api('{{ URL_PREFIX }}/api/config/dense');
     sel.innerHTML='<option value="">— Selecciona —</option>'+(d.options||[]).map(o=>`<option value="${esc(o.name)}">${esc(o.name)} (${esc(o.description||'')})</option>`).join('');
   }catch(e){sel.innerHTML='<option value="">Error al cargar</option>'}
 }
@@ -2718,17 +3003,30 @@ function qEmbeddingFieldValue(idPrefix,rd){
   return sel?sel.value||null:null;
 }
 
-let Q_CREATE_RD=null;
-async function qCreateOnRdChange(){
-  const rdId=$('q-create-rd').value;
-  Q_CREATE_RD=null;
-  if(rdId){
-    try{ Q_CREATE_RD=await api('/api/rds/'+rdId); }catch(e){}
+// ── Métrica de distancia: campo propio (aplica también a legacy, que no
+// pasa por qEmbeddingFieldHTML) — heredada de la RD si es hija, elegible
+// si es padre/normal. ──
+function qDistanceFieldHTML(idPrefix,rd){
+  if(rd&&rd.dense_strategy){
+    return `<div class="fh">Heredada de la RD (colección hija): <b>${esc(rd.distance||'Cosine')}</b>.</div>`;
   }
-  if(qSchemaSelected==='hybrid'){
-    $('q-create-embedding-box').innerHTML=qEmbeddingFieldHTML('q-create',Q_CREATE_RD);
-    if(!Q_CREATE_RD||!Q_CREATE_RD.dense_strategy)qEmbeddingFieldLoadOptions('q-create');
-  }
+  return `<select class="fc" id="${idPrefix}-distance" style="max-width:200px">
+    <option value="Cosine">Cosine — similitud coseno</option>
+    <option value="Euclid">Euclid — distancia euclídea</option>
+    <option value="Dot">Dot — producto punto</option>
+  </select>`;
+}
+
+function qDistanceFieldValue(idPrefix,rd){
+  if(rd&&rd.dense_strategy)return rd.distance||'Cosine';
+  const sel=$(idPrefix+'-distance');
+  return sel?sel.value||'Cosine':'Cosine';
+}
+
+function qSparseFieldValue(idPrefix,rd){
+  if(rd&&rd.dense_strategy)return null;
+  const sel=$(idPrefix+'-sparse-strategy');
+  return sel?sel.value||null:null;
 }
 
 function qSchemaTag(schema){
@@ -2739,7 +3037,7 @@ function qSchemaTag(schema){
 
 async function qLoadDash(){
   try{
-    const d=await api('/api/collections?detail=true');
+    const d=await api('{{ URL_PREFIX }}/api/collections?detail=true');
     const cols=d.collections||[];
     const totalPoints=cols.reduce((a,c)=>a+(c.points_count||0),0);
     const hybridCount=cols.filter(c=>c.vector_schema==='hybrid').length;
@@ -2759,7 +3057,7 @@ async function qLoadCols(){
   const tbl=$('q-cols-tbl');
   tbl.innerHTML='<tr><td colspan="8" class="muted">Cargando…</td></tr>';
   try{
-    const [d,rdResp]=await Promise.all([api('/api/collections?detail=true'),api('/api/rds')]);
+    const [d,rdResp]=await Promise.all([api('{{ URL_PREFIX }}/api/collections?detail=true'),api('{{ URL_PREFIX }}/api/rds')]);
     Q_COLS_RDS=rdResp.rds||[];
     const cols=d.collections||[];
     tbl.innerHTML=cols.map(c=>`
@@ -2780,22 +3078,87 @@ async function qLoadCols(){
   }catch(e){tbl.innerHTML=`<tr><td colspan="8" class="muted">${esc(e.message)}</td></tr>`}
 }
 
+// esPadre: la colección que se está editando es la padre de su RD si su
+// propio courseid coincide con el courseid original de la RD (así se
+// autocompleta siempre al crear el padre — ver qCreateOnRdChange/
+// asisCfgCreateColeccion). Sin esto, mirar solo "¿la RD ya tiene
+// embedding fijado?" da "Hija" hasta para el padre, una vez que él mismo
+// ya fijó ese embedding — no hay forma de distinguirlos así.
+function qEditEsPadre(rd,courseId){
+  return !!(rd&&courseId!=null&&String(rd.moodle_courseid)===String(courseId));
+}
+
+function qEditRdEmbeddingHTML(rd,courseId){
+  const esPadre=qEditEsPadre(rd,courseId);
+  if(rd&&rd.dense_strategy&&!esPadre){
+    return `<div class="alert a-info mt8">🔗 Colección <b>hija</b> de esta RD — usa el embedding maestro: <b>${esc(rd.dense_strategy)}</b> / <b>${esc(rd.sparse_strategy||'bm25')}</b>. No se puede cambiar acá (afectaría la búsqueda de todas las colecciones de la RD).</div>`;
+  }
+  if(rd&&rd.dense_strategy&&esPadre){
+    return `<div class="alert a-info mt8">🔑 Esta es la colección <b>padre</b> de la RD — ella fijó el embedding maestro: <b>${esc(rd.dense_strategy)}</b> / <b>${esc(rd.sparse_strategy||'bm25')}</b>. No se puede cambiar acá (afectaría la búsqueda de todas las colecciones de la RD).</div>`;
+  }
+  if(rd){
+    return `<div class="alert a-warn mt8">⚠️ La RD de esta colección todavía no tiene un embedding maestro fijado (colección creada antes de esta función). Si sabes con qué embedding se vectorizó, fíjalo acá para que quede como referencia de la RD.</div>
+      <div class="fg"><label class="fl">Embedding denso</label><select class="fc" id="q-edit-dense-strategy"><option value="">Cargando…</option></select></div>
+      <div class="fg"><label class="fl">Embedding disperso (sparse)</label>
+        <select class="fc" id="q-edit-sparse-strategy"><option value="">bm25 — valor por defecto</option><option value="bm25">bm25</option><option value="bge_m3">bge_m3</option></select>
+      </div>`;
+  }
+  return `<div class="fh">Selecciona una RD para ver su embedding.</div>`;
+}
+
+let Q_EDIT_RD=null;
+
+function qEditTipoHTML(rd,courseId){
+  if(!rd)return '<span class="tag t-new">📦 Normal</span> — sin RD, ningún asistente la encuentra.';
+  if(qEditEsPadre(rd,courseId))return '<span class="tag t-warn">🔑 Padre</span> — fija (o ya fijó) el embedding maestro de esta RD.';
+  if(rd.dense_strategy)return '<span class="tag t-new">🔗 Hija</span> — hereda el embedding maestro de la RD.';
+  return '<span class="tag t-warn">🔑 Padre</span> — fija (o ya fijó) el embedding maestro de esta RD.';
+}
+
 function qEditRd(name,rdId,courseId){
-  showModal(`Editar RD / Course ID — ${esc(name)}`,`
+  Q_EDIT_RD=Q_COLS_RDS.find(r=>r.id===rdId)||null;
+  showModal(`Editar colección — ${esc(name)}`,`
+    <div class="fg"><label class="fl">Tipo de colección</label><div class="fh" id="q-edit-tipo">${qEditTipoHTML(Q_EDIT_RD,courseId)}</div></div>
     <div class="fg"><label class="fl">RD (aula)</label>
-      <select class="fc" id="q-edit-rd">${Q_COLS_RDS.map(r=>`<option value="${r.id}" ${r.id===rdId?'selected':''}>${esc(r.nombre)}</option>`).join('')}</select>
+      <select class="fc" id="q-edit-rd" onchange="qEditRdOnChange()">
+        <option value="" ${rdId==null?'selected':''}>— Sin RD (colección normal) —</option>
+        ${Q_COLS_RDS.map(r=>`<option value="${r.id}" ${r.id===rdId?'selected':''}>${esc(r.nombre)}</option>`).join('')}
+      </select>
+      <div class="fh">Cambiar la RD cambia el tipo: sin RD = normal, courseid igual al de la RD = padre, RD con embedding fijado y courseid distinto = hija.</div>
     </div>
-    <div class="fg"><label class="fl">Course ID (Moodle)</label><input class="fc" type="number" id="q-edit-courseid" value="${courseId??''}"></div>
+    <div class="fg"><label class="fl">Course ID (Moodle)</label><input class="fc" type="number" id="q-edit-courseid" value="${courseId??''}" onchange="qEditRdOnChange()"></div>
+    <div class="fg"><label class="fl">Embedding</label><div id="q-edit-embedding-box">${qEditRdEmbeddingHTML(Q_EDIT_RD,courseId)}</div></div>
     <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick='qEditRdSave(${JSON.stringify(name)})'>Guardar</button></div>
   `);
+  if(Q_EDIT_RD&&!Q_EDIT_RD.dense_strategy)qEmbeddingFieldLoadOptions('q-edit');
+}
+
+async function qEditRdOnChange(){
+  const val=$('q-edit-rd').value;
+  const courseIdEl=$('q-edit-courseid');
+  const courseId=courseIdEl&&courseIdEl.value?parseInt(courseIdEl.value):null;
+  Q_EDIT_RD=val?Q_COLS_RDS.find(r=>r.id===parseInt(val)):null;
+  $('q-edit-tipo').innerHTML=qEditTipoHTML(Q_EDIT_RD,courseId);
+  $('q-edit-embedding-box').innerHTML=val?qEditRdEmbeddingHTML(Q_EDIT_RD,courseId):'<div class="fh">Colección normal — sin embedding maestro de RD.</div>';
+  if(Q_EDIT_RD&&!Q_EDIT_RD.dense_strategy)qEmbeddingFieldLoadOptions('q-edit');
 }
 
 async function qEditRdSave(name){
-  const rdId=parseInt($('q-edit-rd').value);
+  const val=$('q-edit-rd').value;
+  const rdId=val?parseInt(val):null;
   const courseId=parseInt($('q-edit-courseid').value);
   if(!courseId){showModal('Campo requerido','<p>Ingresa un Course ID válido.</p>');return;}
   try{
-    await api(`/api/collections/${encodeURIComponent(name)}/rd`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({rd_id:rdId,moodle_courseid:courseId})});
+    await api(`{{ URL_PREFIX }}/api/collections/${encodeURIComponent(name)}/rd`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({rd_id:rdId,moodle_courseid:courseId})});
+    if(Q_EDIT_RD&&!Q_EDIT_RD.dense_strategy){
+      const denseStrategy=qEmbeddingFieldValue('q-edit',null);
+      if(denseStrategy){
+        await api('{{ URL_PREFIX }}/api/rds/'+rdId,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          dense_strategy:denseStrategy,
+          sparse_strategy:qSparseFieldValue('q-edit',null),
+        })});
+      }
+    }
     closeModal();
     qLoadCols();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
@@ -2806,7 +3169,7 @@ async function qViewDocs(name){
   show('q-docs-card');
   $('q-docs-list').innerHTML='<p class="muted">Cargando…</p>';
   try{
-    const d=await api(`/api/collections/${encodeURIComponent(name)}/documents`);
+    const d=await api(`{{ URL_PREFIX }}/api/collections/${encodeURIComponent(name)}/documents`);
     const docs=d.documents||[];
     $('q-docs-list').innerHTML=docs.map(doc=>`
       <div class="di">
@@ -2825,7 +3188,7 @@ function qDeleteDoc(colName,filename){
 }
 async function qDeleteDocConfirmed(colName,filename){
   try{
-    await api(`/api/collections/${encodeURIComponent(colName)}/documents/${encodeURIComponent(filename)}`,{method:'DELETE'});
+    await api(`{{ URL_PREFIX }}/api/collections/${encodeURIComponent(colName)}/documents/${encodeURIComponent(filename)}`,{method:'DELETE'});
     qViewDocs(colName);
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
@@ -2837,22 +3200,30 @@ function qDeleteCol(name,pointsCount){
 }
 async function qDeleteColConfirmed(name,force){
   try{
-    await api(`/api/collections/${encodeURIComponent(name)}${force?'?force=true':''}`,{method:'DELETE'});
+    await api(`{{ URL_PREFIX }}/api/collections/${encodeURIComponent(name)}${force?'?force=true':''}`,{method:'DELETE'});
     qLoadCols();loadCols();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
 async function qCreate(){
   const name=$('q-create-name').value.trim();
-  const rdId=$('q-create-rd').value;
-  const courseId=$('q-create-courseid').value;
-  if(!name||!rdId||!courseId){showModal('Campos requeridos','<p>Ingresa un nombre, selecciona una RD e ingresa un Course ID.</p>');return;}
+  if(!name){showModal('Campo requerido','<p>Ingresa un nombre.</p>');return;}
+  const courseIdEl=$('q-create-courseid');
+  const courseId=courseIdEl?courseIdEl.value:'';
+  if(!courseId){showModal('Campo requerido','<p>Ingresa un Course ID de Moodle.</p>');return;}
+
+  let rdId=null;
+  if(Q_CREATE_TIPO!=='normal'){
+    if(!Q_CREATE_RD){showModal('Campo requerido','<p>Selecciona una RD.</p>');return;}
+    rdId=Q_CREATE_RD.id;
+  }
+
   const body={
     name,
     description:$('q-create-desc').value.trim()||null,
     vector_schema:qSchemaSelected,
-    distance:$('q-create-distance').value,
-    rd_id:parseInt(rdId),
+    distance:qDistanceFieldValue('q-create',Q_CREATE_RD),
+    rd_id:rdId,
     moodle_courseid:parseInt(courseId),
   };
   if(qSchemaSelected==='legacy'){
@@ -2860,26 +3231,19 @@ async function qCreate(){
   }else{
     const denseStrategy=qEmbeddingFieldValue('q-create',Q_CREATE_RD);
     if(!(Q_CREATE_RD&&Q_CREATE_RD.dense_strategy)&&!denseStrategy){
-      showModal('Campo requerido','<p>Selecciona un embedding denso — es la primera colección de esta RD.</p>');
+      showModal('Campo requerido','<p>Selecciona un embedding denso.</p>');
       return;
     }
     body.dense_strategy=denseStrategy;
+    body.sparse_strategy=qSparseFieldValue('q-create',Q_CREATE_RD);
   }
   try{
-    await api('/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    await api('{{ URL_PREFIX }}/api/collections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     showModal('Colección creada',`<p>La colección <strong>${esc(name)}</strong> fue creada correctamente (esquema ${qSchemaSelected}).</p>`);
-    $('q-create-name').value='';$('q-create-desc').value='';$('q-create-courseid').value='';
+    $('q-create-name').value='';$('q-create-desc').value='';
+    qLoadCreateRds();
     loadCols();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
-}
-
-async function qLoadRdOptions(){
-  const sel=$('q-create-rd');
-  if(!sel)return;
-  try{
-    const d=await api('/api/rds');
-    sel.innerHTML='<option value="">— Selecciona —</option>'+(d.rds||[]).map(r=>`<option value="${r.id}">${esc(r.nombre)}</option>`).join('');
-  }catch(e){}
 }
 
 async function qVerify(){
@@ -2888,11 +3252,11 @@ async function qVerify(){
   const box=$('q-verify-result');
   box.innerHTML='<p class="muted">Consultando…</p>';
   try{
-    const d=await api(`/api/collections/${encodeURIComponent(name)}/exists`);
+    const d=await api(`{{ URL_PREFIX }}/api/collections/${encodeURIComponent(name)}/exists`);
     if(!d.exists){box.innerHTML=`<div class="alert a-warn">La colección "${esc(name)}" no existe.</div>`;return;}
     let extra='';
     try{
-      const info=await api(`/api/collections/${encodeURIComponent(name)}`);
+      const info=await api(`{{ URL_PREFIX }}/api/collections/${encodeURIComponent(name)}`);
       extra=` Esquema: <strong>${esc(info.vector_schema)}</strong> · ${info.points_count} vectores.`;
     }catch(e){}
     box.innerHTML=`<div class="alert a-ok">✓ La colección "${esc(name)}" existe.${extra}</div>`;

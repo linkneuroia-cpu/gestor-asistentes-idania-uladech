@@ -111,8 +111,12 @@ AVAILABLE_ETL_DOCUMENT_STRATEGIES: Dict[str, Dict] = {
     "local": {
         "provider": "local",
         "description": (
-            "Extracción local (PyMuPDF/pdfplumber/python-docx/pptx/EasyOCR). "
-            "Gratis, rápida, sin llamadas a API."
+            "Extracción local (PyMuPDF/pdfplumber/python-docx/pptx/openpyxl). "
+            "Tablas de PDF y DOCX se convierten a Markdown (no se descartan); "
+            "fórmulas/gráficos dibujados como trazos vectoriales (no texto "
+            "seleccionable) se recortan y transcriben con pix2tex (LaTeX-OCR, "
+            "especializado en fórmulas), con EasyOCR como respaldo genérico. "
+            "Gratis, rápida, sin llamadas a API pagas."
         ),
         "requires_key": None,
     },
@@ -237,6 +241,17 @@ AVAILABLE_GENERATION_MODELS: Dict[str, Dict] = {
 # ═══════════════════════════════════════════════════════════════════
 
 class Settings(BaseSettings):
+    # ================= Entorno =================
+    # DESARROLLO o PRODUCCION — determina qué bloque _DESARROLLO/_PRODUCCION
+    # de Postgres y Qdrant se usa (ver properties PG_*/QDRANT_* más abajo).
+    # El resto del código sigue leyendo settings.PG_HOST/settings.QDRANT_HOST
+    # como siempre — no hace falta tocar nada fuera de este archivo.
+    ENV: str = "DESARROLLO"
+
+    @property
+    def is_produccion(self) -> bool:
+        return self.ENV.strip().upper() == "PRODUCCION"
+
     # ================= API =================
     API_TITLE: str
     API_VERSION: str
@@ -249,13 +264,35 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int
     ALLOWED_EXTENSIONS: List[str]
 
-    # ================= Qdrant =================
-    QDRANT_HOST: str
-    QDRANT_PORT: int
-    QDRANT_API_KEY: str = ""
-    QDRANT_HTTPS: bool = False
+    # ================= Qdrant (por entorno) =================
+    QDRANT_HOST_DESARROLLO: str = "localhost"
+    QDRANT_PORT_DESARROLLO: int = 6333
+    QDRANT_API_KEY_DESARROLLO: str = ""
+    QDRANT_HTTPS_DESARROLLO: bool = False
+
+    QDRANT_HOST_PRODUCCION: str = "localhost"
+    QDRANT_PORT_PRODUCCION: int = 6333
+    QDRANT_API_KEY_PRODUCCION: str = ""
+    QDRANT_HTTPS_PRODUCCION: bool = False
+
     DEFAULT_VECTOR_SIZE: int = 1536
     DEFAULT_DISTANCE: str = "Cosine"
+
+    @property
+    def QDRANT_HOST(self) -> str:
+        return self.QDRANT_HOST_PRODUCCION if self.is_produccion else self.QDRANT_HOST_DESARROLLO
+
+    @property
+    def QDRANT_PORT(self) -> int:
+        return self.QDRANT_PORT_PRODUCCION if self.is_produccion else self.QDRANT_PORT_DESARROLLO
+
+    @property
+    def QDRANT_API_KEY(self) -> str:
+        return self.QDRANT_API_KEY_PRODUCCION if self.is_produccion else self.QDRANT_API_KEY_DESARROLLO
+
+    @property
+    def QDRANT_HTTPS(self) -> bool:
+        return self.QDRANT_HTTPS_PRODUCCION if self.is_produccion else self.QDRANT_HTTPS_DESARROLLO
 
     @property
     def QDRANT_PROTOCOL(self) -> str:
@@ -318,11 +355,39 @@ class Settings(BaseSettings):
     GENERATION_STRATEGY: str = "gpt4o_mini"
 
     # ================= Postgres (configuración del gestor, asistentes) =================
-    PG_HOST: str = "10.0.0.92"
-    PG_PORT: int = 5432
-    PG_USER: str = "postgres"
-    PG_PASSWORD: str = ""
-    PG_DATABASE: str = "U_F1_Profundizacion"
+    # Un bloque por entorno — ver ENV arriba. Las properties PG_* resuelven
+    # cuál usar; el resto del código (db.py, etc.) no cambia.
+    PG_HOST_DESARROLLO: str = "localhost"
+    PG_PORT_DESARROLLO: int = 5432
+    PG_USER_DESARROLLO: str = "postgres"
+    PG_PASSWORD_DESARROLLO: str = ""
+    PG_DATABASE_DESARROLLO: str = "U_F1_Profundizacion_desarrollo"
+
+    PG_HOST_PRODUCCION: str = "10.0.0.92"
+    PG_PORT_PRODUCCION: int = 5432
+    PG_USER_PRODUCCION: str = "postgres"
+    PG_PASSWORD_PRODUCCION: str = ""
+    PG_DATABASE_PRODUCCION: str = "U_F1_Profundizacion"
+
+    @property
+    def PG_HOST(self) -> str:
+        return self.PG_HOST_PRODUCCION if self.is_produccion else self.PG_HOST_DESARROLLO
+
+    @property
+    def PG_PORT(self) -> int:
+        return self.PG_PORT_PRODUCCION if self.is_produccion else self.PG_PORT_DESARROLLO
+
+    @property
+    def PG_USER(self) -> str:
+        return self.PG_USER_PRODUCCION if self.is_produccion else self.PG_USER_DESARROLLO
+
+    @property
+    def PG_PASSWORD(self) -> str:
+        return self.PG_PASSWORD_PRODUCCION if self.is_produccion else self.PG_PASSWORD_DESARROLLO
+
+    @property
+    def PG_DATABASE(self) -> str:
+        return self.PG_DATABASE_PRODUCCION if self.is_produccion else self.PG_DATABASE_DESARROLLO
 
     # ================= Autenticación del gestor =================
     ADMIN_USERNAME: str = "admin"
@@ -333,6 +398,21 @@ class Settings(BaseSettings):
     # Dominio público donde queda expuesto /asistente/{token} — ajustar en
     # .env cuando se despliegue detrás de un dominio real.
     PUBLIC_BASE_URL: str = "http://localhost:8100"
+
+    # ================= Prefijo de URL (reverse proxy compartido) =================
+    # Vacío en desarrollo (la app sirve en la raíz). En producción, cuando el
+    # gestor comparte dominio con otras funcionalidades detrás de un mismo
+    # nginx (p.ej. "/f1"), nginx reenvía "/f1/..." y la app se monta bajo ese
+    # mismo prefijo (ver `asgi_app` al final de app.py) para que las rutas
+    # coincidan.
+    URL_PREFIX: str = ""
+
+    @property
+    def resolved_url_prefix(self) -> str:
+        prefix = self.URL_PREFIX.strip().rstrip("/")
+        if not prefix:
+            return ""
+        return prefix if prefix.startswith("/") else f"/{prefix}"
 
     class Config:
         env_file = ".env"
