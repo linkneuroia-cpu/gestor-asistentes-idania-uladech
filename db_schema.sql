@@ -33,22 +33,26 @@ CREATE TABLE rds (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ── colecciones_rd: lista de courseid de cada RD (plantilla replicada en
+-- ── colecciones: lista de courseid de cada RD (plantilla replicada en
 -- varios cursos) y, opcionalmente, qué colección de Qdrant resuelve cada uno.
 -- qdrant_collection_name puede ser NULL: un courseid puede registrarse bajo
 -- una RD antes de tener colección asignada. (rd_id, moodle_courseid) es
 -- único: cada courseid resuelve a una sola colección, sin ambigüedad.
 -- rd_id puede ser NULL: colecciones "normales", independientes de cualquier
 -- RD (no las encuentra ningún asistente, solo se administran a mano).
-CREATE TABLE colecciones_rd (
+-- vector_schema: esquema con el que se creó la colección en Qdrant
+-- ('hybrid' = dense+sparse, 'legacy' = un solo vector denso). NULL mientras
+-- el courseid todavía no tiene colección asignada.
+CREATE TABLE colecciones (
     id                      SERIAL PRIMARY KEY,
     qdrant_collection_name  VARCHAR(255) UNIQUE,
     rd_id                   INTEGER REFERENCES rds(id) ON DELETE RESTRICT,
     moodle_courseid         INTEGER NOT NULL,
+    vector_schema           VARCHAR(10),
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (rd_id, moodle_courseid)
 );
-CREATE INDEX idx_colecciones_rd_rd_id ON colecciones_rd(rd_id);
+CREATE INDEX idx_colecciones_rd_id ON colecciones(rd_id);
 
 -- ── asistentes: chatbots públicos, uno por RD (o varios por RD) ───────────
 -- Config RAG 100% propia de este asistente, tanto para VECTORIZAR (etl_*,
@@ -187,7 +191,7 @@ INSERT INTO rds (nombre, moodle_courseid, moodle_course_url) VALUES
 
 -- Registra el courseid original de cada RD en su lista de cursos (sin
 -- colección asignada todavía) — así "Gestión RD" ya lo muestra desde el inicio.
-INSERT INTO colecciones_rd (rd_id, moodle_courseid)
+INSERT INTO colecciones (rd_id, moodle_courseid)
 SELECT id, moodle_courseid FROM rds;
 
 COMMIT;

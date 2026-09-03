@@ -306,8 +306,9 @@ async def list_collections(
         # rds — con INNER JOIN quedaba afuera del listado por completo.
         links = await db.run(
             db.fetch_all,
-            "SELECT c.id AS link_id, c.qdrant_collection_name, c.rd_id, c.moodle_courseid, r.nombre AS rd_nombre "
-            "FROM colecciones_rd c LEFT JOIN rds r ON r.id = c.rd_id "
+            "SELECT c.id AS link_id, c.qdrant_collection_name, c.rd_id, c.moodle_courseid, "
+            "c.vector_schema AS vector_schema_db, r.nombre AS rd_nombre "
+            "FROM colecciones c LEFT JOIN rds r ON r.id = c.rd_id "
             "WHERE c.qdrant_collection_name IS NOT NULL",
         )
         links_by_name = {l["qdrant_collection_name"]: l for l in links}
@@ -317,6 +318,11 @@ async def list_collections(
             c["rd_id"] = link["rd_id"] if link else None
             c["rd_nombre"] = link["rd_nombre"] if link else None
             c["moodle_courseid"] = link["moodle_courseid"] if link else None
+            # vector_schema_db = lo persistido en Postgres; c["vector_schema"]
+            # (ya viene del model_dump de QdrantAdminManager) es el valor VIVO
+            # leído de Qdrant — se mantienen separados para poder detectar
+            # desincronización en vez de esconderla.
+            c["vector_schema_db"] = link["vector_schema_db"] if link else None
         return {"collections": collections}
     service = get_service()
     return {"collections": service.list_collections()}
@@ -396,7 +402,7 @@ async def qdrant_create_collection(req: CollectionCreateRequest):
         raise HTTPException(500, str(e))
 
     try:
-        await db.run(rds.link_collection, req.name, req.rd_id, req.moodle_courseid)
+        await db.run(rds.link_collection, req.name, req.rd_id, req.moodle_courseid, req.vector_schema)
         if lock_in_embedding:
             await db.run(rds.set_embedding, req.rd_id, *lock_in_embedding)
     except ValueError as e:
@@ -544,7 +550,10 @@ async def get_rd_endpoint(rd_id: int):
 
 @app.post("/api/rds", status_code=201, tags=["RD"])
 async def create_rd_endpoint(req: RdCreateRequest):
-    return await db.run(rds.create_rd, req.nombre, req.moodle_courseid, req.moodle_course_url)
+    # Si no la mandan (o falló la consulta a Moodle en el navegador), se
+    # deriva del MOODLE_URL del entorno — nunca queda una RD sin URL.
+    url = req.moodle_course_url or f"{settings.MOODLE_URL.rstrip('/')}/course/view.php?id={req.moodle_courseid}"
+    return await db.run(rds.create_rd, req.nombre, req.moodle_courseid, url)
 
 
 @app.patch("/api/rds/{rd_id}", tags=["RD"])
@@ -593,13 +602,21 @@ async def remove_rd_courseid_endpoint(entry_id: int):
 
 @app.get("/api/moodle/curso/{courseid}", tags=["RD"])
 async def moodle_curso_endpoint(courseid: int):
-    """Nombre real del curso de Moodle — paso 2 del wizard de asistentes,
-    para confirmar el Course ID antes de asociarlo a una RD."""
+    """Nombre real del curso de Moodle — usado por el wizard de asistentes
+    para confirmar el Course ID antes de asociarlo a una RD, y por el
+    formulario de creación de RD para autocompletar nombre/URL."""
     loop = asyncio.get_event_loop()
     fullname = await loop.run_in_executor(None, get_moodle_course_name, courseid)
     if not fullname:
         raise HTTPException(404, f"Moodle no reconoce el Course ID {courseid}.")
-    return {"id": courseid, "fullname": fullname}
+    return {
+        "id": courseid,
+        "fullname": fullname,
+        # URL pública del curso, armada con el MOODLE_URL del entorno —
+        # mismo patrón que las RD sembradas en db_schema.sql. Así el admin
+        # no la escribe a mano y no se equivoca de dominio entre dev/prod.
+        "url": f"{settings.MOODLE_URL.rstrip('/')}/course/view.php?id={courseid}",
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -701,10 +718,19 @@ async def create_asistente_endpoint(req: AsistenteCreateRequest, user=Depends(au
 
 @app.patch("/api/asistentes/{asistente_id}", tags=["Asistentes"])
 async def update_asistente_endpoint(asistente_id: int, req: AsistenteUpdateRequest):
+    if not await db.run(assistants.get_asistente, asistente_id):
+        raise HTTPException(404, f"El asistente {asistente_id} no existe")
     fields = req.model_dump(exclude_unset=True)
+    # rd_id/moodle_courseid entran por exclude_unset igual que las
+    # estrategias: sin esto es imposible mandarlos como null explícito (=
+    # volver el asistente "normal"), porque el default None del modelo es
+    # indistinguible de "no vino en el request".
     kwargs = {
         k: fields[k]
-        for k in (*_ASISTENTE_STRATEGY_FIELDS, "mensaje_bienvenida", "mensaje_reencuentro", "max_actividades_sesion")
+        for k in (
+            *_ASISTENTE_STRATEGY_FIELDS, "mensaje_bienvenida", "mensaje_reencuentro",
+            "max_actividades_sesion", "rd_id", "moodle_courseid",
+        )
         if k in fields
     }
     try:
@@ -712,15 +738,27 @@ async def update_asistente_endpoint(asistente_id: int, req: AsistenteUpdateReque
             assistants.update_asistente,
             asistente_id,
             nombre=req.nombre,
-            rd_id=req.rd_id,
-            moodle_courseid=req.moodle_courseid,
             prompt_maestro=req.prompt_maestro,
             activo=req.activo,
             token=req.token,
             **kwargs,
         )
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        # Con el pre-check de existencia arriba, cualquier ValueError acá es
+        # de validación ("La RD X no existe", "requiere un Course ID",
+        # "token ya en uso") — 400, no 404.
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/asistentes/{asistente_id}/calificaciones", tags=["Asistentes"])
+async def get_asistente_calificaciones_endpoint(asistente_id: int):
+    """Desglose de la calificación de utilidad por curso de Moodle, más el
+    total general — el listado de asistentes solo muestra el agregado."""
+    a = await db.run(assistants.get_asistente, asistente_id)
+    if not a:
+        raise HTTPException(404, f"El asistente {asistente_id} no existe")
+    data = await db.run(assistants.get_calificaciones_por_curso, asistente_id)
+    return {"asistente_id": asistente_id, "nombre": a["nombre"], **data}
 
 
 @app.delete("/api/asistentes/{asistente_id}", tags=["Asistentes"])
@@ -1756,13 +1794,13 @@ async def rag_answer(req: RagAnswerRequest):
         if asistente["rd_id"] is not None:
             vinculo = await db.run(
                 db.fetch_one,
-                "SELECT 1 FROM colecciones_rd WHERE rd_id = %s AND qdrant_collection_name = %s",
+                "SELECT 1 FROM colecciones WHERE rd_id = %s AND qdrant_collection_name = %s",
                 (asistente["rd_id"], req.collection_name),
             )
         else:
             vinculo = await db.run(
                 db.fetch_one,
-                "SELECT 1 FROM colecciones_rd WHERE rd_id IS NULL AND moodle_courseid = %s AND qdrant_collection_name = %s",
+                "SELECT 1 FROM colecciones WHERE rd_id IS NULL AND moodle_courseid = %s AND qdrant_collection_name = %s",
                 (asistente["moodle_courseid"], req.collection_name),
             )
         if not vinculo:

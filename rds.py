@@ -2,7 +2,7 @@
 rds.py
 ======
 CRUD de RD (aulas) en Postgres, y su relación con colecciones de Qdrant
-(colecciones_rd) y asistentes. Cada RD es un registro propio (14 semillas
+(colecciones) y asistentes. Cada RD es un registro propio (14 semillas
 + las que se agreguen), no una categoría que agrupa cursos.
 """
 from typing import Any, Dict, List, Optional
@@ -22,7 +22,7 @@ def list_rds() -> List[Dict[str, Any]]:
                COUNT(DISTINCT c.id) AS total_courseids,
                COUNT(DISTINCT a.id) AS total_asistentes
         FROM rds r
-        LEFT JOIN colecciones_rd c ON c.rd_id = r.id
+        LEFT JOIN colecciones c ON c.rd_id = r.id
         LEFT JOIN asistentes a ON a.rd_id = r.id
         GROUP BY r.id
         ORDER BY r.id
@@ -39,7 +39,7 @@ def get_rd_detail(rd_id: int) -> Optional[Dict[str, Any]]:
     if not rd:
         return None
     rd["colecciones"] = db.fetch_all(
-        "SELECT * FROM colecciones_rd WHERE rd_id = %s ORDER BY id", (rd_id,)
+        "SELECT * FROM colecciones WHERE rd_id = %s ORDER BY id", (rd_id,)
     )
     rd["asistentes"] = db.fetch_all(
         "SELECT id, nombre, token, activo, created_at FROM asistentes WHERE rd_id = %s ORDER BY id",
@@ -50,14 +50,14 @@ def get_rd_detail(rd_id: int) -> Optional[Dict[str, Any]]:
 
 def create_rd(nombre: str, moodle_courseid: int, moodle_course_url: Optional[str] = None) -> Dict[str, Any]:
     """Crea la RD y registra su courseid inicial en la lista de cursos
-    (colecciones_rd, todavía sin colección) — igual que el seed de las 14
+    (colecciones, todavía sin colección) — igual que el seed de las 14
     RD originales."""
     rd = db.execute_returning(
         "INSERT INTO rds (nombre, moodle_courseid, moodle_course_url) VALUES (%s, %s, %s) RETURNING *",
         (nombre, moodle_courseid, moodle_course_url),
     )
     db.execute(
-        "INSERT INTO colecciones_rd (rd_id, moodle_courseid) VALUES (%s, %s)",
+        "INSERT INTO colecciones (rd_id, moodle_courseid) VALUES (%s, %s)",
         (rd["id"], moodle_courseid),
     )
     return rd
@@ -111,7 +111,7 @@ def update_rd(
 
 def has_real_collections(rd_id: int) -> bool:
     row = db.fetch_one(
-        "SELECT 1 FROM colecciones_rd WHERE rd_id = %s AND qdrant_collection_name IS NOT NULL LIMIT 1",
+        "SELECT 1 FROM colecciones WHERE rd_id = %s AND qdrant_collection_name IS NOT NULL LIMIT 1",
         (rd_id,),
     )
     return row is not None
@@ -142,7 +142,7 @@ def delete_rd(rd_id: int) -> None:
     import psycopg2
 
     db.execute(
-        "DELETE FROM colecciones_rd WHERE rd_id = %s AND qdrant_collection_name IS NULL", (rd_id,)
+        "DELETE FROM colecciones WHERE rd_id = %s AND qdrant_collection_name IS NULL", (rd_id,)
     )
     try:
         db.execute("DELETE FROM rds WHERE id = %s", (rd_id,))
@@ -153,7 +153,12 @@ def delete_rd(rd_id: int) -> None:
         )
 
 
-def link_collection(qdrant_collection_name: str, rd_id: Optional[int], moodle_courseid: int) -> Dict[str, Any]:
+def link_collection(
+    qdrant_collection_name: str,
+    rd_id: Optional[int],
+    moodle_courseid: int,
+    vector_schema: Optional[str] = None,
+) -> Dict[str, Any]:
     """Registra en Postgres que una colección de Qdrant pertenece a una RD
     + curso específico. Llamado desde POST /api/collections (creación).
     Si ese (rd_id, courseid) ya estaba registrado sin colección (vía
@@ -161,12 +166,15 @@ def link_collection(qdrant_collection_name: str, rd_id: Optional[int], moodle_co
     tenía una colección DISTINTA asignada, bloquea — nunca se la roba
     silenciosamente (antes lo hacía vía ON CONFLICT ... DO UPDATE).
     `rd_id=None`: colección "normal" — no hay RD que validar/vincular
-    formalmente, se registra solo el courseid como referencia."""
+    formalmente, se registra solo el courseid como referencia.
+    `vector_schema`: 'hybrid'/'legacy', tal cual viaja en
+    CollectionCreateRequest — se persiste para poder mostrarlo después sin
+    tener que volver a consultar Qdrant."""
     if rd_id is not None:
         if not get_rd(rd_id):
             raise ValueError(f"La RD {rd_id} no existe")
         existing = db.fetch_one(
-            "SELECT qdrant_collection_name FROM colecciones_rd WHERE rd_id = %s AND moodle_courseid = %s",
+            "SELECT qdrant_collection_name FROM colecciones WHERE rd_id = %s AND moodle_courseid = %s",
             (rd_id, moodle_courseid),
         )
         if existing and existing["qdrant_collection_name"] and existing["qdrant_collection_name"] != qdrant_collection_name:
@@ -179,11 +187,13 @@ def link_collection(qdrant_collection_name: str, rd_id: Optional[int], moodle_co
 
     try:
         return db.execute_returning(
-            "INSERT INTO colecciones_rd (qdrant_collection_name, rd_id, moodle_courseid) "
-            "VALUES (%s, %s, %s) "
-            "ON CONFLICT (rd_id, moodle_courseid) DO UPDATE SET qdrant_collection_name = EXCLUDED.qdrant_collection_name "
+            "INSERT INTO colecciones (qdrant_collection_name, rd_id, moodle_courseid, vector_schema) "
+            "VALUES (%s, %s, %s, %s) "
+            "ON CONFLICT (rd_id, moodle_courseid) DO UPDATE SET "
+            "qdrant_collection_name = EXCLUDED.qdrant_collection_name, "
+            "vector_schema = EXCLUDED.vector_schema "
             "RETURNING *",
-            (qdrant_collection_name, rd_id, moodle_courseid),
+            (qdrant_collection_name, rd_id, moodle_courseid, vector_schema),
         )
     except psycopg2.errors.UniqueViolation:
         raise ValueError(
@@ -198,14 +208,14 @@ def reassign_collection(qdrant_collection_name: str, rd_id: Optional[int], moodl
     if rd_id is not None and not get_rd(rd_id):
         raise ValueError(f"La RD {rd_id} no existe")
     if not db.fetch_one(
-        "SELECT 1 FROM colecciones_rd WHERE qdrant_collection_name = %s", (qdrant_collection_name,)
+        "SELECT 1 FROM colecciones WHERE qdrant_collection_name = %s", (qdrant_collection_name,)
     ):
         raise ValueError(f"La colección '{qdrant_collection_name}' no tiene un vínculo RD que reasignar")
     import psycopg2
 
     try:
         return db.execute_returning(
-            "UPDATE colecciones_rd SET rd_id = %s, moodle_courseid = %s "
+            "UPDATE colecciones SET rd_id = %s, moodle_courseid = %s "
             "WHERE qdrant_collection_name = %s RETURNING *",
             (rd_id, moodle_courseid, qdrant_collection_name),
         )
@@ -223,7 +233,7 @@ def add_courseid(rd_id: int, moodle_courseid: int) -> Dict[str, Any]:
 
     try:
         return db.execute_returning(
-            "INSERT INTO colecciones_rd (rd_id, moodle_courseid) VALUES (%s, %s) RETURNING *",
+            "INSERT INTO colecciones (rd_id, moodle_courseid) VALUES (%s, %s) RETURNING *",
             (rd_id, moodle_courseid),
         )
     except psycopg2.errors.UniqueViolation:
@@ -234,22 +244,25 @@ def remove_courseid_entry(entry_id: int) -> None:
     """Quita un courseid de la lista de una RD. Solo tiene sentido si esa
     fila todavía no tiene colección asignada (si la tiene, hay que
     reasignar o eliminar la colección primero)."""
-    row = db.fetch_one("SELECT * FROM colecciones_rd WHERE id = %s", (entry_id,))
+    row = db.fetch_one("SELECT * FROM colecciones WHERE id = %s", (entry_id,))
     if not row:
         raise ValueError(f"El registro {entry_id} no existe")
     if row["qdrant_collection_name"]:
         raise ValueError(
             "Este curso ya tiene una colección asignada — reasígnala o elimínala antes de quitarlo."
         )
-    db.execute("DELETE FROM colecciones_rd WHERE id = %s", (entry_id,))
+    db.execute("DELETE FROM colecciones WHERE id = %s", (entry_id,))
 
 
 def unlink_collection(qdrant_collection_name: str) -> None:
     """Al eliminar una colección de Qdrant, el courseid sigue siendo válido
     para su RD (solo se quedó sin colección) — se limpia el vínculo en vez
-    de borrar la fila, para no perder el registro del curso."""
+    de borrar la fila, para no perder el registro del curso. vector_schema
+    se limpia junto con el nombre: sin colección real, no hay esquema que
+    reportar (si no, quedaría una fila diciendo "híbrida" sin colección)."""
     db.execute(
-        "UPDATE colecciones_rd SET qdrant_collection_name = NULL WHERE qdrant_collection_name = %s",
+        "UPDATE colecciones SET qdrant_collection_name = NULL, vector_schema = NULL "
+        "WHERE qdrant_collection_name = %s",
         (qdrant_collection_name,),
     )
 
@@ -259,7 +272,7 @@ def get_rd_for_collection(qdrant_collection_name: str) -> Optional[Dict[str, Any
     maestro que todas las colecciones de esa RD deben compartir). `None` si
     la colección no está vinculada a ninguna RD."""
     return db.fetch_one(
-        "SELECT r.* FROM colecciones_rd c JOIN rds r ON r.id = c.rd_id WHERE c.qdrant_collection_name = %s",
+        "SELECT r.* FROM colecciones c JOIN rds r ON r.id = c.rd_id WHERE c.qdrant_collection_name = %s",
         (qdrant_collection_name,),
     )
 
@@ -269,7 +282,7 @@ def resolve_collection(rd_id: int, moodle_courseid: int) -> Optional[str]:
     ninguna colección de esa RD asignada a ese curso. Usado por la ruta
     pública del asistente."""
     row = db.fetch_one(
-        "SELECT qdrant_collection_name FROM colecciones_rd WHERE rd_id = %s AND moodle_courseid = %s",
+        "SELECT qdrant_collection_name FROM colecciones WHERE rd_id = %s AND moodle_courseid = %s",
         (rd_id, moodle_courseid),
     )
     return row["qdrant_collection_name"] if row else None
@@ -280,7 +293,7 @@ def resolve_collection_normal(moodle_courseid: int) -> Optional[str]:
     RD) — usado por asistentes "normal", que resuelven directamente por su
     propio courseid en vez de RD+courseid."""
     row = db.fetch_one(
-        "SELECT qdrant_collection_name FROM colecciones_rd WHERE rd_id IS NULL AND moodle_courseid = %s",
+        "SELECT qdrant_collection_name FROM colecciones WHERE rd_id IS NULL AND moodle_courseid = %s",
         (moodle_courseid,),
     )
     return row["qdrant_collection_name"] if row else None

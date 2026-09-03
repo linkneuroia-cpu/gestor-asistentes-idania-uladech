@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sistema de Vectorización Documental — ULADECH Católica</title>
+<title>Gestor de asistentes — ULADECH Católica</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -361,7 +361,7 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
 
     <div class="hdr-brand">
       <span class="ent">ULADECH Católica</span>
-      <span class="sys">Sistema de Vectorización Documental</span>
+      <span class="sys">Gestor de asistentes</span>
     </div>
   </div>
 
@@ -904,11 +904,18 @@ input[type=checkbox],input[type=radio]{width:15px;height:15px;accent-color:var(-
   <div class="card">
     <div class="card-ttl">Crear RD</div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">
-      <div class="fg" style="flex:2;min-width:240px"><label class="fl">Nombre</label><input class="fc" id="rd-new-nombre" placeholder="Ej: RD-PRE-DERECHO-BL-..."></div>
-      <div class="fg" style="min-width:140px"><label class="fl">Course ID (Moodle)</label><input class="fc" type="number" id="rd-new-courseid"></div>
-      <div class="fg" style="flex:1;min-width:200px"><label class="fl">URL del curso (opcional)</label><input class="fc" id="rd-new-url" placeholder="https://campus.uladech.edu.pe/course/view.php?id="></div>
+      <div class="fg" style="min-width:140px">
+        <label class="fl">Course ID (Moodle)</label>
+        <div style="display:flex;gap:8px">
+          <input class="fc" type="number" id="rd-new-courseid" onblur="rdCreateLookup()">
+          <button class="btn btn-out btn-sm" style="white-space:nowrap" id="rd-new-lookup-btn" onclick="rdCreateLookup()">Buscar</button>
+        </div>
+      </div>
+      <div class="fg" style="flex:2;min-width:240px"><label class="fl">Nombre</label><input class="fc" id="rd-new-nombre" placeholder="Ej: RD-PRE-DERECHO-BL-..." oninput="RD_NEW_NOMBRE_AUTO=false"></div>
+      <div class="fg" style="flex:1;min-width:200px"><label class="fl">URL del curso</label><input class="fc" id="rd-new-url" placeholder="https://campus.uladech.edu.pe/course/view.php?id="></div>
       <button class="btn btn-prim" onclick="rdCreate()" style="height:38px">Crear</button>
     </div>
+    <div id="rd-new-status" class="fh"></div>
   </div>
   <div class="card">
     <div class="fb card-ttl"><span>Listado (<span id="rd-count">0</span>)</span><button class="btn btn-ghost btn-sm" onclick="rdLoad()">Actualizar</button></div>
@@ -1339,6 +1346,29 @@ async function rdLoad(){
   }catch(e){tbl.innerHTML=`<tr><td colspan="5" class="muted">${esc(e.message)}</td></tr>`}
 }
 
+// El nombre autocompletado queda EDITABLE: el nombre de la RD no siempre es
+// el fullname de Moodle. Esta bandera evita pisar lo que el admin ya
+// escribió a mano (se apaga con oninput en el input de nombre).
+let RD_NEW_NOMBRE_AUTO=false;
+
+async function rdCreateLookup(){
+  const courseId=$('rd-new-courseid').value;
+  const status=$('rd-new-status');
+  if(!courseId){status.innerHTML='';return;}
+  const btnEl=$('rd-new-lookup-btn');
+  btnEl.disabled=true;
+  status.innerHTML='<span class="muted">Consultando Moodle…</span>';
+  try{
+    const d=await api('{{ URL_PREFIX }}/api/moodle/curso/'+courseId);
+    const nombreEl=$('rd-new-nombre');
+    if(!nombreEl.value.trim()||RD_NEW_NOMBRE_AUTO){ nombreEl.value=d.fullname; RD_NEW_NOMBRE_AUTO=true; }
+    $('rd-new-url').value=d.url;
+    status.innerHTML=`<span style="color:var(--green-700)">✓ ${esc(d.fullname)} — nombre y URL autocompletados (podés editarlos).</span>`;
+  }catch(e){
+    status.innerHTML=`<span style="color:var(--red-700)">${esc(e.message)} — podés escribir el nombre a mano.</span>`;
+  }finally{ btnEl.disabled=false; }
+}
+
 async function rdCreate(){
   const nombre=$('rd-new-nombre').value.trim();
   const courseid=$('rd-new-courseid').value;
@@ -1348,6 +1378,7 @@ async function rdCreate(){
       nombre, moodle_courseid:parseInt(courseid), moodle_course_url:$('rd-new-url').value.trim()||null,
     })});
     $('rd-new-nombre').value='';$('rd-new-courseid').value='';$('rd-new-url').value='';
+    $('rd-new-status').innerHTML='';RD_NEW_NOMBRE_AUTO=false;
     rdLoad();
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
@@ -1355,48 +1386,29 @@ async function rdCreate(){
 async function rdEdit(id){
   try{
     const rd=await api('{{ URL_PREFIX }}/api/rds/'+id);
-    const hasReal=(rd.colecciones||[]).some(c=>c.qdrant_collection_name);
-    let embeddingBlock;
-    if(hasReal){
-      embeddingBlock=`<div class="fg"><label class="fl">Embedding maestro</label>
-        <div class="fh">${esc(rd.dense_strategy||'valor por defecto del sistema')} / ${esc(rd.sparse_strategy||'valor por defecto del sistema')}, distancia ${esc(rd.distance||'Cosine')} — no se puede cambiar: esta RD ya tiene colecciones reales creadas.</div>
-      </div>`;
-    }else{
-      embeddingBlock=`<div class="fg"><label class="fl">Embedding denso</label>
-          <select class="fc" id="rd-edit-dense"><option value="">Cargando…</option></select>
-          <div class="fh">Se puede fijar aquí, o se fija automáticamente al crear la primera colección (padre) de esta RD.</div>
-        </div>
-        <div class="fg"><label class="fl">Embedding disperso</label>
-          <select class="fc" id="rd-edit-sparse">
-            <option value="" ${!rd.sparse_strategy?'selected':''}>Valor por defecto del sistema</option>
-            <option value="bm25" ${rd.sparse_strategy==='bm25'?'selected':''}>bm25</option>
-            <option value="bge_m3" ${rd.sparse_strategy==='bge_m3'?'selected':''}>bge_m3</option>
-          </select>
-        </div>
-        <div class="fg"><label class="fl">Métrica de distancia</label>
-          <select class="fc" id="rd-edit-distance" style="max-width:200px">
-            <option value="Cosine" ${(!rd.distance||rd.distance==='Cosine')?'selected':''}>Cosine</option>
-            <option value="Euclid" ${rd.distance==='Euclid'?'selected':''}>Euclid</option>
-            <option value="Dot" ${rd.distance==='Dot'?'selected':''}>Dot</option>
-          </select>
-        </div>`;
-    }
+    // Embedding: SIEMPRE de solo lectura acá. Si todavía no está fijado no
+    // hay nada que editar — lo fija automáticamente la primera colección
+    // real de la RD (ver app.py qdrant_create_collection). Un select
+    // editable para una RD sin colecciones era un control falso: ese valor
+    // lo pisa igual la primera colección real que se cree. Para declarar el
+    // embedding de una RD vieja sin dense_strategy, usar "Gestión Qdrant →
+    // Editar colección" (mira la colección real, no adivina).
+    const embeddingBlock=rd.dense_strategy
+      ? `<div class="fg"><label class="fl">Embedding maestro</label>
+           <div class="fh">${esc(rd.dense_strategy)} / ${esc(rd.sparse_strategy||'valor por defecto del sistema')},
+           distancia ${esc(rd.distance||'Cosine')} — de solo lectura: todas las colecciones de esta RD
+           deben compartirlo para ser intercambiables entre sí.</div></div>`
+      : `<div class="fg"><label class="fl">Embedding maestro</label>
+           <div class="fh">Todavía sin fijar — queda fijado automáticamente al crear la primera
+           colección (padre) de esta RD, desde "Cursos" o desde Gestión Qdrant.</div></div>`;
     showModal(`Editar RD #${id}`,`
       <div class="fg"><label class="fl">Nombre</label><input class="fc" id="rd-edit-nombre" value="${esc(rd.nombre)}"></div>
       <div class="fg"><label class="fl">Course ID original (Moodle)</label><input class="fc" type="number" id="rd-edit-courseid" value="${rd.moodle_courseid}"></div>
       <div class="fg"><label class="fl">URL del curso</label><input class="fc" id="rd-edit-url" value="${esc(rd.moodle_course_url||'')}"></div>
       ${embeddingBlock}
-      <div class="card-ttl mt16">Asistentes asignados (${rd.asistentes.length})</div>
-      <div class="dl">${rd.asistentes.map(a=>`<div class="di"><div class="di-info"><div class="di-name">${esc(a.nombre)}</div><div class="di-meta">${a.activo?'Activo':'Inactivo'}</div></div></div>`).join('')||'<p class="muted">Ninguno</p>'}</div>
-      <p class="muted mt8">Los cursos y colecciones de esta RD se gestionan desde el botón "Cursos" del listado.</p>
-      <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick='rdEditSave(${id},${hasReal})'>Guardar</button></div>
+      <p class="muted mt8">Los cursos y colecciones se gestionan desde "Cursos"; los asistentes asignados, desde la sección "Asistentes".</p>
+      <div class="modal-foot" style="margin-top:14px"><button class="btn btn-prim btn-sm" onclick='rdEditSave(${id})'>Guardar</button></div>
     `);
-    if(!hasReal){
-      try{
-        const d=await api('{{ URL_PREFIX }}/api/config/dense');
-        $('rd-edit-dense').innerHTML='<option value="">Valor por defecto del sistema</option>'+(d.options||[]).map(o=>`<option value="${esc(o.name)}" ${o.name===rd.dense_strategy?'selected':''}>${esc(o.name)}</option>`).join('');
-      }catch(e){$('rd-edit-dense').innerHTML='<option value="">Error al cargar</option>'}
-    }
   }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
@@ -1413,7 +1425,7 @@ function rdCourseDi(rd,c){
   return `<div class="di">
       <div class="di-info">
         <div class="di-name">Curso ${c.moodle_courseid}${c.qdrant_collection_name?` → ${esc(c.qdrant_collection_name)}`:''}</div>
-        <div class="di-meta">${c.qdrant_collection_name?'Colección asignada':'Sin colección todavía'}</div>
+        <div class="di-meta">${c.qdrant_collection_name?`Colección asignada · ${qSchemaTag(c.vector_schema)}`:'Sin colección todavía'}</div>
       </div>
       ${c.qdrant_collection_name
         ?`<button class="btn btn-ghost btn-sm" onclick='closeModal();qLoadCols();showMod("qdrant-cols")'>Ver en Colecciones</button>`
@@ -1507,17 +1519,12 @@ async function rdCourseCreateColConfirm(rdId,courseid){
   }
 }
 
-async function rdEditSave(id,hasReal){
+async function rdEditSave(id){
   const body={
     nombre:$('rd-edit-nombre').value.trim(),
     moodle_courseid:parseInt($('rd-edit-courseid').value),
     moodle_course_url:$('rd-edit-url').value.trim()||null,
   };
-  if(!hasReal){
-    body.dense_strategy=$('rd-edit-dense').value||null;
-    body.sparse_strategy=$('rd-edit-sparse').value||null;
-    body.distance=$('rd-edit-distance').value||null;
-  }
   try{
     await api('{{ URL_PREFIX }}/api/rds/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     closeModal();
@@ -1563,23 +1570,36 @@ const ASIS_CFG_GROUPS=[
   {n:5,name:'Generador Final (LLM)',stages:['generation']},
 ];
 
-function asisCfgGroupsHTML(idPrefix,rd,returnFn){
+function asisCfgGroupsHTML(idPrefix,rd,returnFn,tipo){
   return ASIS_CFG_GROUPS.map(g=>{
     if(g.readonly){
-      let embeddingContent;
-      if(rd&&rd.dense_strategy){
+      // Grupo 3 (dense/sparse) NO es editable por asistente en NINGÚN
+      // tipo: es una propiedad fija de la colección real en Qdrant (con la
+      // que ya se indexó), no algo que se re-elija por asistente — para
+      // "rd" se hereda de la colección madre; para "normal" la fija la
+      // única colección propia del asistente al crearla.
+      let embeddingContent, subtitle;
+      if(tipo==='normal'){
+        subtitle='— fijado por la colección, no editable aquí';
+        embeddingContent=`<div class="fh">Este asistente usa la colección "normal" de su curso: el embedding
+          quedó fijado al crearla en Qdrant y no se puede re-elegir por asistente (los vectores ya indexados
+          dejarían de ser comparables). Se ve en "Gestión Qdrant → Colecciones".</div>`;
+      }else if(rd&&rd.dense_strategy){
+        subtitle='— heredado de la RD, no editable aquí';
         embeddingContent=`<div class="dl mt8">
           <div class="di"><div class="di-info"><div class="di-name">🔑 Colección padre</div><div class="di-meta">${esc(rd.dense_strategy)} / ${esc(rd.sparse_strategy||'bm25')}, distancia ${esc(rd.distance||'Cosine')}</div></div></div>
         </div>
         <button class="btn btn-ghost btn-sm mt8" onclick='asisCfgCreateColeccion(${rd.id},${JSON.stringify(returnFn)})'>+ Crear colección hija (otro curso de esta RD)</button>`;
       }else if(rd){
+        subtitle='— heredado de la RD, no editable aquí';
         embeddingContent=`<div class="alert a-warn mt8">Esta RD todavía no tiene una colección padre.</div>
           <button class="btn btn-prim btn-sm mt8" onclick='asisCfgCreateColeccion(${rd.id},${JSON.stringify(returnFn)})'>Crear colección padre</button>`;
       }else{
+        subtitle='— heredado de la RD, no editable aquí';
         embeddingContent=`<div class="fh">Selecciona una RD en el paso 1 primero.</div>`;
       }
       return `<div class="card">
-        <div class="card-ttl">${g.n}. ${esc(g.name)} <span class="muted" style="font-weight:400">— heredado de la RD, no editable aquí</span></div>
+        <div class="card-ttl">${g.n}. ${esc(g.name)} <span class="muted" style="font-weight:400">${subtitle}</span></div>
         <div class="fh">Todas las colecciones de la RD comparten este embedding (la "colección madre") para ser intercambiables entre sí. Se cambia desde "Gestión RD" (solo si la RD todavía no tiene colecciones reales).</div>
         ${embeddingContent}
       </div>`;
@@ -1657,10 +1677,12 @@ async function asisLoad(){
     tbl.innerHTML=list.map(a=>`
       <tr>
         <td><strong>${esc(a.nombre)}</strong></td>
-        <td>${esc(a.rd_nombre||'—')}</td>
+        <td>${a.tipo==='rd'?esc(a.rd_nombre||'—'):`<span class="muted">📦 Normal · curso ${a.moodle_courseid}</span>`}</td>
         <td>${a.activo?'<span class="tag t-new">Activo</span>':'<span class="tag t-warn">Inactivo</span>'}</td>
         <td><a href="${esc(a.public_url)}" target="_blank" style="font-family:monospace;font-size:11px">${esc(a.public_url)}</a></td>
-        <td>${fmtCalificacion(a.calificacion_promedio, a.calificaciones_total)}</td>
+        <td>${a.calificaciones_total
+          ? `<button class="btn btn-ghost btn-sm" onclick="asisCalifOpen(${a.id})" title="Ver desglose por curso">${fmtCalificacion(a.calificacion_promedio,a.calificaciones_total)}</button>`
+          : fmtCalificacion(a.calificacion_promedio,a.calificaciones_total)}</td>
         <td>
           <button class="btn btn-ghost btn-sm" onclick="asisEditOpen(${a.id})">Editar</button>
           <button class="btn btn-danger btn-sm" onclick='asisDelete(${a.id},${JSON.stringify(a.nombre)})'>Eliminar</button>
@@ -1675,6 +1697,24 @@ function fmtCalificacion(promedio, total){
   if(!total) return '<span class="muted">Sin calificaciones</span>';
   const pct = Math.round(((Number(promedio) + 1) / 2) * 100);
   return `👍 ${pct}% <span class="muted">(${total})</span>`;
+}
+
+async function asisCalifOpen(id){
+  showModal('Calificación por curso','<p class="muted">Cargando…</p>');
+  try{
+    const d=await api('{{ URL_PREFIX }}/api/asistentes/'+id+'/calificaciones');
+    const filas=(d.por_curso||[]).map(c=>`<div class="di"><div class="di-info">
+        <div class="di-name">Curso ${c.moodle_courseid}</div>
+        <div class="di-meta">${fmtCalificacion(c.calificacion_promedio,c.calificaciones_total)} · 👍 ${c.positivas} / 👎 ${c.negativas}</div>
+      </div></div>`).join('')||'<p class="muted">Sin calificaciones todavía.</p>';
+    showModal(`Calificación — ${esc(d.nombre)}`,`
+      <div class="card"><div class="card-ttl">Total</div>
+        <p>${fmtCalificacion(d.total.calificacion_promedio,d.total.calificaciones_total)}
+           · 👍 ${d.total.positivas} / 👎 ${d.total.negativas}</p></div>
+      <div class="card-ttl mt16">Por curso (${(d.por_curso||[]).length})</div>
+      <div class="dl">${filas}</div>
+      <p class="muted mt8">El promedio se calcula sobre las respuestas que el alumno calificó (👍 = 1, 👎 = -1).</p>`);
+  }catch(e){showModal('Error',`<p>${esc(e.message)}</p>`);}
 }
 
 // ── Wizard de creación (5 fases, marcadas conforme se completan) ──
@@ -1725,10 +1765,7 @@ function asisWizardRender(){
       ${ASIS_WIZ.step<5?`<button class="btn btn-prim btn-sm" onclick="asisWizardNext()">Siguiente →</button>`:`<button class="btn btn-prim btn-sm" onclick="asisWizardSubmit()">Crear asistente</button>`}
     </div>`;
 
-  if(ASIS_WIZ.step===2){
-    if(ASIS_WIZ.tipo==='normal')asisWizRenderNormalDefaults();
-    else ASIS_STAGE_DEFS.forEach(s=>asisWizRenderStage(s));
-  }
+  if(ASIS_WIZ.step===2)ASIS_STAGE_DEFS.forEach(s=>asisWizRenderStage(s));
   if(ASIS_WIZ.step===3)asisWizInitStep3();
 }
 
@@ -1775,25 +1812,9 @@ function asisWizSelectTipo(tipo){
 }
 
 function asisWizStep2HTML(){
-  if(ASIS_WIZ.tipo==='normal'){
-    return `<div class="alert a-info">📦 Asistente <b>normal</b>: usa siempre los valores por defecto del sistema en todas las etapas (no hay RD de la que heredar ni elegir aquí).</div>
-      <div class="card mt16"><div class="card-ttl">Configuración (solo lectura)</div>
-        <div class="dl" id="wiz-normal-cfg-list"><p class="muted">Cargando…</p></div>
-      </div>`;
-  }
-  const rd=ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id);
+  const rd=ASIS_WIZ.tipo==='rd'?ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id):null;
   return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
-    asisCfgGroupsHTML('wiz',rd,'asisWizardReopen');
-}
-
-async function asisWizRenderNormalDefaults(){
-  const box=$('wiz-normal-cfg-list');
-  if(!box)return;
-  try{
-    const stages=['etl_document','etl_audio','contextual','dense','sparse','rerank','generation'];
-    const results=await Promise.all(stages.map(s=>api('{{ URL_PREFIX }}/api/config/'+s).catch(()=>({current:'—'}))));
-    box.innerHTML=results.map((d,i)=>`<div class="di"><div class="di-info"><div class="di-name">${esc(stages[i])}</div><div class="di-meta">${esc(d.current||'—')}</div></div></div>`).join('');
-  }catch(e){box.innerHTML=`<div class="alert a-err">${esc(e.message)}</div>`}
+    asisCfgGroupsHTML('wiz',rd,'asisWizardReopen',ASIS_WIZ.tipo);
 }
 
 function asisWizStep3HTML(){
@@ -1841,7 +1862,7 @@ async function asisWizInitStep3(){
 function rdCourseDiSimple(c){
   return `<div class="di"><div class="di-info">
       <div class="di-name">Curso ${c.moodle_courseid}${c.qdrant_collection_name?` → ${esc(c.qdrant_collection_name)}`:''}</div>
-      <div class="di-meta">${c.qdrant_collection_name?'Colección asignada':'Sin colección todavía'}</div>
+      <div class="di-meta">${c.qdrant_collection_name?`Colección asignada · ${qSchemaTag(c.vector_schema)}`:'Sin colección todavía'}</div>
     </div></div>`;
 }
 
@@ -1948,9 +1969,7 @@ function asisWizStep4HTML(){
 
 function asisWizStep5HTML(){
   const rd=ASIS_WIZ.rds.find(r=>r.id===ASIS_WIZ.rd_id);
-  const cfgLines=ASIS_WIZ.tipo==='normal'
-    ?'<p class="muted">Todas las etapas usan el valor por defecto del sistema.</p>'
-    :`<div class="dl">${ASIS_STAGE_DEFS.map(s=>`<div class="di"><div class="di-info"><div class="di-name">${esc(s.label)}</div><div class="di-meta">${ASIS_WIZ.cfg[s.stage]?esc(ASIS_WIZ.cfg[s.stage]):'Valor por defecto del sistema'}</div></div></div>`).join('')}</div>`;
+  const cfgLines=`<div class="dl">${ASIS_STAGE_DEFS.map(s=>`<div class="di"><div class="di-info"><div class="di-name">${esc(s.label)}</div><div class="di-meta">${ASIS_WIZ.cfg[s.stage]?esc(ASIS_WIZ.cfg[s.stage]):'Valor por defecto del sistema'}</div></div></div>`).join('')}</div>`;
   return `
     <div class="card">
       <div class="card-ttl">Resumen</div>
@@ -1965,7 +1984,7 @@ function asisWizStep5HTML(){
       <p class="mt8"><b>Máximo de preguntas por conversación:</b> ${ASIS_WIZ.maxActividades}</p>
     </div>
     <div class="card"><div class="card-ttl">Configuración RAG</div>${cfgLines}
-      ${ASIS_WIZ.tipo==='rd'?'<p class="muted mt8">3. Índexación y Búsqueda Híbrida: hereda la colección madre de la RD (no se elige aquí).</p>':''}
+      <p class="muted mt8">3. Indexación y Búsqueda Híbrida: ${ASIS_WIZ.tipo==='rd'?'hereda la colección madre de la RD':'la fija la colección del curso'} (no se elige aquí).</p>
     </div>
     <p class="muted">${ASIS_WIZ.tipo==='rd'
       ?'Este asistente responderá para cualquier courseid que la RD tenga registrado — agrega o quita cursos cuando quieras desde "Gestión RD → Cursos".'
@@ -2032,11 +2051,11 @@ async function asisWizardSubmit(){
       mensaje_bienvenida:ASIS_WIZ.mensajeBienvenida||null,
       mensaje_reencuentro:ASIS_WIZ.mensajeReencuentro||null,
       max_actividades_sesion:ASIS_WIZ.maxActividades||10,
-      etl_document_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.etl_document||null):null,
-      etl_audio_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.etl_audio||null):null,
-      contextual_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.contextual||null):null,
-      rerank_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.rerank||null):null,
-      generation_strategy:ASIS_WIZ.tipo==='rd'?(ASIS_WIZ.cfg.generation||null):null,
+      etl_document_strategy:ASIS_WIZ.cfg.etl_document||null,
+      etl_audio_strategy:ASIS_WIZ.cfg.etl_audio||null,
+      contextual_strategy:ASIS_WIZ.cfg.contextual||null,
+      rerank_strategy:ASIS_WIZ.cfg.rerank||null,
+      generation_strategy:ASIS_WIZ.cfg.generation||null,
     })});
     const nombre=ASIS_WIZ.nombre;
     ASIS_WIZ=null;
@@ -2080,7 +2099,13 @@ function asisEditTabsHTML(){
 function asisEditCapture(){
   if(ASIS_EDIT.tab==='general'){
     const n=$('edit-nombre'); if(n)ASIS_EDIT.data.nombre=n.value.trim();
-    const r=$('edit-rd'); if(r)ASIS_EDIT.data.rd_id=parseInt(r.value);
+    if(ASIS_EDIT.data.tipo==='rd'){
+      const r=$('edit-rd'); if(r)ASIS_EDIT.data.rd_id=r.value?parseInt(r.value):null;
+      ASIS_EDIT.data.moodle_courseid=null; // un asistente RD no usa courseid propio
+    }else{
+      const c=$('edit-courseid'); if(c)ASIS_EDIT.data.moodle_courseid=c.value?parseInt(c.value):null;
+      ASIS_EDIT.data.rd_id=null;
+    }
     const act=$('edit-activo'); if(act)ASIS_EDIT.data.activo=act.value==='true';
     const tok=$('edit-token'); if(tok)ASIS_EDIT.data.token=tok.value.trim();
   }
@@ -2117,19 +2142,63 @@ function asisEditGeneralHTML(){
   const a=ASIS_EDIT.data;
   return `
     <div class="fg"><label class="fl">Nombre</label><input class="fc" id="edit-nombre" value="${esc(a.nombre)}"></div>
-    <div class="fg"><label class="fl">RD</label><select class="fc" id="edit-rd">${ASIS_EDIT.rds.map(r=>`<option value="${r.id}" ${r.id===a.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}</select></div>
+    <div class="fg"><label class="fl">Tipo de asistente</label>
+      <div class="srcs">
+        <div class="src ${a.tipo==='rd'?'selected':''}" id="edit-tipo-rd" onclick="asisEditSelectTipo('rd')">
+          <span class="src-icon">🏫</span><span class="src-name">Con RD</span><span class="src-desc">Responde para cualquier curso registrado en la RD.</span>
+        </div>
+        <div class="src ${a.tipo==='normal'?'selected':''}" id="edit-tipo-normal" onclick="asisEditSelectTipo('normal')">
+          <span class="src-icon">📦</span><span class="src-name">Normal</span><span class="src-desc">Independiente, un solo curso de Moodle.</span>
+        </div>
+      </div>
+    </div>
+    <div id="edit-tipo-body">${asisEditTipoBodyHTML()}</div>
     <div class="fg"><label class="fl">Estado</label><select class="fc" id="edit-activo"><option value="true" ${a.activo?'selected':''}>Activo</option><option value="false" ${!a.activo?'selected':''}>Inactivo</option></select></div>
     <div class="fg"><label class="fl">Token de acceso público</label><input class="fc" id="edit-token" value="${esc(a.token)}">
       <div class="fh">⚠️ Cambiarlo invalida el enlace público actual — cualquiera que lo tenga guardado dejará de poder usarlo.</div>
     </div>
     <p class="muted">URL pública: <a href="${esc(a.public_url)}" target="_blank">${esc(a.public_url)}</a></p>
-    <p class="muted">Calificación de los alumnos: ${fmtCalificacion(a.calificacion_promedio, a.calificaciones_total)}</p>`;
+    <p class="muted">Calificación de los alumnos: ${a.calificaciones_total
+      ? `<button class="btn btn-ghost btn-sm" onclick="asisCalifOpen(${a.id})">${fmtCalificacion(a.calificacion_promedio,a.calificaciones_total)}</button>`
+      : fmtCalificacion(a.calificacion_promedio, a.calificaciones_total)}</p>`;
+}
+
+// El <select> de RD solo existe cuando el tipo ES 'rd'. Antes existía
+// siempre: un asistente normal (rd_id null) no matcheaba ningún <option>,
+// el navegador seleccionaba la PRIMERA RD, y asisEditCapture() la leía de
+// vuelta sin condicional — abrir el modal y guardar sin tocar nada
+// convertía en silencio un asistente normal en RD-based.
+function asisEditTipoBodyHTML(){
+  const a=ASIS_EDIT.data;
+  if(a.tipo==='normal'){
+    return `<div class="fg"><label class="fl">Course ID (Moodle) <span class="req">*</span></label>
+      <input class="fc" type="number" id="edit-courseid" value="${a.moodle_courseid??''}" style="max-width:200px">
+      <div class="fh">Este asistente resuelve su colección directamente por este courseid.</div></div>`;
+  }
+  return `<div class="fg"><label class="fl">RD (aula) <span class="req">*</span></label>
+    <select class="fc" id="edit-rd"><option value="">— Selecciona —</option>
+      ${ASIS_EDIT.rds.map(r=>`<option value="${r.id}" ${r.id===a.rd_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}
+    </select></div>`;
+}
+
+function asisEditSelectTipo(tipo){
+  asisEditCapture();
+  ASIS_EDIT.data.tipo=tipo;
+  $('edit-tipo-rd').classList.toggle('selected',tipo==='rd');
+  $('edit-tipo-normal').classList.toggle('selected',tipo==='normal');
+  $('edit-tipo-body').innerHTML=asisEditTipoBodyHTML();
 }
 
 function asisEditCursoHTML(){
-  const rd=ASIS_EDIT.rds.find(r=>r.id===ASIS_EDIT.data.rd_id);
+  const a=ASIS_EDIT.data;
+  if(a.tipo==='normal'){
+    return `<p class="muted">Este asistente usa directamente la colección "normal" del curso ${a.moodle_courseid??'—'}
+      (sin pasar por una RD). Las colecciones se gestionan desde "Gestión Qdrant".</p>
+      <button class="btn btn-out btn-sm" onclick='closeModal();qLoadCols();showMod("qdrant-cols")'>Abrir Gestión Qdrant → Colecciones →</button>`;
+  }
+  const rd=ASIS_EDIT.rds.find(r=>r.id===a.rd_id);
   return `<p class="muted">Los cursos y colecciones de esta RD (agregar, crear colección, reasignar) se gestionan desde "Gestión RD".</p>
-    <button class="btn btn-out btn-sm" onclick='closeModal();showMod("rd");rdLoad();rdCourses(${ASIS_EDIT.data.rd_id})'>Abrir cursos de "${esc(rd?rd.nombre:'')}" →</button>`;
+    <button class="btn btn-out btn-sm" onclick='closeModal();showMod("rd");rdLoad();rdCourses(${a.rd_id})'>Abrir cursos de "${esc(rd?rd.nombre:'')}" →</button>`;
 }
 
 function asisEditPromptHTML(){
@@ -2151,7 +2220,7 @@ function asisEditPromptHTML(){
 function asisEditCfgHTML(){
   const rd=ASIS_EDIT.rds.find(r=>r.id===ASIS_EDIT.data.rd_id);
   return `<p class="muted" style="margin-bottom:10px">Deja "Usar valor por defecto del sistema" en cualquier etapa para que este asistente use siempre el valor vigente de esa etapa.</p>` +
-    asisCfgGroupsHTML('edit',rd,'asisEditReopen');
+    asisCfgGroupsHTML('edit',rd,'asisEditReopen',ASIS_EDIT.data.tipo);
 }
 
 async function asisEditRenderStage(stageDef){
@@ -2180,11 +2249,20 @@ function asisEditCfgSelect(stage,name){
 async function asisEditSubmit(){
   asisEditCapture();
   const a=ASIS_EDIT.data;
+  if(a.tipo==='rd'&&!a.rd_id){
+    $('edit-err').innerHTML='<div class="alert a-err mt8">Selecciona una RD.</div>';
+    return;
+  }
+  if(a.tipo==='normal'&&!a.moodle_courseid){
+    $('edit-err').innerHTML='<div class="alert a-err mt8">Ingresa un Course ID.</div>';
+    return;
+  }
   const btnEl=document.querySelector('#edit-body .modal-foot .btn-prim');
   if(btnEl){btnEl.disabled=true;btnEl.textContent='Guardando…';}
   try{
     await api('{{ URL_PREFIX }}/api/asistentes/'+ASIS_EDIT.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      nombre:a.nombre, rd_id:a.rd_id, prompt_maestro:a.prompt_maestro||null, activo:a.activo,
+      nombre:a.nombre, rd_id:a.rd_id, moodle_courseid:a.moodle_courseid,
+      prompt_maestro:a.prompt_maestro||null, activo:a.activo,
       token:a.token||null,
       mensaje_bienvenida:a.mensaje_bienvenida||null,
       mensaje_reencuentro:a.mensaje_reencuentro||null,
@@ -3030,9 +3108,9 @@ function qSparseFieldValue(idPrefix,rd){
 }
 
 function qSchemaTag(schema){
-  return schema==='hybrid'
-    ? '<span class="tag t-new">Híbrido</span>'
-    : '<span class="tag t-warn">Legacy</span>';
+  if(schema==='hybrid') return '<span class="tag t-new">Híbrida</span>';
+  if(schema==='legacy') return '<span class="tag t-warn">Normal (denso único)</span>';
+  return '<span class="tag t-warn">Desconocido</span>';
 }
 
 async function qLoadDash(){
@@ -3066,7 +3144,9 @@ async function qLoadCols(){
         <td><strong>${esc(c.name)}</strong></td>
         <td>${esc(c.description||'—')}</td>
         <td>${c.rd_nombre?`${esc(c.rd_nombre)} · curso ${c.moodle_courseid}`:'<span class="muted">— Sin asignar —</span>'}</td>
-        <td>${qSchemaTag(c.vector_schema)}</td>
+        <td>${qSchemaTag(c.vector_schema)}${(c.vector_schema_db&&c.vector_schema_db!==c.vector_schema)
+          ?` <span class="muted" title="En Postgres figura como ${esc(c.vector_schema_db)}">⚠️</span>`
+          :(!c.vector_schema_db?' <span class="muted" title="Sin registrar en Postgres (colección previa a la migración)">·</span>':'')}</td>
         <td>${c.points_count}</td>
         <td>${esc(c.status)}</td>
         <td>

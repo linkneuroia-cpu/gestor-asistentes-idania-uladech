@@ -63,7 +63,7 @@ class CollectionCreateRequest(BaseModel):
     # ID siempre es obligatorio; RD es opcional — sin RD la colección queda
     # "normal" (independiente, ningún asistente puede encontrarla). No se
     # guardan en el payload de Qdrant, se persisten en Postgres
-    # (colecciones_rd) desde el endpoint de app.py.
+    # (colecciones) desde el endpoint de app.py.
     rd_id: Optional[int] = None
     moodle_courseid: int
 

@@ -18,8 +18,11 @@ def _public_url(token: str) -> str:
     return f"{settings.PUBLIC_BASE_URL}/asistente/{token}"
 
 
-def _with_url(row: Dict[str, Any]) -> Dict[str, Any]:
+def _decorate(row: Dict[str, Any]) -> Dict[str, Any]:
+    """URL pública + `tipo` derivado. `tipo` NO es una columna: se deriva
+    siempre de rd_id para que no pueda desincronizarse del vínculo real."""
     row["public_url"] = _public_url(row["token"])
+    row["tipo"] = "rd" if row.get("rd_id") else "normal"
     return row
 
 
@@ -37,6 +40,42 @@ _CALIF_SUBQUERY = """
 """
 
 
+def get_calificaciones_por_curso(asistente_id: int) -> Dict[str, Any]:
+    """Desglose de la calificación de un asistente por curso de Moodle:
+    misma agregación que _CALIF_SUBQUERY (mensajes 'assistant' calificados,
+    vía asistente_sesiones) pero agrupando por s.moodle_courseid en vez de
+    por asistente, más el total general. Cada curso puede tener una calidad
+    de retrieval distinta aunque el asistente sea el mismo."""
+    por_curso = db.fetch_all(
+        """
+        SELECT s.moodle_courseid,
+               COUNT(*)                                     AS calificaciones_total,
+               COUNT(*) FILTER (WHERE m.calificacion = 1)    AS positivas,
+               COUNT(*) FILTER (WHERE m.calificacion = -1)   AS negativas,
+               ROUND(AVG(m.calificacion)::numeric, 2)        AS calificacion_promedio
+        FROM asistente_mensajes m
+        JOIN asistente_sesiones s ON s.id = m.sesion_id
+        WHERE m.rol = 'assistant' AND m.calificacion IS NOT NULL AND s.asistente_id = %s
+        GROUP BY s.moodle_courseid
+        ORDER BY s.moodle_courseid
+        """,
+        (asistente_id,),
+    )
+    total = {
+        "calificaciones_total": sum(r["calificaciones_total"] for r in por_curso),
+        "positivas": sum(r["positivas"] for r in por_curso),
+        "negativas": sum(r["negativas"] for r in por_curso),
+    }
+    # Promedio global recalculado desde los conteos (ponderado por curso) —
+    # no es el promedio de los promedios, que daría distinto si un curso
+    # tiene 2 votos y otro 200.
+    total["calificacion_promedio"] = (
+        round((total["positivas"] - total["negativas"]) / total["calificaciones_total"], 2)
+        if total["calificaciones_total"] else None
+    )
+    return {"total": total, "por_curso": por_curso}
+
+
 def list_asistentes() -> List[Dict[str, Any]]:
     # LEFT JOIN: un asistente "normal" (rd_id NULL) no tiene fila en rds; uno
     # sin mensajes calificados todavía no tiene fila en la subquery `c`.
@@ -50,7 +89,7 @@ def list_asistentes() -> List[Dict[str, Any]]:
         ORDER BY a.id
         """
     )
-    return [_with_url(r) for r in rows]
+    return [_decorate(r) for r in rows]
 
 
 def get_asistente(asistente_id: int) -> Optional[Dict[str, Any]]:
@@ -65,7 +104,7 @@ def get_asistente(asistente_id: int) -> Optional[Dict[str, Any]]:
         """,
         (asistente_id,),
     )
-    return _with_url(row) if row else None
+    return _decorate(row) if row else None
 
 
 def get_asistente_by_token(token: str) -> Optional[Dict[str, Any]]:
@@ -143,14 +182,14 @@ def create_asistente(
             mensaje_reencuentro, max_actividades_sesion,
         ),
     )
-    return _with_url(row)
+    return _decorate(row)
 
 
 def update_asistente(
     asistente_id: int,
     nombre: Optional[str] = None,
-    rd_id: Optional[int] = None,
-    moodle_courseid: Optional[int] = None,
+    rd_id: Any = _UNSET,
+    moodle_courseid: Any = _UNSET,
     prompt_maestro: Optional[str] = None,
     activo: Optional[bool] = None,
     etl_document_strategy: Any = _UNSET,
@@ -167,15 +206,28 @@ def update_asistente(
     distinguen "no venía en el request" (`_UNSET`, default — deja el valor
     actual intacto) de "venía como `null`" (limpia ese campo a su
     comportamiento por defecto) — necesario para que el modal de edición
-    pueda volver un campo a default sin tocar los demás. nombre/rd_id/
-    prompt_maestro/activo/max_actividades_sesion/token mantienen el
-    comportamiento previo (solo cambian si vienen informados). Cambiar el
-    token invalida cualquier enlace ya compartido con el token viejo."""
+    pueda volver un campo a default sin tocar los demás. `rd_id`/
+    `moodle_courseid` usan el MISMO patrón `_UNSET` (antes usaban
+    `Optional[int] = None`, lo que hacía imposible limpiar `rd_id` a NULL
+    para convertir un asistente RD-based en "normal" — pasar `None`
+    explícito se confundía con "no vino en el request" y se ignoraba
+    silenciosamente). nombre/prompt_maestro/activo/max_actividades_sesion/
+    token mantienen el comportamiento previo (solo cambian si vienen
+    informados). Cambiar el token invalida cualquier enlace ya compartido
+    con el token viejo."""
     existing = db.fetch_one("SELECT * FROM asistentes WHERE id = %s", (asistente_id,))
     if not existing:
         raise ValueError(f"El asistente {asistente_id} no existe")
-    if rd_id is not None and not db.fetch_one("SELECT id FROM rds WHERE id = %s", (rd_id,)):
-        raise ValueError(f"La RD {rd_id} no existe")
+
+    rd_id_value = existing["rd_id"] if rd_id is _UNSET else rd_id
+    courseid_value = existing["moodle_courseid"] if moodle_courseid is _UNSET else moodle_courseid
+    if rd_id_value is not None and not db.fetch_one("SELECT id FROM rds WHERE id = %s", (rd_id_value,)):
+        raise ValueError(f"La RD {rd_id_value} no existe")
+    # Mismo invariante que create_asistente: sin RD, el courseid es lo único
+    # que resuelve la colección (rds.resolve_collection_normal).
+    if rd_id_value is None and not courseid_value:
+        raise ValueError("Un asistente normal (sin RD) requiere un Course ID de Moodle")
+
     if token:
         token = token.strip()
         _check_token_disponible(token, excluir_asistente_id=asistente_id)
@@ -205,8 +257,8 @@ def update_asistente(
         "updated_at=now() WHERE id=%s RETURNING *",
         (
             nombre if nombre is not None else existing["nombre"],
-            rd_id if rd_id is not None else existing["rd_id"],
-            moodle_courseid if moodle_courseid is not None else existing["moodle_courseid"],
+            rd_id_value,
+            courseid_value,
             prompt_maestro if prompt_maestro is not None else existing["prompt_maestro"],
             activo if activo is not None else existing["activo"],
             *strategy_values,
@@ -217,7 +269,7 @@ def update_asistente(
             asistente_id,
         ),
     )
-    return _with_url(row)
+    return _decorate(row)
 
 
 def get_asistente_config_for_collection(qdrant_collection_name: str) -> Optional[Dict[str, Any]]:
@@ -231,7 +283,7 @@ def get_asistente_config_for_collection(qdrant_collection_name: str) -> Optional
     automáticamente la config del asistente dueño de la colección destino,
     sin UI nueva en esos wizards."""
     return db.fetch_one(
-        "SELECT a.* FROM colecciones_rd c "
+        "SELECT a.* FROM colecciones c "
         "JOIN asistentes a ON a.activo = TRUE AND ("
         "  (c.rd_id IS NOT NULL AND a.rd_id = c.rd_id) "
         "  OR (c.rd_id IS NULL AND a.rd_id IS NULL AND a.moodle_courseid = c.moodle_courseid)"
